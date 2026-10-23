@@ -1,0 +1,2045 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lectrice for Android — design options</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap">
+<style>
+/* ===== page chrome (not part of the phone design) ===== */
+:root{
+  --pbg:#FFFFFF; --pbg2:#F3F3EF; --pfg:#1C1F24; --pfg2:#5B636D; --pline:#D3D3CD; --paccent:#1D5FAE; --pon:#FFFFFF;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --pbg:#121417; --pbg2:#1C1F24; --pfg:#E8E6E1; --pfg2:#A8ADB5; --pline:#363A41; --paccent:#8AB8FF; --pon:#0B1A33;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0; background:var(--pbg); color:var(--pfg); font:16px/1.5 system-ui, sans-serif}
+button{font:inherit; color:inherit; background:none; border:0; padding:0; margin:0; cursor:pointer; text-align:inherit}
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-visible{outline:2px solid var(--accent, var(--paccent)); outline-offset:2px}
+a{color:var(--paccent)}
+.toolbar{position:sticky; top:0; z-index:50; height:56px; display:flex; align-items:center; gap:24px; padding:0 24px; background:var(--pbg2); border-bottom:1px solid var(--pline); white-space:nowrap; overflow-x:auto}
+.toolbar .brand{font-weight:600}
+.seg{display:inline-flex; gap:4px; align-items:center}
+.seg span{color:var(--pfg2); font-size:14px; margin-right:4px}
+.seg button{border:1px solid var(--pline); border-radius:999px; padding:4px 12px; font-size:14px; background:var(--pbg)}
+.seg button[aria-selected="true"], .seg button[aria-pressed="true"]{background:var(--paccent); color:var(--pon); border-color:transparent}
+main{max-width:1400px; margin:0 auto; padding:24px}
+.option{display:none}
+.option.on{display:block}
+.intro{max-width:72rem}
+.intro h1{font-size:28px; margin:0 0 8px}
+.intro p{margin:0 0 10px}
+.intro .mix{font-size:15px}
+.live{display:grid; grid-template-columns:auto 1fr; gap:32px; align-items:start; margin:24px 0 40px}
+@media (max-width:1100px){ .live{grid-template-columns:1fr} }
+.live h2{margin:0 0 12px; font-size:20px}
+.live ol{padding-left:20px; line-height:1.55}
+.live li{margin:0 0 6px}
+.sysbar{display:flex; gap:8px; margin-top:12px}
+.sysbar button{border:1px solid var(--pline); border-radius:8px; padding:6px 12px; font-size:14px; background:var(--pbg2)}
+h2.group{font-size:22px; margin:40px 0 16px; padding-top:16px; border-top:1px solid var(--pline)}
+.gallery{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:24px; align-items:start}
+figure.frame{margin:0}
+.frame .zoom{zoom:.5}
+.frame figcaption{margin-top:8px; font-size:14px; font-weight:600}
+.frame figcaption small{display:block; font-size:13px; font-weight:400; color:var(--pfg2)}
+#recommendation{margin-top:48px; padding-top:24px; border-top:2px solid var(--pline); max-width:72rem}
+#recommendation h2{font-size:24px}
+#recommendation ol{line-height:1.55}
+#recommendation li{margin-bottom:8px}
+body.solo{padding:0; background:var(--pbg)}
+body.solo .toolbar, body.solo main{display:none}
+body.solo .solo-frame{display:inline-block; line-height:0}
+
+/* ===== tokens (the only place with hex colours besides the bezel, the lock-screen wallpaper and the system dialog) ===== */
+.screen{
+  --bg:#FFFFFF; --bg2:#F3F3EF; --fg:#1C1F24; --fg2:#5B636D; --line:#D3D3CD;
+  --accent:#1D5FAE; --onAccent:#FFFFFF; --hl:#FFE58F; --hlFg:#1C1F24;
+  --errBg:#FBE7E5; --errFg:#8B1A12; --accentContainer:#DCE8F7; --onAccentContainer:#0E3A6E;
+  --warnBg:#FFF1D0; --warnFg:#6B4A00; --okFg:#1E6B35; --inverseBg:#1C1F24; --inverseFg:#FFFFFF;
+  --scrim:rgba(28,31,36,.32); --shadeBg:#E9EAEE; --sysDialogBg:#FFFFFF;
+  --tile0:#DCE8F7; --onTile0:#0E3A6E; --tile1:#E5F0DC; --onTile1:#22461A; --tile2:#F6E3D3; --onTile2:#5A2E0B;
+  --tile3:#EADFF3; --onTile3:#3D2257; --tile4:#DCEFEF; --onTile4:#0F4444; --tile5:#F3E6C4; --onTile5:#4F3A00;
+  --stageBg:#EAF1FB; --stageFg:#0E1B2E; --stageFg2:#4A5A70; --stageCtrlBg:#D9E4F4; --stageAccent:#1D5FAE; --stageOnAccent:#FFFFFF;
+  --lockFg:#FFFFFF; --wall1:#1B2635; --wall2:#3A2C3F;
+  --sp:1px; color-scheme:light;
+}
+.screen[data-theme="dark"]{
+  --bg:#121417; --bg2:#1C1F24; --fg:#E8E6E1; --fg2:#A8ADB5; --line:#363A41;
+  --accent:#8AB8FF; --onAccent:#0B1A33; --hl:#4D4214; --hlFg:#FFF6D8;
+  --errBg:#44181A; --errFg:#F4B1AD; --accentContainer:#22344F; --onAccentContainer:#D6E6FF;
+  --warnBg:#3A2E0E; --warnFg:#F5D27A; --okFg:#8FD6A3; --inverseBg:#E8E6E1; --inverseFg:#121417;
+  --scrim:rgba(0,0,0,.5); --shadeBg:#1B1C20; --sysDialogBg:#2B2D31;
+  --tile0:#22344F; --onTile0:#D6E6FF; --tile1:#25361E; --onTile1:#CDE8BF; --tile2:#40291A; --onTile2:#F6D5BC;
+  --tile3:#33264A; --onTile3:#E6D6F5; --tile4:#163838; --onTile4:#BFE6E6; --tile5:#3B2F10; --onTile5:#F1DFA8;
+  --stageBg:#0E1B2E; --stageFg:#FFFFFF; --stageFg2:#9FB0C7; --stageCtrlBg:#1B2B42; --stageAccent:#8AB8FF; --stageOnAccent:#0B1A33;
+  color-scheme:dark;
+}
+.screen[data-opt="3"][data-theme="dark"]{
+  --bg:#000000; --bg2:#121212; --fg:#E6E3DD; --fg2:#A3A3A3; --line:#2A2A2A;
+  --accent:#8AB8FF; --onAccent:#0B1A33; --hl:#3D3410; --hlFg:#FFF3CC;
+}
+.screen[data-opt="2"]{
+  --primary:#1D5FAE; --onPrimary:#FFFFFF; --primaryContainer:#D6E3FF; --onPrimaryContainer:#001B3E;
+  --secondaryContainer:#DAE2F9; --onSecondaryContainer:#131C2B; --surface:#F9F9FF; --surfaceContainer:#EDEDF4;
+  --surfaceContainerHigh:#E7E8EE; --onSurface:#191C20; --onSurfaceVariant:#44474E; --outline:#74777F; --outlineVariant:#C4C6D0;
+  --hl:#FFDEA6; --hlFg:#261900;
+  --e2:0 1px 2px rgba(0,0,0,.30), 0 2px 6px 2px rgba(0,0,0,.15);
+  --e3:0 1px 3px rgba(0,0,0,.30), 0 4px 8px 3px rgba(0,0,0,.15);
+}
+.screen[data-opt="2"][data-theme="dark"]{
+  --primary:#A9C7FF; --onPrimary:#003063; --primaryContainer:#00468C; --onPrimaryContainer:#D6E3FF;
+  --secondaryContainer:#3E4759; --onSecondaryContainer:#DAE2F9; --surface:#111318; --surfaceContainer:#1D2024;
+  --surfaceContainerHigh:#282A2F; --onSurface:#E2E2E9; --onSurfaceVariant:#C4C6D0; --outline:#8E9099; --outlineVariant:#44474E;
+  --hl:#5B4300; --hlFg:#FFDEA6; --e2:none; --e3:none;
+}
+.screen[data-opt="2"][data-wall="green"]{
+  --primary:#3B6939; --onPrimary:#FFFFFF; --primaryContainer:#BCF0B4; --onPrimaryContainer:#002204;
+  --secondaryContainer:#D7E8CD; --onSecondaryContainer:#121F0E; --surface:#F7FBF1; --surfaceContainer:#EBEFE6;
+  --surfaceContainerHigh:#E5E9E0; --onSurface:#181D17; --onSurfaceVariant:#424940; --outline:#72796F; --outlineVariant:#C2C9BD;
+}
+.screen[data-opt="2"][data-wall="green"][data-theme="dark"]{
+  --primary:#A1D39A; --onPrimary:#0A390F; --primaryContainer:#23501F; --onPrimaryContainer:#BCF0B4;
+  --secondaryContainer:#3C4B37; --onSecondaryContainer:#D7E8CD; --surface:#10140F; --surfaceContainer:#1C211B;
+  --surfaceContainerHigh:#272B25; --onSurface:#E0E4DB; --onSurfaceVariant:#C2C9BD; --outline:#8C9388; --outlineVariant:#424940;
+}
+/* option 2: the shared components read the Material roles through the base names */
+.screen[data-opt="2"]{
+  --bg:var(--surface); --bg2:var(--surfaceContainer); --fg:var(--onSurface); --fg2:var(--onSurfaceVariant); --line:var(--outlineVariant);
+  --accent:var(--primary); --onAccent:var(--onPrimary); --accentContainer:var(--secondaryContainer); --onAccentContainer:var(--onSecondaryContainer);
+}
+/* option 4: the Listen stage swaps the base names for the stage set, so sheets inside it use stage colours */
+.stage{
+  --bg:var(--stageBg); --bg2:var(--stageCtrlBg); --fg:var(--stageFg); --fg2:var(--stageFg2);
+  --accent:var(--stageAccent); --onAccent:var(--stageOnAccent);
+}
+.screen{--serif:"Noto Serif", Georgia, "Times New Roman", serif; --sans:Roboto, system-ui, sans-serif; --mono:"Roboto Mono", ui-monospace, monospace}
+
+/* ===== phone frame ===== */
+.phone{display:inline-block; border:10px solid #0B0B0C; border-radius:44px; background:#0B0B0C; line-height:0; vertical-align:top}
+.screen{position:relative; width:412px; height:915px; overflow:hidden; border-radius:34px; background:var(--bg); color:var(--fg);
+  font:400 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans); line-height:calc(24*var(--sp)); text-align:left; container-type:inline-size; isolation:isolate}
+.screen[data-w="360"]{width:360px; height:800px}
+.cam{position:absolute; top:8px; left:50%; width:12px; height:12px; margin-left:-6px; border-radius:50%; background:#0B0B0C; z-index:40}
+.sb{position:absolute; top:0; left:0; right:0; height:32px; z-index:30; display:flex; align-items:center; justify-content:space-between; padding:0 24px;
+  color:var(--fg); font:500 14px/20px var(--sans); pointer-events:none}
+.sb.scrim{background:color-mix(in srgb, var(--bg) 94%, transparent)}
+.sb .ic{display:flex; gap:4px}
+.sb svg{width:16px; height:16px}
+.gb{position:absolute; left:50%; bottom:10px; width:108px; height:4px; margin-left:-54px; border-radius:2px; background:var(--fg2); z-index:30; pointer-events:none}
+.x2{--sp:2px}
+svg{fill:currentColor}
+
+/* ===== type ===== */
+.tl{font:600 calc(22*var(--sp))/calc(28*var(--sp)) var(--sans)}
+.tm{font:600 calc(18*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.b{font:400 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.bs{font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.lb{font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.lb16{font:500 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.cap{font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans)}
+.w5{font-weight:500}
+.w6{font-weight:600}
+.fg2{color:var(--fg2)}
+.ac{color:var(--accent)}
+.ok{color:var(--okFg)}
+.errc{color:var(--errFg)}
+.ser{font-family:var(--serif)}
+.ell{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ell2{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.ell3{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
+.flex{display:flex; align-items:center; gap:8px}
+.sp1{flex:1; min-width:0}
+.right{margin-left:auto}
+.center{text-align:center}
+.mt4{margin-top:4px} .mt8{margin-top:8px} .mt12{margin-top:12px} .mt16{margin-top:16px} .mt24{margin-top:24px} .mt32{margin-top:32px}
+.px16{padding-left:16px; padding-right:16px}
+
+/* ===== layouts ===== */
+.col{position:absolute; inset:0; padding:0 16px; display:flex; flex-direction:column; overflow:hidden}
+.scroll{position:absolute; inset:0; overflow-y:auto; overflow-x:hidden}
+.bottom{position:absolute; left:16px; right:16px; bottom:40px; display:flex; flex-direction:column; align-items:stretch; gap:8px; z-index:5}
+.bottom .btn.txt{align-self:center}
+.layer{position:absolute; inset:0; background:var(--bg); z-index:10}
+.layer.push{transform:translateX(24px); opacity:0}
+.layer{transition:transform 320ms cubic-bezier(.2,.9,.25,1.05), opacity 150ms linear, border-radius 320ms}
+.layer.peek{transform:translateX(24px) scale(.9); border-radius:32px; border:1px solid var(--line); overflow:hidden}
+
+/* ===== buttons ===== */
+.btn{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; height:56px; border-radius:999px; background:var(--accent); color:var(--onAccent);
+  font:500 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans); flex:none; position:relative; white-space:nowrap}
+.btn svg{width:24px; height:24px; flex:none}
+.btn.sec{height:48px; background:none; border:1px solid var(--line); color:var(--fg)}
+.btn.txt{height:48px; width:auto; padding:0 12px; background:none; color:var(--accent)}
+.btn.txt.errc{color:var(--errFg)}
+.btn[disabled]{background:var(--line); color:var(--fg2); cursor:default}
+.ib{width:48px; height:48px; flex:none; display:grid; place-items:center; color:var(--fg); border-radius:50%; position:relative}
+.ib svg{width:24px; height:24px}
+.ib:active{background:radial-gradient(circle, var(--line) 20px, transparent 20.5px)}
+.ib.ac{color:var(--accent)}
+.play{width:56px; height:56px; flex:none; display:grid; place-items:center; border-radius:50%; position:relative}
+.play .disc{width:48px; height:48px; border-radius:50%; background:var(--accent); color:var(--onAccent); display:grid; place-items:center}
+.play.prep .disc{background:var(--accentContainer); color:var(--onAccentContainer)}
+.play.prep::after{content:""; position:absolute; inset:3px; border-radius:50%; border:2px solid var(--accent); border-right-color:transparent; animation:rot 1s linear infinite}
+.play svg{width:24px; height:24px}
+.touch::before{content:""; position:absolute; inset:-8px 0}
+
+/* ===== rows, dividers ===== */
+.row{display:flex; align-items:center; gap:16px; min-height:56px; padding:8px 16px; width:100%; position:relative; text-align:left}
+.row.two{min-height:72px}
+.row > svg.lead{width:24px; height:24px; flex:none}
+.row .tx{flex:1; min-width:0}
+.row .t{font:500 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.row .m{font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.row .tr{flex:none; margin-left:auto; display:flex; align-items:center; gap:8px}
+.row .tr svg{width:24px; height:24px; color:var(--fg2)}
+.row .pick{display:flex; align-items:center; gap:16px; flex:1; min-width:0; min-height:40px; color:inherit; text-align:left}
+.row.sel{background:var(--accentContainer); color:var(--onAccentContainer)}
+.row.sel .m{color:inherit}
+.div{height:1px; background:var(--line); margin-left:16px}
+.div.i72{margin-left:72px}
+.div.i0{margin-left:0}
+.ghead{padding:16px 16px 8px; font:600 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.radio{width:24px; height:24px; border-radius:50%; border:2px solid var(--fg2); flex:none; display:grid; place-items:center}
+.radio.on{border-color:var(--accent)}
+.radio.on::after{content:""; width:12px; height:12px; border-radius:50%; background:var(--accent)}
+.row.sel .radio.on{border-color:var(--onAccentContainer)}
+.row.sel .radio.on::after{background:var(--onAccentContainer)}
+
+/* ===== controls ===== */
+.swt{width:52px; height:48px; display:grid; place-items:center; flex:none}
+.sw{width:52px; height:32px; border-radius:16px; border:2px solid var(--fg2); background:var(--bg2); position:relative; display:block}
+.sw::after{content:""; position:absolute; width:16px; height:16px; border-radius:50%; background:var(--fg2); top:6px; left:6px}
+.sw.on{background:var(--accent); border-color:var(--accent)}
+.sw.on::after{width:24px; height:24px; background:var(--onAccent); top:2px; left:24px}
+.sl{position:relative; height:20px; flex:1}
+.sl .trk{position:absolute; left:0; right:0; top:8px; height:4px; border-radius:2px; background:var(--line)}
+.sl .buf{position:absolute; top:8px; height:4px; background:var(--accentContainer)}
+.sl .act{position:absolute; left:0; top:8px; height:4px; border-radius:2px; background:var(--accent)}
+.sl .th{position:absolute; top:0; width:20px; height:20px; margin-left:-10px; border-radius:50%; background:var(--accent)}
+.sl .tk{position:absolute; top:6px; width:2px; height:8px; background:var(--fg2)}
+.chips{display:flex; gap:8px; overflow-x:auto; padding:8px 0; scrollbar-width:none}
+.chips.wrap{flex-wrap:wrap}
+.chip{height:32px; padding:0 12px; border-radius:8px; border:1px solid var(--line); color:var(--fg); font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans);
+  display:inline-flex; align-items:center; gap:4px; flex:none; position:relative; white-space:nowrap}
+.chip.on{background:var(--accentContainer); color:var(--onAccentContainer); border-color:transparent}
+.chip svg{width:18px; height:18px}
+.pr{height:4px; border-radius:2px; background:var(--line); overflow:hidden; position:relative; flex:none}
+.pr.big{height:8px; border-radius:4px}
+.pr > span{display:block; height:100%; background:var(--accent); border-radius:inherit}
+.pr.ind > span{width:40%; animation:ind 1.4s linear infinite}
+@keyframes ind{from{transform:translateX(-100%)} to{transform:translateX(250%)}}
+.spin{width:16px; height:16px; border-radius:50%; border:2px solid var(--accent); border-right-color:transparent; animation:rot 1s linear infinite; flex:none}
+@keyframes rot{to{transform:rotate(360deg)}}
+.eq{display:inline-flex; gap:2px; align-items:flex-end; height:16px; width:16px; justify-content:center}
+.eq i{width:3px; background:var(--accent); animation:eq .8s ease-in-out infinite alternate}
+.eq i:nth-child(2){animation-delay:-.3s} .eq i:nth-child(3){animation-delay:-.6s}
+@keyframes eq{from{height:4px} to{height:16px}}
+.segc{display:flex; height:40px; border-radius:999px; border:1px solid var(--line); background:var(--bg2); overflow:hidden}
+.segc button{flex:1; display:flex; align-items:center; justify-content:center; gap:4px; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg); position:relative}
+.segc button + button{border-left:1px solid var(--line)}
+.segc button.on{background:var(--accentContainer); color:var(--onAccentContainer)}
+.segc svg{width:18px; height:18px}
+
+/* ===== surfaces ===== */
+.card{background:var(--bg2); border-radius:16px; border:1px solid var(--line); padding:16px}
+.card.r12{border-radius:12px; padding:12px 16px}
+.ban{display:flex; gap:12px; align-items:flex-start; border-radius:12px; padding:12px 16px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); flex-wrap:wrap}
+.ban > svg{width:24px; height:24px; flex:none}
+.ban .tx{flex:1; min-width:0}
+.ban.warn{background:var(--warnBg); color:var(--warnFg)}
+.ban.err{background:var(--errBg); color:var(--errFg)}
+.ban .acts{display:flex; justify-content:flex-end; width:100%; gap:4px; align-items:center}
+.ban .btn.txt{color:inherit; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.ban .ib{color:inherit; width:40px; height:40px}
+.snack{position:absolute; left:16px; right:16px; bottom:112px; z-index:19; background:var(--inverseBg); color:var(--inverseFg); border-radius:8px; min-height:48px;
+  padding:14px 16px; display:flex; align-items:center; gap:16px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.snack .btn.txt{color:var(--inverseFg); text-decoration:underline; height:auto; padding:0}
+.tile{display:grid; place-items:center; font-family:var(--serif); font-weight:600; flex:none; background:var(--tile); color:var(--onTile); border-radius:8px; line-height:1}
+.h0{--tile:var(--tile0); --onTile:var(--onTile0)} .h1c{--tile:var(--tile1); --onTile:var(--onTile1)} .h2c{--tile:var(--tile2); --onTile:var(--onTile2)}
+.h3c{--tile:var(--tile3); --onTile:var(--onTile3)} .h4c{--tile:var(--tile4); --onTile:var(--onTile4)} .h5c{--tile:var(--tile5); --onTile:var(--onTile5)}
+.scrimL{position:absolute; inset:0; background:var(--scrim); z-index:20; transition:opacity 150ms linear}
+.scrimL.off{opacity:0}
+.sheet{position:absolute; left:0; right:0; bottom:0; z-index:21; background:var(--bg2); border-radius:28px 28px 0 0; height:calc(100% - 48px); display:flex; flex-direction:column;
+  transform:translateY(calc(100% - var(--detent, 100%))); transition:transform 320ms cubic-bezier(.2,.9,.25,1.05); touch-action:none}
+.sheet.off{transform:translateY(100%)}
+.sheet.auto{height:auto; max-height:calc(100% - 48px)}
+.sheet.drag{transition:none}
+.sheet .hd{height:48px; flex:none; position:relative; cursor:grab}
+.sheet .hd::before{content:""; position:absolute; top:12px; left:50%; width:32px; height:4px; margin-left:-16px; border-radius:2px; background:var(--fg2)}
+.sheet .bd{flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding:0 16px 48px}
+.sheet .bd.flush{padding:0 0 48px}
+.sheet .bd .row{padding-left:0; padding-right:0}
+.sheet .bd.flush .row{padding-left:16px; padding-right:16px}
+.sheet .bd .div{margin-left:0}
+.shh{height:56px; display:flex; align-items:center; gap:8px; flex:none; padding:0 16px}
+.shh .tm{flex:1; min-width:0}
+.page{position:absolute; inset:0; background:var(--bg2); display:flex; flex-direction:column; border-radius:28px 28px 0 0; transition:transform 320ms cubic-bezier(.2,.9,.25,1.05)}
+.page.push{transform:translateX(100%)}
+.dlg{position:absolute; left:24px; right:24px; top:50%; transform:translateY(-50%); z-index:22; background:var(--bg2); border-radius:28px; padding:24px}
+.dlg .acts{display:flex; justify-content:flex-end; gap:8px; margin-top:16px}
+.dlg.sys{background:var(--sysDialogBg); text-align:center}
+.dlg.sys .btn.txt{width:100%}
+.mark{width:64px; height:64px; border-radius:16px; background:var(--accent); color:var(--onAccent); display:grid; place-items:center; font:600 calc(36*var(--sp))/1 var(--serif)}
+.mark.s32{width:32px; height:32px; border-radius:8px; font-size:calc(18*var(--sp))}
+.mark.s24{width:24px; height:24px; border-radius:6px; font-size:calc(14*var(--sp))}
+.info{display:flex; gap:12px; align-items:flex-start}
+.info svg{width:20px; height:20px; flex:none; margin-top:2px}
+.ring{position:relative; flex:none; border-radius:50%; display:grid; place-items:center; background:conic-gradient(var(--accent) calc(var(--pct)*1%), var(--line) 0)}
+.ring::before{content:""; position:absolute; inset:3px; border-radius:50%; background:var(--bg)}
+.ring > *{position:relative}
+.ring svg{width:20px; height:20px; color:var(--accent)}
+
+/* ===== reader ===== */
+.rd{position:absolute; inset:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain}
+.doc{padding:56px 16px 148px; font:400 calc(19*var(--sp))/calc(32*var(--sp)) var(--serif); color:var(--fg); overflow-wrap:anywhere}
+.doc .h1{font:600 calc(26*var(--sp))/calc(34*var(--sp)) var(--serif); margin:48px 0 16px}
+.doc .h2{font:600 calc(22*var(--sp))/calc(30*var(--sp)) var(--serif); margin:32px 0 12px}
+.doc .h3{font:700 calc(19*var(--sp))/calc(28*var(--sp)) var(--serif); margin:24px 0 8px}
+.doc .p{margin:0 0 16px}
+.doc .h1:first-child{margin-top:0}
+.doc .s{cursor:pointer; border-radius:4px; padding:0 2px; -webkit-box-decoration-break:clone; box-decoration-break:clone; transition:background-color 120ms linear}
+.doc .s.hl{background:var(--hl); color:var(--hlFg)}
+.doc .pg{display:inline-block; font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2); border:1px solid var(--line); border-radius:6px; padding:0 6px; height:20px; line-height:18px; vertical-align:2px; margin-right:6px; user-select:none}
+.doc .code{font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--mono); background:var(--bg2); border-radius:8px; padding:12px; overflow-x:auto; white-space:pre; margin:0 0 16px; color:var(--fg)}
+.doc .cue{font:400 calc(13*var(--sp))/calc(18*var(--sp)) var(--sans); color:var(--fg2); margin:-8px 0 16px; display:inline-block}
+.doc .cue.hl{color:var(--hlFg)}
+.doc .li{padding-left:24px; position:relative}
+.doc .li::before{content:"•"; position:absolute; left:8px}
+.pill{position:absolute; left:12px; right:12px; bottom:36px; height:64px; border-radius:999px; background:var(--bg2); border:1px solid var(--line); padding:0 8px; display:flex; align-items:center; z-index:15; touch-action:none}
+.x2 .pill{height:72px}
+.pill .st{flex:1; min-width:0; height:48px; margin:0 4px; padding:0 8px; border-radius:12px; display:flex; align-items:center; gap:4px; text-align:left; color:var(--fg)}
+.pill .st .lines{flex:1; min-width:0}
+.pill .l1{font:500 calc(14*var(--sp))/calc(18*var(--sp)) var(--sans); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:4px}
+.pill .l1 svg{width:16px; height:16px; flex:none}
+.pill .l1 .txt{min-width:0; overflow:hidden; text-overflow:ellipsis}
+.pill .l1 .txt:first-child{flex:none}
+.x2 .pill .l1 .txt:first-child{flex:0 1 auto}
+.pill .l2{font:400 calc(13*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px}
+.pill .l2.ac{color:var(--accent)}
+.pill .st > svg{width:16px; height:16px; color:var(--fg2); flex:none}
+.x2 .pill .l2{display:none}
+@container (max-width:360px){ .pill .st > svg{display:none} .pill .st{padding:0 4px; margin:0 2px} }
+.btc{position:absolute; right:16px; bottom:112px; height:40px; border-radius:999px; background:var(--bg2); border:1px solid var(--line); padding:0 16px 0 12px; display:flex; align-items:center; gap:8px;
+  font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg); z-index:14; transition:opacity 150ms linear}
+.btc svg{width:20px; height:20px}
+.btc.off{opacity:0; pointer-events:none}
+.tip{position:absolute; left:16px; right:16px; bottom:112px; z-index:14}
+.topban{position:absolute; left:16px; right:16px; top:40px; z-index:14}
+.flash{position:absolute; left:50%; top:50%; width:72px; height:72px; margin:-36px 0 0 -36px; border-radius:50%; background:var(--inverseBg); color:var(--inverseFg); display:grid; place-items:center; z-index:16; animation:flash 600ms linear forwards; pointer-events:none}
+.flash svg{width:36px; height:36px}
+@keyframes flash{0%{opacity:0} 20%{opacity:.9} 80%{opacity:.9} 100%{opacity:0}}
+.transport{display:flex; align-items:center; justify-content:center; gap:16px}
+.transport .play{width:64px; height:64px}
+.transport .play .disc{width:56px; height:56px}
+.chcard{display:flex; gap:12px; align-items:center; width:100%; background:var(--bg); border-radius:12px; padding:12px 16px; text-align:left; color:var(--fg)}
+.chcard .tx{flex:1; min-width:0}
+.chcard .l1{font:500 calc(15*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.chcard .tr{flex:none; display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--accent); font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.chcard .tr svg{width:24px; height:24px}
+.chrow{display:flex; align-items:center; gap:8px; min-height:56px; padding:12px 16px; width:100%; text-align:left; color:var(--fg); position:relative}
+.chrow .tt{flex:1; min-width:0; font:400 calc(15*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.chrow .tt.read{color:var(--fg2)}
+.chrow .meta{font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2); margin-top:2px}
+.chrow .pgc{width:72px; flex:none; text-align:right; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2); display:flex; flex-direction:column; align-items:flex-end}
+.chrow .pgc .pct{font:500 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--accent)}
+.chrow .pgc svg{width:16px; height:16px; margin-right:4px}
+.chrow .pgl{display:flex; align-items:center}
+.chrow.cur{font-weight:600}
+.chrow.cur::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent)}
+.chrow .drill{margin-right:-12px}
+
+/* ===== first run, library, settings (option 1 base) ===== */
+.pts{display:flex; flex-direction:column; gap:16px}
+.pts .flex{align-items:flex-start; gap:16px}
+.pts svg{width:24px; height:24px; color:var(--accent); flex:none}
+.mcard{display:block; width:100%; background:var(--bg2); border-radius:16px; border:1px solid var(--line); padding:16px; text-align:left; color:var(--fg)}
+.mcard.on{border:2px solid var(--accent); padding:15px; background:var(--accentContainer); color:var(--onAccentContainer)}
+.mcard .ind{padding-left:36px}
+.mcard.on .fg2{color:inherit}
+.hint{display:flex; align-items:center; gap:8px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.hint svg{width:20px; height:20px}
+.libtop{display:flex; align-items:center; padding:40px 4px 0 16px; height:88px}
+.libtop .tl{flex:1}
+.cont{display:flex; gap:16px; align-items:center; margin:0 16px}
+.cont .tx{flex:1; min-width:0}
+.x2 .cont{flex-direction:column; align-items:stretch}
+.x2 .cont .play{align-self:flex-end}
+.libbar{position:absolute; left:0; right:0; bottom:0; padding:12px 16px 36px; background:var(--bg); border-top:1px solid var(--line); z-index:5}
+.lrow{display:flex; align-items:center; gap:16px; min-height:72px; padding:8px 16px; width:100%; text-align:left; color:var(--fg)}
+.lrow .tx{flex:1; min-width:0}
+.lrow .tr{flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:4px; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--accent)}
+.lrow .tr .pr{width:56px}
+.empty{position:absolute; left:16px; right:16px; top:0; bottom:112px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center}
+.empty .b{max-width:320px}
+.sechead{padding:24px 16px 8px; font:600 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--accent)}
+.tbar{display:flex; align-items:center; gap:4px; padding:32px 4px 0; height:96px; flex:none}
+.tbar .tl{flex:1}
+.prev{font:400 calc(var(--pv)*var(--sp))/1.4 var(--serif); padding:8px 16px}
+.stops{display:flex; justify-content:space-between; font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2); padding:4px 0 0}
+
+/* ===== background (notifications, lock screen) ===== */
+.shade{position:absolute; left:8px; right:8px; top:40px; background:var(--shadeBg); border-radius:28px; padding:16px; display:flex; flex-direction:column; gap:12px}
+.qs{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px}
+.qs span{height:56px; border-radius:16px; background:var(--line)}
+.media{height:168px; border-radius:24px; background:var(--tile); color:var(--onTile); padding:16px; display:flex; flex-direction:column; justify-content:space-between}
+.media .top{display:flex; gap:16px; align-items:center}
+.media .tile{border:1px solid var(--onTile)}
+.media .ctl{display:flex; justify-content:center; gap:24px; align-items:center}
+.media .ctl .ib{color:inherit}
+.media .mplay{width:56px; height:56px; border-radius:50%; background:var(--onTile); color:var(--tile); display:grid; place-items:center}
+.media .mplay svg{width:28px; height:28px}
+.notif{background:var(--bg); border-radius:24px; padding:12px 16px 8px; display:flex; flex-direction:column; gap:6px}
+.notif .acts{display:flex; gap:4px}
+.lock{position:absolute; inset:0; background:linear-gradient(160deg, var(--wall1), var(--wall2)); color:var(--lockFg); --fg:var(--lockFg)}
+.lock .clock{position:absolute; top:100px; left:0; right:0; text-align:center; font:300 72px/80px var(--sans)}
+.lock .date{position:absolute; top:188px; left:0; right:0; text-align:center}
+.lock .media{position:absolute; left:16px; right:16px; top:520px}
+.lock .foot{position:absolute; bottom:56px; left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:8px; font:400 14px/20px var(--sans)}
+.lock .foot svg{width:24px; height:24px}
+.lock .sb{color:var(--lockFg)}
+
+/* ===== export, settings pages inside the sheet ===== */
+.krow{display:flex; gap:12px; min-height:32px; align-items:flex-start}
+.krow .k{width:120px; flex:none; color:var(--fg2)}
+.exbtns{display:flex; gap:8px; align-items:center}
+.exbtns .btn.sec{flex:1}
+
+@media (prefers-reduced-motion: reduce){ .screen *{transition:none !important; animation:none !important; scroll-behavior:auto !important} }
+
+/* ===== option 2 "Material" ===== */
+.screen[data-opt="2"]{font-family:var(--sans)}
+.screen[data-opt="2"] .tl{font:400 calc(22*var(--sp))/calc(28*var(--sp)) var(--sans)}
+.screen[data-opt="2"] .tm{font:500 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.screen[data-opt="2"] .cap{font-weight:500}
+.screen[data-opt="2"] .btn{height:40px; margin:4px 0}
+.screen[data-opt="2"] .btn.sec{border-color:var(--outline); color:var(--primary)}
+.screen[data-opt="2"] .btn.txt{height:40px}
+.screen[data-opt="2"] .card, .screen[data-opt="2"] .mcard{border-radius:12px}
+.screen[data-opt="2"] .mcard.on{border:1px solid var(--line); padding:16px; background:var(--secondaryContainer); color:var(--onSecondaryContainer)}
+.screen[data-opt="2"] .sechead{font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--primary)}
+.screen[data-opt="2"] .doc{padding-top:120px; padding-bottom:152px}
+.screen[data-opt="2"] .sheet{background:var(--surfaceContainer)}
+.appbar{position:absolute; left:0; right:0; top:0; height:96px; padding:32px 4px 0; display:flex; align-items:center; gap:4px; background:var(--surface); z-index:16;
+  transition:transform 320ms cubic-bezier(.2,.9,.25,1.05), background-color 150ms linear}
+.appbar.scrolled{background:var(--surfaceContainer)}
+.appbar.hide{transform:translateY(-100%)}
+.appbar .tx{flex:1; min-width:0; padding-left:4px}
+.lab{position:absolute; left:0; right:0; top:0; height:184px; background:var(--surface); z-index:16; transition:background-color 150ms linear}
+.lab .acts{position:absolute; right:4px; top:40px}
+.lab .ttl{position:absolute; left:16px; top:96px; font:400 calc(28*var(--sp))/calc(36*var(--sp)) var(--sans)}
+.lab.small{height:96px; background:var(--surfaceContainer)}
+.lab.small .ttl{top:50px; font:400 calc(22*var(--sp))/calc(28*var(--sp)) var(--sans)}
+.ftb{position:absolute; left:50%; transform:translateX(-50%); bottom:40px; height:64px; border-radius:999px; background:var(--primaryContainer); color:var(--onPrimaryContainer);
+  box-shadow:var(--e2); padding:0 8px; display:flex; align-items:center; z-index:15; touch-action:none}
+.ftb .ib{color:inherit}
+.ftb .btn.txt{color:inherit; width:48px; padding:0}
+.fplay{width:56px; height:56px; border-radius:16px; background:var(--primary); color:var(--onPrimary); display:grid; place-items:center; flex:none; margin:0 4px; transition:border-radius 320ms cubic-bezier(.2,.9,.25,1.05)}
+.fplay.playing{border-radius:28px}
+.fplay svg{width:28px; height:28px}
+.fplay.big{width:96px; height:72px; border-radius:28px}
+.fplay.big svg{width:40px; height:40px}
+.efab{position:absolute; right:16px; bottom:40px; height:56px; border-radius:16px; background:var(--primaryContainer); color:var(--onPrimaryContainer); padding:0 20px 0 16px;
+  display:flex; gap:12px; align-items:center; box-shadow:var(--e2); font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); z-index:15; transition:bottom 320ms}
+.efab svg{width:24px; height:24px}
+.efab.up{bottom:112px}
+.mini{position:absolute; left:8px; right:8px; bottom:32px; height:64px; border-radius:16px; background:var(--surfaceContainerHigh); box-shadow:var(--e3); display:flex; align-items:center; gap:12px; padding:0 8px; z-index:15}
+.mini .tx{flex:1; min-width:0}
+.fcard{background:var(--surfaceContainerHigh); border-radius:16px; padding:16px; margin:0 16px; display:flex; gap:16px; align-items:center}
+.fcard .tx{flex:1; min-width:0}
+.tonal{width:48px; height:48px; border-radius:50%; background:var(--secondaryContainer); color:var(--onSecondaryContainer); display:grid; place-items:center; flex:none}
+.tonal svg{width:24px; height:24px}
+.np{position:absolute; inset:0; background:var(--surface); z-index:17; display:flex; flex-direction:column; padding:32px 16px 40px; transition:transform 320ms cubic-bezier(.2,.9,.25,1.05)}
+.np.off{transform:translateY(100%)}
+.np .top{height:56px; display:flex; align-items:center; gap:8px; margin:0 -12px}
+.np .top .tm{flex:1; text-align:center}
+.np .cover{width:280px; height:280px; border-radius:28px; margin:32px auto 0; font-size:112px}
+.np .pvw{background:var(--surfaceContainer); border-radius:16px; padding:16px; margin-top:16px; font:400 calc(17*var(--sp))/calc(26*var(--sp)) var(--serif)}
+.np .times{display:flex; justify-content:space-between; margin-top:4px}
+.np .grp{display:flex; justify-content:center; align-items:center; gap:8px; margin-top:24px}
+.np .grp .tonal{width:56px; height:56px}
+.np .sec2{display:flex; justify-content:center; gap:16px; margin-top:24px}
+.np .sec2 button{display:flex; flex-direction:column; align-items:center; gap:4px; width:64px; font:500 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--onSurface)}
+@container (max-width:360px){ .np .cover{width:200px; height:200px; margin-top:16px; font-size:80px} .np .pvw{-webkit-line-clamp:2} }
+.menu{position:absolute; right:8px; top:88px; background:var(--surfaceContainer); border-radius:4px; box-shadow:var(--e2); padding:8px 0; min-width:240px; z-index:22}
+.menu button{display:flex; align-items:center; gap:12px; height:48px; padding:0 16px 0 12px; width:100%; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--onSurface)}
+.menu button svg{width:20px; height:20px; margin-left:auto; color:var(--primary)}
+.sllabels{display:flex; justify-content:space-between; font:500 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2); padding:4px 0 8px}
+.tree .chrow{min-height:56px}
+.tree .chrow.cur{background:var(--secondaryContainer); color:var(--onSecondaryContainer); border-radius:28px; margin:0 8px; width:calc(100% - 16px)}
+.tree .chrow.cur::before{display:none}
+.tree .chrow.cur .pgc, .tree .chrow.cur .pct{color:inherit}
+.tree .lvl2{padding-left:32px}
+.tree .lvl3{padding-left:48px}
+.cprog{width:32px; height:32px; font:500 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans)}
+.cprog::before{inset:3px}
+.screen[data-opt="2"] .ring{background:conic-gradient(var(--primary) calc(var(--pct)*1%), var(--outlineVariant) 0)}
+
+/* ===== option 3 "Quiet" ===== */
+.screen[data-opt="3"] .row .t{font:500 calc(16*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.screen[data-opt="3"] .row .m{font:400 calc(14*var(--sp))/calc(18*var(--sp)) var(--sans)}
+.screen[data-opt="3"] .row{min-height:48px}
+.screen[data-opt="3"] .pill{height:56px; transition:left 320ms cubic-bezier(.2,.9,.25,1.05), height 320ms, padding 320ms}
+.screen[data-opt="3"] .pill .play{width:48px; height:48px}
+.screen[data-opt="3"] .pill .play .disc{width:40px; height:40px}
+.screen[data-opt="3"] .pill .st{height:40px}
+.screen[data-opt="3"] .pill .st .lines{transition:transform 120ms}
+.screen[data-opt="3"] .pill .st .lines.nudge-l{transform:translateX(-8px)}
+.screen[data-opt="3"] .pill .st .lines.nudge-r{transform:translateX(8px)}
+.screen[data-opt="3"] .doc{padding-bottom:140px}
+.screen[data-opt="3"] .btc, .screen[data-opt="3"] .tip, .screen[data-opt="3"] .snack{bottom:104px}
+.pill.collapsed{left:calc(100% - 72px); right:16px; padding:0; justify-content:center}
+.pill.collapsed .st, .pill.collapsed .ib{display:none}
+.pill.collapsed .play .disc{background:none; color:var(--accent)}
+.pill.mid{left:calc(100% - 216px); right:12px}
+.pill.mid .st, .pill.mid .ib.more{display:none}
+.pline{position:absolute; left:0; right:0; bottom:20px; height:2px; background:var(--line); z-index:15}
+.pline span{display:block; height:100%; background:var(--accent)}
+.qhead{display:flex; align-items:center; padding:32px 4px 0 16px; height:88px}
+.qhead .ttl{flex:1; font:600 calc(20*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.qrow{display:flex; align-items:center; gap:16px; min-height:72px; padding:8px 16px; width:100%; text-align:left; color:var(--fg); position:relative}
+.qrow .tx{flex:1; min-width:0}
+.qrow .t{font:500 calc(16*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.qrow .m{font:400 calc(14*var(--sp))/calc(18*var(--sp)) var(--sans); color:var(--fg2); margin-top:2px}
+.qrow .when{position:absolute; right:16px; top:8px; font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2)}
+.qrow.cur::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent)}
+.qrow .ring{width:48px; height:48px; font:500 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans)}
+.qfab{position:absolute; right:16px; bottom:40px; width:56px; height:56px; border-radius:50%; background:var(--accent); color:var(--onAccent); display:grid; place-items:center; box-shadow:0 0 0 1px var(--bg); z-index:15}
+.qfab svg{width:24px; height:24px}
+.hintt{position:absolute; left:16px; right:16px; bottom:104px; background:var(--inverseBg); color:var(--inverseFg); border-radius:8px; padding:12px 16px; display:flex; gap:12px; align-items:center; z-index:16;
+  font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.hintt .btn.txt{color:var(--inverseFg); text-decoration:underline; height:40px; flex:none}
+.scrub{position:absolute; left:68px; bottom:104px; z-index:17; display:flex; flex-direction:column; gap:4px; background:var(--bg2); border:1px solid var(--line); border-radius:12px; padding:8px}
+.scrub .chip{margin:0}
+.search{height:48px; border-radius:999px; background:var(--bg); border:1px solid var(--line); display:flex; align-items:center; gap:12px; padding:0 16px; margin:0 16px 8px; color:var(--fg2)}
+.search svg{width:24px; height:24px; flex:none}
+.search span{flex:1; font:400 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.search .typed{color:var(--fg)}
+.outl .o1{position:sticky; top:0; background:var(--bg2); border-bottom:1px solid var(--line); z-index:1; min-height:48px; padding:12px 16px; font:500 calc(16*var(--sp))/calc(20*var(--sp)) var(--sans); display:flex; align-items:center; gap:8px; width:100%; text-align:left; color:var(--fg)}
+.outl .o2{min-height:48px; padding:12px 16px 12px 32px; font:400 calc(15*var(--sp))/calc(20*var(--sp)) var(--sans); display:flex; align-items:center; gap:8px; width:100%; text-align:left; color:var(--fg); position:relative}
+.outl .o3{min-height:40px; padding:10px 16px 10px 48px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2); display:flex; align-items:center; gap:8px; width:100%; text-align:left; position:relative}
+.outl .tt{flex:1; min-width:0}
+.outl .pg{flex:none; font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2)}
+.outl .cur{font-weight:600; color:var(--fg)}
+.outl .cur::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent)}
+.screen[data-opt="3"] .sheet.full{height:calc(100% - 40px)}
+.screen[data-opt="3"] .sheet .bd .row{min-height:48px; padding-top:4px; padding-bottom:4px}
+.screen[data-opt="3"] .sechead{padding:16px 16px 4px}
+
+/* ===== option 4 "Stage" ===== */
+.hero{display:flex; gap:16px; margin:0 16px; flex-wrap:wrap}
+.hero .tile{width:120px; height:160px; border-radius:12px; font-size:64px}
+.hero .tx{flex:1; min-width:140px; display:flex; flex-direction:column; justify-content:center; gap:4px}
+.hero .btns{width:100%; display:flex; flex-direction:column; gap:8px}
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:0 16px 120px}
+.gtile{display:block; width:100%; text-align:left; color:var(--fg)}
+.gtile .tile{width:100%; aspect-ratio:3/4; border-radius:12px; padding:12px; display:block; position:relative; font:600 calc(18*var(--sp))/calc(22*var(--sp)) var(--serif)}
+.gtile .tile .pr{position:absolute; left:12px; right:12px; bottom:12px; background:color-mix(in srgb, var(--onTile) 25%, transparent)}
+.gtile .tile .pr > span{background:var(--onTile)}
+.gtile .cap{margin-top:4px; display:block}
+.gtile .open{width:100%; aspect-ratio:3/4; border-radius:12px; border:2px dashed var(--line); background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:var(--fg)}
+.gtile .open svg{width:32px; height:32px}
+.modeseg{position:absolute; top:40px; left:50%; width:200px; margin-left:-100px; z-index:16}
+.stage{position:absolute; inset:0; background:var(--bg); color:var(--fg); z-index:12; overflow:hidden}
+.stage .hdr{position:absolute; top:96px; left:16px; right:16px}
+.stage .hdr .ch{font:500 calc(16*var(--sp))/calc(22*var(--sp)) var(--sans); margin-top:4px}
+.tp{position:absolute; top:200px; bottom:316px; left:16px; right:16px; display:flex; flex-direction:column; justify-content:center; gap:16px; overflow:hidden}
+.tp::before{content:""; position:absolute; top:0; left:0; right:0; height:24px; background:linear-gradient(var(--bg), transparent); z-index:1}
+.tp .nb{font:400 calc(20*var(--sp))/calc(30*var(--sp)) var(--serif); color:var(--fg2)}
+.tp .cur{font:500 calc(28*var(--sp))/calc(40*var(--sp)) var(--serif); color:var(--fg)}
+.tp.up{animation:tpup 320ms cubic-bezier(.2,.9,.25,1.05)}
+.tp.down{animation:tpdown 320ms cubic-bezier(.2,.9,.25,1.05)}
+@keyframes tpup{from{transform:translateY(40px); opacity:.4} to{transform:none; opacity:1}}
+@keyframes tpdown{from{transform:translateY(-40px); opacity:.4} to{transform:none; opacity:1}}
+.tp .ccard{background:var(--bg2); border-radius:12px; padding:16px}
+.tp .ccard pre{margin:8px 0 0; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--mono); color:var(--fg2); white-space:pre; overflow:hidden}
+.tz{position:absolute; left:16px; right:16px; bottom:40px; display:flex; flex-direction:column; gap:16px}
+.tz .trow{display:flex; align-items:center; justify-content:center; gap:24px}
+.sbtn{border-radius:50%; background:var(--bg2); color:var(--fg); display:grid; place-items:center; flex:none}
+.sbtn.s64{width:64px; height:64px}
+.sbtn.s64 svg{width:32px; height:32px}
+.sbtn.s88{width:88px; height:88px; background:var(--accent); color:var(--onAccent)}
+.sbtn.s88 svg{width:36px; height:36px}
+.tz .secs{display:flex; gap:16px}
+.tz .secs .btn.sec{flex:1; background:var(--bg2); border:0; color:var(--fg); font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.tz .icons{display:flex; justify-content:space-around}
+.tz .icons .ib{color:var(--fg); font:500 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+@container (max-width:360px){ .tz .trow{gap:16px} .tp{bottom:300px} }
+</style>
+</head>
+<body>
+<header class="toolbar">
+  <span class="brand">Lectrice for Android · design options · 2026-10-23</span>
+  <div class="seg" role="tablist" aria-label="Option">
+    <button role="tab" data-opt="1" aria-selected="true">1 Pill</button><button role="tab" data-opt="2" aria-selected="false">2 Material</button><button role="tab" data-opt="3" aria-selected="false">3 Quiet</button><button role="tab" data-opt="4" aria-selected="false">4 Stage</button>
+  </div>
+  <div class="seg"><span>Theme</span><button data-theme-btn="light" aria-pressed="true">Light</button><button data-theme-btn="dark" aria-pressed="false">Dark</button></div>
+  <div class="seg"><span>Width</span><button data-w-btn="412" aria-pressed="true">412</button><button data-w-btn="360" aria-pressed="false">360</button></div>
+  <div class="seg" data-wall-seg hidden><span>Wallpaper</span><button data-wall="blue" aria-pressed="true">Blue</button><button data-wall="green" aria-pressed="false">Green</button></div>
+</header>
+<main>
+  <section class="option" id="opt-1" data-opt="1"></section>
+  <section class="option" id="opt-2" data-opt="2"></section>
+  <section class="option" id="opt-3" data-opt="3"></section>
+  <section class="option" id="opt-4" data-opt="4"></section>
+  <section id="recommendation">
+    <h2>5. My recommendation</h2>
+    <p><strong>Option 1 "Pill" as the base, plus three borrowed pieces:</strong></p>
+    <ol>
+      <li>From option 3: the sheet <strong>follows the finger</strong> when you drag the pill up (Telegram's smoothness, cheap in Compose), and the true-black dark theme as a setting (if you want it, Q3). Not the auto-collapsing pill: hiding the chapter label costs more than the ~100 dp it saves.</li>
+      <li>From option 4: the <strong>"‹ Section / Section ›" jumps</strong> in the player sheet. The full Listen stage is a good v1.1 idea once you've lived with v1; it fits on top of option 1 without changing it.</li>
+      <li>From option 2: nothing visual, but the platform rules (edge-to-edge, predictive back, Material widgets for slider, switch and sheet) apply to every option anyway.</li>
+    </ol>
+    <p>Why: you called D "perfect", and option 1 keeps one product across web and phone with one token set; it is closest to the spec, so M2 has the least risk; the pill is now a standard Android pattern, so it won't feel foreign. The rest of the options are there so you can see what you'd be giving up.</p>
+    <h2>6. Questions for you</h2>
+    <ol>
+      <li><strong>Which option</strong> (or which mix)? If a mix, which pieces from the others?</li>
+      <li><strong>Wallpaper colours</strong> (Material You): keep our own colours only (spec), or offer them as an opt-in setting? I'd say no.</li>
+      <li><strong>True-black dark theme</strong> for OLED (saves a little battery at night): add it as a third theme choice?</li>
+      <li><strong>Sleep timer:</strong> I suggest yes for v1 (Off, 15, 30, 45 min, 1 h, End of chapter). It's cheap and every listening app has it. OK?</li>
+      <li><strong>Covers:</strong> generated title tiles (no core change), or a picture of the PDF's first page (a small core change: render page 1 with pdfium)? The cover also shows on the lock screen.</li>
+      <li><strong>Pill status opens the chapters sheet</strong> (saves a button; my proposal), or keep a separate chapters button as in the spec? The status would show a small "⌃" hint.</li>
+      <li><strong>Lock screen without a seek bar:</strong> each media item is one sentence (~5 s), so a scrubber there means nothing. Hide it? (Proposed: yes.)</li>
+      <li><strong>Section jumps</strong> ("‹ Section / Section ›") in the player sheet: want them?</li>
+      <li><strong>Text size:</strong> only in Settings, or also an "Aa" control in the player sheet?</li>
+      <li><strong>Tablets/foldables:</strong> phone layout with the text column centred at max 640 dp for v1. OK?</li>
+      <li><strong>"Not now, just read"</strong> on the first-run screen (use the app without the voice): keep it?</li>
+    </ol>
+  </section>
+</main>
+<script>
+
+/* ===== icons: Material Icons path data (Apache-2.0), 24 × 24 ===== */
+const ICONS = {
+  play_arrow: 'M8 5v14l11-7z',
+  pause: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
+  skip_next: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z',
+  skip_previous: 'M6 6h2v12H6zm3.5 6l8.5 6V6z',
+  more_horiz: 'M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+  more_vert: 'M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+  toc: 'M3 9h14V7H3v2zm0 4h14v-2H3v2zm0 4h14v-2H3v2zm16 0h2v-2h-2v2zm0-10v2h2V7h-2zm0 6h2v-2h-2v2z',
+  expand_less: 'M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z',
+  expand_more: 'M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z',
+  arrow_back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
+  close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  chevron_right: 'M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z',
+  chevron_left: 'M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z',
+  check: 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
+  settings: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+  note_add: 'M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 14h-3v3h-2v-3H8v-2h3v-3h2v3h3v2zm-3-7V3.5L18.5 9H13z',
+  arrow_downward: 'M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z',
+  arrow_upward: 'M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z',
+  bedtime: 'M9.27 4.49c-1.63 7.54 3.75 12.41 7.66 13.8C15.54 19.38 13.81 20 12 20c-4.41 0-8-3.59-8-8 0-3.45 2.2-6.4 5.27-7.51m2.72-2.48C6.5 2.63 2 6.84 2 12c0 5.52 4.48 10 10 10 3.71 0 6.93-2.02 8.66-5.02-7.51-.25-12.09-8.21-8.32-14.97z',
+  record_voice_over: 'M9 13c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0-6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm0 8c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm-6 4c.22-.72 3.31-2 6-2 2.7 0 5.8 1.29 6 2H3zm12.76-9.64l1.68 1.69c.84-1.18.84-2.71 0-3.89l-1.68 1.69c.23.54.23 1.24 0 1.5zM20.07 2l-1.63 1.63c2.77 3.02 2.77 7.56 0 10.74L20.07 16c3.9-3.89 3.91-9.95 0-14z',
+  speed: 'M20.38 8.57l-1.23 1.85a8 8 0 0 1-.22 7.58H5.07A8 8 0 0 1 15.58 6.85l1.85-1.23A10 10 0 0 0 3.35 19a2 2 0 0 0 1.72 1h13.85a2 2 0 0 0 1.74-1 10 10 0 0 0-.27-10.44zm-9.79 6.84a2 2 0 0 0 2.83 0l5.66-8.49-8.49 5.66a2 2 0 0 0 0 2.83z',
+  ios_share: 'M16 5l-1.42 1.42-1.59-1.59V16h-1.98V4.83L9.42 6.42 8 5l4-4 4 4zm4 5v11c0 1.1-.9 2-2 2H6c-1.11 0-2-.9-2-2V10c0-1.11.89-2 2-2h3v2H6v11h12V10h-3V8h3c1.1 0 2 .89 2 2z',
+  download: 'M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z',
+  info: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z',
+  error: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z',
+  warning: 'M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z',
+  wifi: 'M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z',
+  signal_cellular_alt: 'M17 4h3v16h-3V4zM5 14h3v6H5v-6zm6-5h3v11h-3V9z',
+  battery_full: 'M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z',
+  sd_storage: 'M18 2h-8L4.02 8 4 20c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-6 6h-2V4h2v4zm3 0h-2V4h2v4zm3 0h-2V4h2v4z',
+  check_circle: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z',
+  search: 'M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
+  open_in_full: 'M21 11V3h-8l3.29 3.29-10 10L3 13v8h8l-3.29-3.29 10-10z',
+  menu_book: 'M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z',
+  headphones: 'M12 3c-4.97 0-9 4.03-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7c0-4.97-4.03-9-9-9z',
+  volume_up: 'M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z',
+  keyboard_double_arrow_left: 'M17.59 18L19 16.59 14.42 12 19 7.41 17.59 6l-6 6zM11 18l1.41-1.41L7.83 12l4.58-4.59L11 6l-6 6z',
+  keyboard_double_arrow_right: 'M6.41 6L5 7.41 9.58 12 5 16.59 6.41 18l6-6zM13 6l-1.41 1.41L16.17 12l-4.58 4.59L13 18l6-6z',
+  lock: 'M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z',
+};
+const ic = (name, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/* ===== placeholder content (ours; no book text) ===== */
+const BOOKS = [
+  { title: 'The Long Book', pages: 589, pct: 49, place: 'Ch. 7 · Long Documents · p. 265', opened: 'just now', when: 'now', left: '4 h 12 min' },
+  { title: 'Designing Calm Software', pages: 18, pct: 34, place: 'p. 6 of 18', opened: '2 hours ago', when: '2 h' },
+  { title: 'Meeting Notes (no chapters)', pages: 18, pct: 0, place: 'Not started', opened: 'yesterday', when: 'Tue' },
+  { title: 'Quarterly Notes', pages: 42, pct: 35, place: 'p. 15 of 42', opened: 'last week', when: '16 Oct' },
+  { title: 'A Field Guide to Small Gardens', pages: 214, pct: 72, place: 'Ch. 9 · Hedges', opened: 'last week', when: '14 Oct' },
+];
+const hash = (s) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+const HUES = ['h0', 'h1c', 'h2c', 'h3c', 'h4c', 'h5c'];
+const hue = (title) => HUES[hash(title) % 6];
+const initials = (title) => title.split(' ').filter((w) => !/^(the|a|an|of|to)$/i.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+const tile = (title, w, h, r = 8, cls = '') => `<span class="tile ${hue(title)} ${cls}" style="width:${w}px;height:${h}px;border-radius:${r}px;font-size:${Math.round(h * .4)}px" aria-hidden="true">${initials(title)}</span>`;
+
+const VOICE_IDS = 'af_alloy Alloy,af_aoede Aoede,af_bella Bella,af_heart Heart,af_jessica Jessica,af_kore Kore,af_nicole Nicole,af_nova Nova,af_river River,af_sarah Sarah,af_sky Sky,am_adam Adam,am_echo Echo,am_eric Eric,am_fenrir Fenrir,am_liam Liam,am_michael Michael,am_onyx Onyx,am_puck Puck,am_santa Santa,bf_alice Alice,bf_emma Emma,bf_isabella Isabella,bf_lily Lily,bm_daniel Daniel,bm_fable Fable,bm_george George,bm_lewis Lewis';
+const VOICES = VOICE_IDS.split(',').map((e) => { const [id, name] = e.split(' '); return { id, name, group: `${id[0] === 'b' ? 'British' : 'American'} English · ${id[1] === 'f' ? 'female' : 'male'}` }; });
+const VOICE_GROUPS = [...new Set(VOICES.map((v) => v.group))].map((g) => ({ name: g, voices: VOICES.filter((v) => v.group === g) }));
+const SAMPLE_LINE = 'This is how I sound when I read your books aloud.';
+
+const PREFACE_PARAS = [
+  ['This book is about software that stays out of the way.', 'Most of us have used tools that shout: banners that never close, badges that never clear, and settings hidden three menus deep.', 'Calm software does the opposite.', 'It shows what matters now, keeps everything else one step away, and never makes the reader wonder what just happened.', 'That sounds simple, and in a sense it is.'],
+  ['The chapters that follow are short on purpose.', 'Each one takes a single idea, shows where it came from, and ends with something you can try on your own project the same afternoon.', 'You do not need to read them in order.', 'If a chapter does not fit the work in front of you, skip it and come back later.'],
+  ['A few words about the examples.', 'They are written in TypeScript because it is widely read, but nothing in them depends on a particular language or framework.', 'Where an example needs a server, it assumes a small local one, the kind you might run on a laptop while you work.', 'Three habits come up again and again:'],
+  ['None of these are new.', 'What is new, perhaps, is treating them as engineering rules rather than matters of taste.'],
+];
+const PREFACE_LIST = ['Show one thing at a time, and make it obvious which one it is.', 'Say what a control will do before it is pressed.', 'When something goes wrong, say what the person can do next.'];
+const CHAPTER_PARAS = [
+  ['An interface is quiet when nothing on the screen competes for attention without a reason.', 'That does not mean empty.', 'A quiet screen can be dense with information, as long as the information is arranged so that the eye knows where to start.', 'The difference between a busy screen and a rich one is mostly a matter of hierarchy: one clear primary element, a few secondary ones, and everything else visibly less important.', 'Hierarchy is cheap to add and expensive to remove, so it pays to decide it early.'],
+  ['Every colour, icon and badge is a signal, and signals wear out.', 'A red dot that appears for every minor update soon means nothing, and then it fails on the day it carries real news.', 'The fix is to spend signals deliberately.', 'Give each one a single meaning, write that meaning down, and remove any signal that has drifted from it.', 'Teams that do this often find they can delete half of their notifications without anyone noticing, except to say that the product feels easier.'],
+  ['Signals also need to be readable.', 'Grey text on a grey background may look elegant in a mock-up, but it fails the moment the screen is in sunlight or the reader is tired.', 'A useful rule is to measure contrast rather than judge it by eye, and to treat any text below a ratio of four and a half to one as a bug.', 'The same applies to size.', 'Text that must be read should be large enough to read at arm’s length on the smallest device you support, which for most products today is a phone held in one hand on a moving train.', 'Labels that are only decoration can be smaller, but there are fewer of those than designers tend to think.'],
+  ['Consider a status line that reports the state of a background job.', 'A first version often maps each state to a colour with a chain of conditions.', 'A calmer version keeps the mapping in one table, so that adding a state is one line and nothing can be forgotten:'],
+  ['The table does more than tidy the code.', 'It puts every message the user can see in one place, where a reviewer can read them side by side and notice that one of them is rude, vague or wrong.', 'It also makes the compiler check that no state is missing.', 'That is the whole idea.'],
+  ['Calm is hard to measure directly, but its absence leaves traces.', 'Support requests that begin with “I can’t find” or “what does this mean” point at hierarchy and wording.', 'Repeated clicks on the same control point at missing feedback.', 'Long pauses before a destructive action point at a label that does not say what will happen.', 'None of these need special tools; a week of reading support mail is usually enough to find the worst of them.'],
+  ['Once you have a list, fix the cheapest items first.', 'A clearer label costs minutes, and a removed notification costs nothing at all.', 'Larger changes, such as reorganising a screen, are easier to argue for once the small fixes have shown that calm is something users notice.', 'Keep the list somewhere the whole team can see it.'],
+  ['Pick one screen you know well.', 'Write down every signal on it, and next to each one, the single thing it is supposed to mean.', 'Cross out the ones you cannot explain in a sentence.', 'Then show the crossed-out list to a colleague and ask which of them they would miss.', 'You may be surprised by how short their answer is.'],
+];
+const FILLER = [...CHAPTER_PARAS, ...PREFACE_PARAS];
+const SUBSECTIONS = ['Why it matters', 'In practice', 'Common mistakes', 'A short checklist', 'What the research says', 'Try it yourself'];
+const LONG_BOOK_CHAPTERS = [
+  { title: 'Quiet Interfaces', sections: ['Fewer, clearer signals', 'A small example', 'Measuring calm', 'When quiet becomes hidden'] },
+  { title: 'Reading on Small Screens', sections: ['Line length and the thumb', 'Type that survives sunlight', 'Scrolling versus paging', 'One-handed controls', 'Night reading', 'Summary'] },
+  { title: 'Sound as an Interface', sections: ['Voices people trust', 'Pace, pauses and breath', 'What not to read aloud'] },
+  { title: 'Designing for Interruptions: How People Really Read on Phones, on Trains and Late at Night in Bed', sections: ['The three-second glance', 'Finding your place again', 'Bookmarks nobody sets', 'Resuming without asking', 'Progress that means something', 'Notifications that wait their turn', 'A field study in a commuter train', 'Summary'] },
+  { title: 'Navigation Without Menus', sections: ['Where am I?', 'Where can I go?', 'Breadcrumbs, rails and drawers', 'Keyboard paths', 'Summary'] },
+  { title: 'Errors That Help', sections: ['Say what happened', 'Say what to do next', 'Never blame the reader', 'Recovering a lost import: a worked example with a corrupted PDF', 'Summary'] },
+  { title: 'Long Documents', sections: ['Rendering only what is visible', 'Search that respects structure', 'Tables of contents that tell the truth', 'Footnotes, figures and asides', 'Index pages and why we drop them', 'Very long titles and how to shorten them', 'Summary'] },
+  { title: 'Colour and Contrast', sections: ['Measuring instead of guessing', 'Dark mode is not inverted light mode', 'Accents that carry meaning', 'Summary'] },
+  { title: 'Motion With a Purpose', sections: ['Transitions that explain', 'Reduced motion', 'Summary'] },
+  { title: 'Settings People Actually Change', sections: ['Speed', 'Voice', 'Read code and tables aloud', 'Defaults that respect the reader', 'Remembering choices per book', 'Summary'] },
+  { title: 'Offline First', sections: ['Everything on one machine', 'Caching audio ahead of the listener', 'Exports that finish in the background', 'Summary'] },
+  { title: 'Accessibility Is the Baseline', sections: ['Screen readers and live regions', 'Focus that never gets lost', 'Targets big enough for every hand', 'Testing with real assistive technology', 'Summary'] },
+  { title: 'Performance You Can Feel', sections: ['The first sentence in under a second', 'Prefetching without waste', 'Memory on old laptops', 'Summary'] },
+  { title: 'Shipping Calm Software', sections: ['Reviews that read the copy', 'Release notes in plain words', 'Listening after launch', 'Saying no to features', 'Summary'] },
+  { title: 'Afterword: What We Left Out on Purpose', sections: ['Social features', 'Gamification', 'Thanks'] },
+];
+const CH_START = [1, 37, 71, 103, 151, 189, 251, 297, 331, 359, 401, 447, 487, 529, 561];
+const BOOK_END = 575;
+const CH7_PAGES = [251, 258, 265, 272, 279, 286, 293];
+const CUR = { ch: 6, sec: 2 };     // chapter 7, section 7.3 (0-based)
+const PDF_OFFSET = 14;             // printed p. 265 = PDF page 279
+const SECTION_73 = {
+  paras: [
+    ['A table of contents is a promise.', 'It tells the reader what is inside, in what order, and roughly how far away each part is.', 'When the promise is kept, people jump around a long document without fear.', 'When it is broken, they stop trusting every other signpost too.'],
+    ['The most common way to break it is drift.', 'Headings change during editing, but the contents page was typed once and never touched again.', 'A generated outline cannot drift, because it is read from the headings themselves.'],
+  ],
+  code: 'outline = [h for h in headings if h.level <= 2]\nfor entry in outline:\n    print(entry.page, entry.title)',
+  after: ['Length is the other trap.', 'A section title that runs to three lines is no longer a signpost; it is a paragraph wearing a heading’s clothes.', 'Keep titles short enough to scan, and let the first sentence of the section do the explaining.'],
+};
+const CURRENT_SENTENCE = 'When the promise is kept, people jump around a long document without fear.';
+const CODE_CUE = 'Read as “Code example.”';
+
+/* Builds the outline (for chapter lists) and the document (blocks + sentences) of The Long Book. */
+function buildLongBook() {
+  const blocks = [];
+  const sentences = [];
+  const outline = [];
+  let fill = 0;
+  const addBlock = (b) => { blocks.push(b); return blocks.length - 1; };
+  const addSentence = (text, bi, page, ch, sec, kind) => { sentences.push({ i: sentences.length, text, b: bi, page, ch, sec, kind }); return sentences.length - 1; };
+  const para = (sents, page, ch, sec, kind = 'p') => {
+    const bi = addBlock({ kind, page, sents: [] });
+    sents.forEach((t) => blocks[bi].sents.push(addSentence(t, bi, page, ch, sec, kind)));
+  };
+  const heading = (kind, text, page, ch, sec) => {
+    const bi = addBlock({ kind, page, text });
+    return addSentence(text, bi, page, ch, sec, kind);
+  };
+  const nextFill = () => FILLER[fill++ % FILLER.length];
+
+  const prefFirst = heading('h1', 'Preface', 'xi', -1, -1);
+  outline.push({ num: '', title: 'Preface', page: 'xi', first: prefFirst, kids: [] });
+  PREFACE_PARAS.slice(0, 3).forEach((p, k) => para(p, k < 2 ? 'xi' : 'xii', -1, -1));
+  PREFACE_LIST.forEach((t) => para([t], 'xii', -1, -1, 'li'));
+  para(PREFACE_PARAS[3], 'xii', -1, -1);
+
+  LONG_BOOK_CHAPTERS.forEach((chapter, ci) => {
+    const start = CH_START[ci];
+    const end = ci + 1 < CH_START.length ? CH_START[ci + 1] : BOOK_END + 1;
+    const n = chapter.sections.length;
+    const secPage = (si) => ci === CUR.ch ? CH7_PAGES[si] : start + Math.floor(si * (end - start) / n);
+    const chNum = String(ci + 1);
+    const first = heading('h1', `${chNum}. ${chapter.title}`, start, ci, -1);
+    const entry = { num: chNum, title: chapter.title, page: start, first, kids: [] };
+    outline.push(entry);
+    chapter.sections.forEach((section, si) => {
+      const page = secPage(si);
+      const num = `${chNum}.${si + 1}`;
+      const sfirst = heading('h2', `${num} ${section}`, page, ci, si);
+      const sentry = { num, title: section, page, first: sfirst, kids: [] };
+      entry.kids.push(sentry);
+      if (ci === CUR.ch && si === CUR.sec) {
+        para(SECTION_73.paras[0], page, ci, si);
+        para(SECTION_73.paras[1], page + 1, ci, si);
+        const bi = addBlock({ kind: 'code', page: page + 1, text: SECTION_73.code });
+        blocks[bi].cue = addSentence(CODE_CUE, bi, page + 1, ci, si, 'cue');
+        para(SECTION_73.after, page + 1, ci, si);
+        return;
+      }
+      para(nextFill(), page, ci, si);
+      const subs = [SUBSECTIONS[(ci + si) % SUBSECTIONS.length], SUBSECTIONS[(ci + si + 3) % SUBSECTIONS.length]];
+      subs.forEach((sub, k) => {
+        const spage = page + k + 1;
+        const hfirst = heading('h3', sub, spage, ci, si);
+        sentry.kids.push({ num: '', title: sub, page: spage, first: hfirst, kids: [] });
+        para(nextFill(), spage, ci, si);
+      });
+    });
+  });
+  const current = sentences.find((s) => s.text === CURRENT_SENTENCE).i;
+  return { blocks, sentences, outline, current };
+}
+const BOOK = buildLongBook();
+const CUR_ENTRY = BOOK.outline[CUR.ch + 1];
+const CUR_SECTION = CUR_ENTRY.kids[CUR.sec];
+
+/* fixed numbers from the brief (§10) */
+const STATS = { bookPct: 49, chapterPct: 38, buffered: 53, bookLeft: '4 h 12 min', chapterLeft: '9 min', pdfPage: 279, pdfPages: 589, total: 'about 8 h 10 min' };
+const SPEEDS = ['0.75×', '1×', '1.25×', '1.5×', '1.75×', '2×'];
+const SLEEPS = ['Off', '15 min', '30 min', '45 min', '1 h', 'End of chapter'];
+
+const COPY = {
+  s1: { title: 'Lectrice', tagline: 'Your PDFs, read aloud.', points: [['menu_book', 'Cleans up the text: no running headers, page numbers or footnotes.'], ['headphones', 'Reads with a natural voice that runs on this phone.'], ['check_circle', 'Works offline. Your books never leave your device.']], primary: 'Get the voice', text: 'Not now, just read' },
+  s2: { title: 'Choose a voice model', body: 'The voice is a one-time download. You can switch later in Settings.',
+    cards: [{ id: 'full', name: 'Full quality', size: '370 MB', body: 'The same voice as the desktop app. Sounds the most natural.', meta: 'Quality: best · Speed on this phone: measured after setup' },
+      { id: 'small', name: 'Smaller', size: '126 MB', body: 'Saves space. A little less natural.', meta: 'Quality: good · Usually slower on phones' }],
+    hint: 'Not sure? Pick Full quality.', free: 'Free space: 23.4 GB', wifi: 'Wi-Fi recommended', disabled: 'Choose a model', dlFull: 'Download 370 MB', dlSmall: 'Download 126 MB', import: 'Import from a file…' },
+  s2b: { title: 'You’re on mobile data', body: 'This download is 370 MB and may use your data plan. If you wait for Wi-Fi, it starts by itself when you connect.', wait: 'Wait for Wi-Fi', now: 'Download now' },
+  s3: { title: 'Downloading the voice', progress: '142 MB of 370 MB · 38 %', paused: 'Paused · 142 MB of 370 MB', speed: '2.1 MB/s · about 2 min left', reassure: 'You can leave this screen. The download keeps going in the background and shows in your notifications.', pause: 'Pause', resume: 'Resume', cancel: 'Cancel', meanwhile: 'Meanwhile, open a PDF',
+    waiting: 'Waiting for a network. The download continues on its own.', damaged: 'Part of the download was damaged. Retrying…', tryAgain: 'Try again', storage: 'Not enough space. The voice needs 570 MB free (370 MB plus 200 MB to work with). Free up space and try again.' },
+  s4: { title: 'The voice is ready', voice: 'Heart · American English', open: 'Open a PDF', library: 'Go to library' },
+  l1: { title: 'Lectrice', cont: 'Continue listening', recent: 'Recent', open: 'Open PDF' },
+  l2: { title: 'Open a PDF to start listening', body: 'Lectrice cleans up the text and reads it aloud with a voice that runs on this phone. Nothing leaves your device.', limits: 'PDFs with a text layer, up to 200 MB' },
+  l3: { file: 'garden-plans.pdf', reading: 'Reading… cleaning text', page: 'Page 120 of 214' },
+  l4: { title: 'Can’t read this PDF', body: '“scan-2019.pdf” is a scanned image with no text inside, so there’s nothing to read aloud. Lectrice can’t read scans yet.', ok: 'OK',
+    others: 'Other texts: “report.pdf” is password-protected. Save an unprotected copy in another app and try again. · “atlas.pdf” is 312 MB. Lectrice opens PDFs up to 200 MB. · “file.pdf” looks damaged or isn’t a PDF. · Your phone is out of space. Free up about 400 MB and try again.' },
+  l5: { text: 'Voice not installed. You can read now and listen after the download.', action: 'Download' },
+  l6: 'Already in your library. Continuing where you left off.',
+  pill: { preparing: 'Preparing audio…', catching: 'Catching up…', finished: ['Finished', 'Play to start over'], noVoice: ['Voice not installed', 'Tap to download'], failed: ['Voice unavailable', 'Tap for details'], back: 'Back to current' },
+  r7: { text: 'This phone makes speech a little slower than you listen at 1.5×, so Lectrice pauses now and then to catch up. 1× or 1.25× plays smoothly.', set: 'Set 1.25×', prepare: 'Prepare this chapter while charging' },
+  r9: { text: 'The voice couldn’t start. Try again, or download it again in Settings.', action: 'Try again' },
+  r10: { title: 'Show the player outside the app?', body: 'Lectrice shows the player in your notifications and on the lock screen, so you can pause it without opening the app.', cont: 'Continue', sys: 'Allow Lectrice to send you notifications?', allow: 'Allow', deny: 'Don’t allow' },
+  r8c: 'This PDF has no chapters or headings, so there’s nothing to list. The page numbers in the text show where you are.',
+  r4: { speed: 'Speed', voice: 'Voice', voiceSub: 'Heart · US · female', sleep: 'Sleep timer', readCode: 'Read code & tables aloud', readCodeSub: 'Otherwise Lectrice says “Code example.” or “Table.”', export: 'Export audiobook', exportSub: 'One M4B file with chapters', library: 'Library', open: 'Open another PDF…', chapters: 'Chapters', stopsAt: 'Stops at 23:41', sleepLeft: '28 min' },
+  e1: { title: 'Export audiobook', rows: [['Format', 'M4B with chapters'], ['Length', 'about 8 h 10 min'], ['Size', 'about 231 MB'], ['Time to make', 'about 2 h on this phone']], voice: 'Voice: Heart at normal speed. Set the speed in your audiobook app.', reassure: 'Keep using your phone. The export runs in the background, and if Android pauses it, it picks up where it stopped.', start: 'Start export (about 2 h)' },
+  e2: { title: 'Exporting · 42 %', parts: 'Part 21 of 49 · about 1 h 10 min left', note: 'Listening comes first: the export slows down while you listen.', pause: 'Pause', cancel: 'Cancel export' },
+  e3: { text: 'Paused by Android. Long background jobs have a daily time limit. It continues while charging, or when you open Lectrice.', cont: 'Continue now', battery: 'Samsung phones may stop it sooner: allow unrestricted battery' },
+  e4: { title: 'Audiobook ready', summary: '8 h 10 min · 231 MB', save: 'Save to Audiobooks', saveCap: 'Audiobook players will find it there', saveAs: 'Save as…', share: 'Share' },
+  e5: { text: 'The export stopped: the phone ran out of space. 21 of 49 parts are kept, so nothing is lost. Free up space and continue.', cont: 'Continue', cancel: 'Cancel export' },
+  n: { title: '7.3 Tables of contents that tell the truth', sub: 'The Long Book', export: 'Exporting The Long Book · 42 %', download: 'Downloading the voice · 38 %', app: 'Lectrice · now' },
+  t1: { title: 'Settings', listening: 'Listening', reading: 'Reading', model: 'Voice model', storage: 'Storage', battery: 'Battery', about: 'About',
+    rows: { voice: ['Default voice', 'Heart · US · female'], speed: ['Default speed', '1×'], code: 'Read code & tables aloud', ahead: ['Read ahead', '10 min of listening'], size: 'Text size', preview: 'The quick reader turns the page.', theme: 'Theme', model: 'Full quality · 370 MB · in use', cache: 'Audio cache', cacheVal: '312 MB of 1 GB', clear: 'Clear audio cache', clearSub: 'Your books and reading places stay.', lib: 'Library: 3 books · 48 MB', keep: ['Keep exports running', 'Allow unrestricted battery use'], version: 'Version 1.0.0 · core 1.1.0', licenses: 'Open-source licenses', source: 'Source code on GitHub', wallpaper: 'Wallpaper colours' } },
+  t2: { title: 'Voice model', installed: 'Installed · in use', notInstalled: 'Not installed', use: 'Use this', del: 'Delete (126 MB)', confirm: ['Delete the smaller model?', 'You can download it again later.', 'Cancel', 'Delete'] },
+};
+
+/* ===== view helpers ===== */
+const defaultView = (over = {}) => ({ opt: 1, theme: 'light', w: 412, wall: 'blue', playing: true, idx: BOOK.current, speed: 1, sleep: 0, voice: 'ok', prep: false, slow: false, ended: false, x2: false, readCode: false, ...over });
+
+/* where a sentence index sits in the book */
+function pos(v) {
+  const s = BOOK.sentences[v.idx];
+  const chapter = s.ch >= 0 ? BOOK.outline[s.ch + 1] : BOOK.outline[0];
+  const section = s.ch >= 0 && s.sec >= 0 ? chapter.kids[s.sec] : null;
+  return { s, chapter, section, chNum: chapter.num, page: s.page, chapterTitle: chapter.title, sectionTitle: section ? `${section.num} ${section.title}` : chapter.title };
+}
+
+function statusBar(v, scrim) {
+  return `<div class="cam"></div><div class="sb${scrim ? ' scrim' : ''}" aria-hidden="true"><span>9:41</span><span class="ic">${ic('signal_cellular_alt')}${ic('wifi')}${ic('battery_full')}</span></div><div class="gb"></div>`;
+}
+function phone(v, inner, { scrim = false, cls = '' } = {}) {
+  const wall = v.opt === 2 ? ` data-wall="${v.wall}"` : '';
+  return `<div class="phone"><div class="screen${v.x2 ? ' x2' : ''} ${cls}" data-opt="${v.opt}" data-theme="${v.theme}" data-w="${v.w}"${wall}>${inner}${statusBar(v, scrim)}</div></div>`;
+}
+
+const btn = (text, cls = '', attrs = '', icon = '') => `<button class="btn ${cls}" ${attrs}>${icon ? ic(icon) : ''}${esc(text)}</button>`;
+const ib = (icon, label, attrs = '', cls = '') => `<button class="ib ${cls}" aria-label="${esc(label)}" ${attrs}>${ic(icon)}</button>`;
+const playBtn = (playing, attrs = '', cls = '') => `<button class="play ${cls}" aria-label="${playing ? 'Pause' : 'Play'}" ${attrs}><span class="disc">${ic(playing ? 'pause' : 'play_arrow')}</span></button>`;
+const divider = (cls = '') => `<div class="div ${cls}"></div>`;
+const progress = (pct, cls = '', style = '') => `<div class="pr ${cls}" style="${style}" role="progressbar" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div>`;
+const indeterminate = (style = '') => `<div class="pr ind" style="${style}" role="progressbar"><span></span></div>`;
+const banner = (kind, icon, text, actions = '') => `<div class="ban ${kind}">${ic(icon)}<span class="tx">${esc(text)}</span>${actions ? `<div class="acts">${actions}</div>` : ''}</div>`;
+const scrim = () => `<div class="scrimL"></div>`;
+const sheet = (inner, { detent = '100%', cls = '', auto = false, attrs = '' } = {}) => `<div class="sheet ${cls}${auto ? ' auto' : ''}" style="--detent:${detent}" role="dialog" ${attrs}><div class="hd" data-drag="sheet"></div>${inner}</div>`;
+const dialog = (title, body, actions, cls = '') => `<div class="dlg ${cls}" role="dialog" aria-label="${esc(title)}"><div class="tm">${esc(title)}</div><div class="b mt16">${esc(body)}</div><div class="acts">${actions}</div></div>`;
+const switchCtl = (on, label) => `<button class="swt" role="switch" aria-checked="${on}" aria-label="${esc(label)}" data-act="switch"><span class="sw${on ? ' on' : ''}"></span></button>`;
+const chip = (text, on, attrs = '') => `<button class="chip touch${on ? ' on' : ''}" aria-pressed="${on}" ${attrs}>${on ? ic('check') : ''}${esc(text)}</button>`;
+const spinner = () => `<span class="spin" aria-hidden="true"></span>`;
+
+/* slider with the buffered part and chapter ticks (level-1 starts) */
+function slider(pct, { buffered = 0, ticks = true } = {}) {
+  const tk = ticks ? BOOK.outline.slice(1).map((c) => `<span class="tk" style="left:${((c.page - 1) / BOOK_END * 100).toFixed(1)}%"></span>`).join('') : '';
+  const buf = buffered > pct ? `<span class="buf" style="left:${pct}%;width:${buffered - pct}%"></span>` : '';
+  return `<div class="sl" role="slider" aria-valuenow="${pct}" aria-label="Position in the book" tabindex="0"><span class="trk"></span>${buf}<span class="act" style="width:${pct}%"></span>${tk}<span class="th" style="left:${pct}%"></span></div>`;
+}
+
+/* ===== first run ===== */
+function S1(v) {
+  const c = COPY.s1;
+  return `<div class="col" style="padding-top:128px">
+    <div class="mark" aria-hidden="true">L</div>
+    <div class="ser" style="font:600 calc(32*var(--sp))/calc(40*var(--sp)) var(--serif);margin-top:24px">${c.title}</div>
+    <div class="tm mt8" style="font-weight:400">${c.tagline}</div>
+    <div class="pts mt32">${c.points.map(([i, t]) => `<div class="flex">${ic(i)}<span class="b">${esc(t)}</span></div>`).join('')}</div>
+  </div>
+  <div class="bottom">${btn(c.primary, '', 'data-act="s1-get"')}${btn(c.text, 'txt', 'data-act="s1-skip"')}</div>`;
+}
+/* a radio card on S2; a plain card (div, so it may hold buttons) on T2 */
+function modelCard(card, on, extra = '') {
+  const tag = extra ? 'div' : 'button';
+  const radio = extra ? '' : `role="radio" aria-checked="${on}" data-act="pick-model" data-m="${card.id}"`;
+  return `<${tag} class="mcard${on ? ' on' : ''}" ${radio}>
+    <span class="flex" style="gap:12px">${extra ? '' : `<span class="radio${on ? ' on' : ''}"></span>`}<span class="tm sp1">${esc(card.name)}</span><span class="lb16 w6">${esc(card.size)}</span></span>
+    <span class="${extra ? '' : 'ind '}b mt4" style="display:block">${esc(card.body)}</span><span class="${extra ? '' : 'ind '}bs fg2 mt4" style="display:block">${esc(card.meta)}</span>${extra}</${tag}>`;
+}
+function S2(v, { sel = null } = {}) {
+  const c = COPY.s2;
+  const primary = sel ? btn(sel === 'full' ? c.dlFull : c.dlSmall, '', 'data-act="s2-download"') : btn(c.disabled, '', 'disabled');
+  return `<div class="scroll"><div style="padding:36px 4px 0">${ib('arrow_back', 'Back', 'data-act="back"')}</div>
+    <div class="px16" style="padding-bottom:160px"><div class="tl mt16">${c.title}</div><div class="b fg2 mt8">${c.body}</div>
+    <div class="mt24" role="radiogroup" style="display:flex;flex-direction:column;gap:12px">${c.cards.map((k) => modelCard(k, sel === k.id)).join('')}</div>
+    <div class="bs fg2 mt16">${c.hint}</div><div class="hint mt8">${ic('sd_storage')}<span>${c.free}</span></div><div class="hint mt4">${ic('wifi')}<span>${c.wifi}</span></div></div></div>
+  <div class="bottom">${primary}${btn(c.import, 'txt')}</div>`;
+}
+function S2b(v) {
+  const c = COPY.s2b;
+  return S2(v, { sel: 'full' }) + scrim() + dialog(c.title, c.body, btn(c.wait, 'txt') + btn(c.now, 'txt'));
+}
+function S3(v, variant = '') {
+  const c = COPY.s3;
+  const bans = { a: '', b: banner('warn', 'warning', c.waiting), c: banner('err', 'error', c.damaged, btn(c.tryAgain, 'txt')), d: banner('err', 'error', c.storage) };
+  const label = variant === 'a' ? c.paused : c.progress;
+  const main = variant === 'a' ? btn(c.resume, '', '', '') : btn(c.pause, 'sec');
+  return `<div class="col" style="padding-top:80px"><div class="tl">${c.title}</div>${progress(38, 'big', 'margin-top:32px')}
+    <div class="lb16 mt12">${label}</div><div class="bs fg2 mt4">${c.speed}</div>${bans[variant] ? `<div class="mt16">${bans[variant]}</div>` : ''}
+    <div class="card r12 mt24"><div class="info">${ic('info')}<span class="b">${c.reassure}</span></div></div></div>
+  <div class="bottom">${btn(c.meanwhile, 'txt')}<div class="exbtns">${main}${btn(c.cancel, 'txt')}</div></div>`;
+}
+function S4(v) {
+  const c = COPY.s4;
+  return `<div class="col" style="padding-top:128px"><span class="ok" style="display:inline-flex;width:48px;height:48px">${ic('check_circle')}</span>
+    <div class="tl mt16">${c.title}</div>
+    <div class="card mt24"><div class="flex" style="gap:16px;align-items:center">${playBtn(false, 'aria-label="Hear a sample"')}<span class="sp1"><span class="lb" style="display:block">${c.voice}</span><span class="ser" style="display:block;font:italic 400 calc(17*var(--sp))/calc(26*var(--sp)) var(--serif)">${SAMPLE_LINE}</span></span></div></div></div>
+  <div class="bottom">${btn(c.open, '', 'data-act="open-pdf"')}${btn(c.library, 'txt', 'data-act="to-library"')}</div>`;
+}
+
+/* ===== library ===== */
+function continueCard(v, book = BOOKS[0]) {
+  return `<div class="card cont"><div class="tx"><div class="cap w5 fg2">${COPY.l1.cont}</div><div class="tm ell2 mt4">${esc(book.title)}</div>
+    <div class="bs fg2" style="display:flex;white-space:nowrap"><span>Ch. 7 ·&nbsp;</span><span class="ell">${esc(CUR_ENTRY.title)}</span><span>&nbsp;· p. 265</span></div>
+    ${progress(book.pct, '', 'margin-top:12px')}<div class="cap fg2 mt4">${book.pct} % · ${book.left} left</div></div>
+    ${playBtn(false, 'aria-label="Play The Long Book from chapter 7" data-act="continue-play"')}</div>`;
+}
+function recentRow(book) {
+  const pct = book.pct ? `Continue · ${book.pct} %` : 'Start';
+  return `<button class="lrow" data-act="open-book" aria-label="${esc(book.title)}, ${pct}">${tile(book.title, 40, 56)}<span class="tx"><span class="lb16 ell" style="display:block">${esc(book.title)}</span><span class="bs fg2 ell" style="display:block">${book.pages} pages · opened ${book.opened}</span></span>
+    <span class="tr"><span>${pct}</span>${progress(book.pct)}</span></button>`;
+}
+function importingRow(long) {
+  const second = long ? `${progress(56, '', 'width:160px')}<span class="bs fg2">${COPY.l3.page}</span>` : `${indeterminate('width:160px')}<span class="bs fg2">${COPY.l3.reading}</span>`;
+  return `<div class="lrow"><span class="tile" style="width:40px;height:56px;background:var(--line)" aria-hidden="true"></span><span class="tx"><span class="lb16 ell" style="display:block">${COPY.l3.file}</span><span class="flex mt4" style="gap:8px">${second}</span></span></div>`;
+}
+function libBar(v) { return `<div class="libbar">${btn(COPY.l1.open, '', 'data-act="open-pdf"', 'note_add')}</div>`; }
+function libTop(v) { return `<div class="libtop"><div class="tl">${COPY.l1.title}</div>${ib('settings', 'Settings', 'data-act="settings"')}</div>`; }
+function L1(v, { banner: ban = '', importing = null } = {}) {
+  const rows = BOOKS.slice(1).map(recentRow).join(divider('i72'));
+  return `<div class="scroll" data-scroll>${libTop(v)}${ban ? `<div class="px16" style="margin-bottom:16px">${ban}</div>` : ''}${continueCard(v)}
+    <div class="lb w6" style="padding:24px 16px 0">${COPY.l1.recent}</div>${importing ? importingRow(importing === 'long') + divider('i72') : ''}${rows}<div style="height:120px"></div></div>${libBar(v)}`;
+}
+function L2(v) {
+  const c = COPY.l2;
+  return `${libTop(v)}<div class="empty"><div class="tl">${c.title}</div><div class="b fg2 mt8">${c.body}</div><div class="cap fg2 mt12">${c.limits}</div></div>${libBar(v)}`;
+}
+function importErrorSheet(v) {
+  const c = COPY.l4;
+  return scrim() + sheet(`<div class="bd"><div class="flex" style="gap:12px">${ic('error', 'errc')}<span class="tm">${c.title}</span></div><div class="b mt12">${c.body}</div>${btn(c.ok, '', 'style="margin-top:24px" data-act="close"')}</div>`, { auto: true, attrs: 'aria-label="Import error"' });
+}
+function L5(v) { return L1(v, { banner: banner('warn', 'warning', COPY.l5.text, btn(COPY.l5.action, 'txt', 'data-act="s1-get"')) }); }
+
+/* ===== reader ===== */
+function docHtml(v, { from = 0, to = BOOK.blocks.length } = {}) {
+  let lastPage = null;
+  const out = [];
+  const sent = (i, extraCls = '') => {
+    const s = BOOK.sentences[i];
+    const chipHtml = s.page !== lastPage ? `<span class="pg" aria-label="Page ${s.page}">p. ${s.page}</span>` : '';
+    lastPage = s.page;
+    return `${chipHtml}<span class="s ${extraCls}${i === v.idx ? ' hl' : ''}" data-i="${i}">${esc(s.text)}</span>`;
+  };
+  for (let bi = from; bi < to; bi++) {
+    const b = BOOK.blocks[bi];
+    if (b.kind === 'h1' || b.kind === 'h2' || b.kind === 'h3') out.push(`<div class="${b.kind}">${sent(BOOK.sentences.find((s) => s.b === bi).i)}</div>`);
+    else if (b.kind === 'code') out.push(`<pre class="code">${esc(b.text)}</pre>${sent(b.cue, 'cue')}`);
+    else out.push(`<div class="p${b.kind === 'li' ? ' li' : ''}">${b.sents.map((i) => sent(i)).join(' ')}</div>`);
+  }
+  return out.join('');
+}
+const CH7_RANGE = (() => { const first = BOOK.blocks.findIndex((b) => b.kind === 'h1' && b.text.startsWith('7.')); const next = BOOK.blocks.findIndex((b, i) => i > first && b.kind === 'h1'); return { from: first, to: next }; })();
+function readerText(v, full = false) {
+  return `<div class="rd" data-scroll><div class="doc">${docHtml(v, full ? {} : CH7_RANGE)}</div></div>`;
+}
+
+/* pill status lines (§10.1 "Pill statuses") */
+function status(v) {
+  const c = COPY.pill;
+  if (v.voice === 'missing') return { l1: c.noVoice[0], l2: c.noVoice[1], l2cls: 'ac', label: 'Voice not installed. Tap to download' };
+  if (v.voice === 'failed') return { l1: c.failed[0], l2: c.failed[1], label: 'Voice unavailable. Tap for details' };
+  if (v.ended) return { l1: c.finished[0], l2: c.finished[1], label: 'Finished. Play to start over' };
+  if (v.noChapters) return { l1: 'p. 12 of 18', l2: null, label: 'Page 12 of 18' };
+  const p = pos(v);
+  const narrow = v.w === 360;
+  const parts = [`Ch. ${p.chNum}`, `p. ${p.page}`];
+  if (v.speed !== 1 && !narrow) parts.push(SPEEDS[v.speed]);
+  let l1 = `<span class="txt">${esc(parts.join(' · '))}</span>`;
+  if (v.sleep) l1 += `<span class="txt">·</span>${ic('bedtime')}<span class="txt">${COPY.r4.sleepLeft}</span>`;
+  const name = (v.speed !== 1 && narrow ? `${SPEEDS[v.speed]} · ` : '') + p.chapterTitle;
+  const l2 = v.prep ? spinner() + c.preparing : v.slow ? spinner() + c.catching : esc(name);
+  return { l1, l2, l2cls: '', label: `Chapter ${p.chNum}, ${p.chapterTitle}, page ${p.page}. Show chapters` };
+}
+function pill(v, { oneLine = false, cls = '', expanded = false } = {}) {
+  const st = status(v);
+  const l2 = oneLine || st.l2 === null ? '' : `<span class="l2 ${st.l2cls || ''}">${st.l2}</span>`;
+  return `<div class="pill ${cls}" data-drag="pill">
+    ${ib('skip_previous', 'Previous sentence', 'data-act="prev"')}${playBtn(v.playing, 'data-act="toggle"', v.prep ? 'prep' : '')}${ib('skip_next', 'Next sentence', 'data-act="next"')}
+    <button class="st" data-act="chapters" aria-label="${esc(st.label)}"><span class="lines" aria-live="polite"><span class="l1">${st.l1}</span>${l2}</span>${ic('expand_less')}</button>
+    ${ib('more_horiz', 'Player and settings', `data-act="more" aria-expanded="${expanded}"`, 'more')}</div>`;
+}
+function backChip(dir = 'down', off = false) {
+  return `<button class="btc touch${off ? ' off' : ''}" data-act="btc">${ic(dir === 'down' ? 'arrow_downward' : 'arrow_upward')}${COPY.pill.back}</button>`;
+}
+function slowTip(prepare = false) {
+  const c = COPY.r7;
+  return `<div class="tip">${banner('warn', 'warning', c.text, `${btn(c.set, 'txt', 'data-act="set-speed" data-speed="2"')}${prepare ? btn(c.prepare, 'txt') : ''}<button class="ib" aria-label="Dismiss tip" data-act="dismiss-tip">${ic('close')}</button>`)}</div>`;
+}
+function snackbar(text) { return `<div class="snack" role="status"><span class="sp1">${esc(text)}</span></div>`; }
+function reader(v, { extra = '', full = false } = {}) {
+  return `${readerText(v, full)}${pill(v)}${backChip('down', true)}${extra}`;
+}
+
+/* ===== player sheet (R4) and its pages ===== */
+function chapterCard(v) {
+  const p = pos(v);
+  return `<button class="chcard" data-act="chapters"><span class="tx"><span class="l1 ell2">${esc(`${p.chNum}. ${p.chapterTitle} › ${p.sectionTitle}`)}</span>
+    <span class="bs fg2" style="display:block">${STATS.chapterPct} % of this chapter · ${STATS.chapterLeft} left in it</span><span class="bs fg2" style="display:block">Page ${p.page} · PDF page ${STATS.pdfPage} of ${STATS.pdfPages}</span></span>
+    <span class="tr">${ic('toc')}<span>${COPY.r4.chapters}</span></span></button>`;
+}
+function transportRow(v) {
+  return `<div class="transport">${ib('keyboard_double_arrow_left', 'Previous section', 'data-act="prev-section"')}${ib('skip_previous', 'Previous sentence', 'data-act="prev"')}${playBtn(v.playing, 'data-act="toggle"')}${ib('skip_next', 'Next sentence', 'data-act="next"')}${ib('keyboard_double_arrow_right', 'Next section', 'data-act="next-section"')}</div>`;
+}
+function speedChips(v) { return `<div class="chips" role="radiogroup" aria-label="Speed">${SPEEDS.map((s, i) => chip(s, i === v.speed, `data-act="set-speed" data-speed="${i}"`)).join('')}</div>`; }
+function sleepChips(v) { return `<div class="chips wrap" role="radiogroup" aria-label="Sleep timer">${SLEEPS.map((s, i) => chip(s, i === v.sleep, `data-act="set-sleep" data-sleep="${i}"`)).join('')}</div>`; }
+function sheetRow(icon, title, sub, trailing, attrs = '') {
+  return `<button class="row${sub ? ' two' : ''}" ${attrs}>${icon ? ic(icon, 'lead') : ''}<span class="tx"><span class="t" style="display:block">${esc(title)}</span>${sub ? `<span class="m" style="display:block">${esc(sub)}</span>` : ''}</span><span class="tr">${trailing}</span></button>`;
+}
+function playerRows(v, { sleepOpen = false } = {}) {
+  const c = COPY.r4;
+  const sleepSub = v.sleep ? c.stopsAt : SLEEPS[v.sleep];
+  return [
+    sheetRow('record_voice_over', c.voice, c.voiceSub, ic('chevron_right'), 'data-act="voice-page"'),
+    sheetRow('bedtime', c.sleep, sleepSub, ic(sleepOpen ? 'expand_less' : 'expand_more'), `data-act="sleep-row" aria-expanded="${sleepOpen}"`) + (sleepOpen ? sleepChips(v) : ''),
+    `<div class="row two">${ic('menu_book', 'lead')}<span class="tx"><span class="t" style="display:block">${c.readCode}</span><span class="m" style="display:block">${c.readCodeSub}</span></span><span class="tr">${switchCtl(v.readCode, c.readCode)}</span></div>`,
+    sheetRow('download', c.export, c.exportSub, ic('chevron_right'), 'data-act="export-page"'),
+    sheetRow('menu_book', c.library, '', ic('chevron_right'), 'data-act="to-library"'),
+    sheetRow('note_add', c.open, '', '', 'data-act="open-pdf"'),
+  ].join(divider('i0'));
+}
+function playerBody(v, opts = {}) {
+  return `<div class="bd">${transportRow(v)}<div class="mt16">${slider(STATS.bookPct, { buffered: STATS.buffered })}</div>
+    <div class="flex cap fg2 mt4"><span>Ch. ${pos(v).chNum} · ${STATS.bookPct} %</span><span class="right">${STATS.bookLeft} left</span></div>
+    <div class="mt16">${chapterCard(v)}</div><div class="lb w6 mt24">${COPY.r4.speed}</div>${speedChips(v)}<div class="mt8">${playerRows(v, opts)}</div></div>`;
+}
+function playerSheet(v, { detent = '600px', page = '', sleepOpen = false, exportState = 'E1' } = {}) {
+  const pages = { voice: voicePage(v), export: exportPage(v, exportState) };
+  return scrim() + sheet(playerBody(v, { sleepOpen }) + (page ? `<div class="page">${pages[page]}</div>` : ''), { detent, attrs: 'aria-label="Player"' });
+}
+function voiceRows(v, { playingSample = 'Bella', selected = 'Heart' } = {}) {
+  return VOICE_GROUPS.map((g) => `<div class="ghead">${esc(g.name)}</div>` + g.voices.map((vo) => {
+    const on = vo.name === selected;
+    const trailing = vo.name === playingSample ? `<span class="eq" aria-label="Playing sample"><i></i><i></i><i></i></span>` : ib('volume_up', `Hear ${vo.name}`, 'data-act="hear"');
+    return `<div class="row${on ? ' sel' : ''}"><button class="pick" role="radio" aria-checked="${on}" data-act="pick-voice" data-voice="${vo.name}"><span class="radio${on ? ' on' : ''}"></span><span class="b">${esc(vo.name)}</span></button><span class="tr">${trailing}</span></div>`;
+  }).join('')).join('');
+}
+function voicePage(v) {
+  return `<div class="shh">${ib('arrow_back', 'Back', 'data-act="page-back"')}<span class="tm">${COPY.r4.voice}</span></div><div class="bd flush">${voiceRows(v)}</div>`;
+}
+/* the export states E1–E5 (shared by the sheet page and option 3's inline row) */
+function exportBody(v, state = 'E1', { pct = 42, cancelAct = 'page-back' } = {}) {
+  const e1 = COPY.e1, e2 = COPY.e2;
+  const running = (ban = '', buttons) => `${ban}${progress(pct, 'big', 'margin-top:16px')}<div class="lb16 mt12" data-export-label>Exporting · ${pct} %</div><div class="bs fg2 mt4">${e2.parts}</div><div class="b mt16">${e2.note}</div><div class="exbtns mt24">${buttons}</div>`;
+  const bodies = {
+    E1: `${e1.rows.map(([k, val]) => `<div class="krow b"><span class="k">${k}</span><span>${val}</span></div>`).join('')}<div class="bs fg2 mt8">${e1.voice}</div>
+      <div class="card r12 mt16" style="background:var(--bg);border:0"><div class="info">${ic('info')}<span class="b">${e1.reassure}</span></div></div>${btn(e1.start, '', 'style="margin-top:24px" data-act="start-export"')}`,
+    E2: running('', btn(e2.pause, 'sec') + btn(e2.cancel, 'txt', `data-act="${cancelAct}"`)),
+    E3: running(`<div class="mt16">${banner('warn', 'warning', COPY.e3.text)}</div>`, btn(COPY.e3.cont, '') ) + `<div class="mt8" style="display:flex;justify-content:center">${btn(COPY.e3.battery, 'txt')}</div>`,
+    E4: `<div class="center mt24" style="display:flex;flex-direction:column;align-items:center;gap:16px"><span class="ok" style="display:inline-flex;width:48px;height:48px">${ic('check_circle')}</span><span class="tm">${COPY.e4.title}</span><span class="b">${COPY.e4.summary}</span></div>
+      ${btn(COPY.e4.save, '', 'style="margin-top:24px"')}<div class="cap fg2 center mt4">${COPY.e4.saveCap}</div>${btn(COPY.e4.saveAs, 'sec', 'style="margin-top:12px"')}<div class="mt8" style="display:flex;justify-content:center">${btn(COPY.e4.share, 'txt', '', 'ios_share')}</div>`,
+    E5: running(`<div class="mt16">${banner('err', 'error', COPY.e5.text)}</div>`, btn(COPY.e5.cont, '') + btn(COPY.e5.cancel, 'txt', `data-act="${cancelAct}"`)),
+  };
+  return bodies[state];
+}
+function exportPage(v, state = 'E1', { headerBtn = ib('arrow_back', 'Back', 'data-act="page-back"') } = {}) {
+  return `<div class="shh">${headerBtn}<span class="tm">${COPY.e1.title}</span></div><div class="bd" style="padding-top:8px">${exportBody(v, state)}</div>`;
+}
+
+/* ===== chapters sheet (R8) ===== */
+function chapterRow(entry, { current = false, read = false, drill = false, meta = '', lvl = 1 } = {}) {
+  const pct = current ? `<span class="pct">${STATS.chapterPct} %</span>` : '';
+  const check = read ? ic('check') : '';
+  const title = `${entry.num ? `${entry.num}. ` : ''}${entry.title}`;
+  const drillBtn = drill ? ib('chevron_right', `Show sections of ${entry.title}`, `data-act="drill" data-num="${entry.num}"`, 'drill') : '';
+  return `<div class="chrow${current ? ' cur' : ''} lvl${lvl}"><button class="tt${read ? ' read' : ''}" data-act="jump" data-first="${entry.first ?? ''}" style="text-align:left;color:inherit;font:inherit;font-weight:inherit"><span class="ell2">${esc(title)}</span>${meta ? `<span class="meta" style="display:block">${meta}</span>` : ''}</button>
+    <span class="pgc"><span class="pgl">${check}${entry.page}</span>${pct}</span>${drillBtn}</div>`;
+}
+function chapterList(v, drill = null) {
+  const cur = pos(v);
+  if (!drill) {
+    return BOOK.outline.map((e, k) => {
+      const ci = k - 1;
+      const current = e === cur.chapter;
+      return chapterRow(e, { current, read: ci < CUR.ch && ci >= 0, drill: e.kids.length > 0, meta: e.kids.length ? `${e.kids.length} sections` : '' });
+    }).join('');
+  }
+  const [chapter, section] = drill;
+  if (section === undefined) {
+    return chapter.kids.map((s) => chapterRow(s, { current: s === cur.section, read: s.page < cur.page && s !== cur.section, drill: s.kids.length > 0, lvl: 2 })).join('');
+  }
+  return section.kids.map((s) => chapterRow(s, { read: s.page < cur.page, lvl: 3 })).join('');
+}
+function chaptersSheet(v, { drill = null, empty = false, cls = '', detent = '85%' } = {}) {
+  const [chapter, section] = drill || [];
+  const title = section ? section.title : chapter ? `${chapter.num}. ${chapter.title}` : COPY.r4.chapters;
+  const back = drill ? `<button class="btn txt" data-act="drill-back" style="padding:0 8px">‹ All chapters</button>` : '';
+  const head = `<div class="shh">${back}<span class="tm ell">${esc(title)}</span>${ib('close', 'Close', 'data-act="close"')}</div>`;
+  const body = empty ? `<div class="b fg2" style="padding:24px 16px">${COPY.r8c}</div>` : `<div data-chapters>${chapterList(v, drill)}</div>`;
+  return scrim() + sheet(`${head}<div class="bd flush">${body}</div>`, { detent, cls, attrs: 'aria-label="Chapters"' });
+}
+
+/* ===== background: notification shade and lock screen ===== */
+function mediaCard(v, { hueCls = hue(BOOKS[0].title) } = {}) {
+  const c = COPY.n;
+  const art = v.opt === 2 ? `<span class="tile" style="width:64px;height:64px;border-radius:12px;font-size:26px;background:var(--primaryContainer);color:var(--onPrimaryContainer)">${initials(c.sub)}</span>` : tile(c.sub, 64, 64, 12);
+  return `<div class="media ${hueCls}"><div class="top">${art}<div class="sp1"><div class="lb16 ell">${c.title}</div><div class="bs">${c.sub}</div></div></div>
+    <div class="ctl">${ib('skip_previous', 'Previous sentence')}<button class="mplay" aria-label="Pause">${ic('pause')}</button>${ib('skip_next', 'Next sentence')}</div></div>`;
+}
+function notif(title, actions, pct) {
+  return `<div class="notif"><div class="flex cap fg2"><span class="mark s24">L</span><span>${COPY.n.app}</span></div><div class="lb16">${title}</div>${progress(pct)}<div class="acts">${actions.map((a) => btn(a, 'txt', 'style="height:40px"')).join('')}</div></div>`;
+}
+const shade = (v, inner) => `<div class="shade"><div class="qs"><span></span><span></span><span></span><span></span></div>${inner}</div>`;
+const N1 = (v) => shade(v, mediaCard(v));
+const N3 = (v) => shade(v, notif(COPY.n.export, ['Pause', 'Cancel'], 42));
+const N4 = (v) => shade(v, notif(COPY.n.download, ['Pause'], 38));
+function N2(v) {
+  return `<div class="lock"><div class="clock">9:41</div><div class="date b">Thursday, 23 October</div>${mediaCard(v)}<div class="foot">${ic('lock')}<span>Swipe up to unlock</span></div></div>`;
+}
+
+/* ===== settings ===== */
+function settingsRow(title, value, trailing = ic('chevron_right'), attrs = '') {
+  const tag = trailing.includes('<button') ? 'div' : 'button';
+  return `<${tag} class="row${value ? ' two' : ''}" ${attrs}><span class="tx"><span class="t" style="display:block">${esc(title)}</span>${value ? `<span class="m" style="display:block">${esc(value)}</span>` : ''}</span><span class="tr">${trailing}</span></${tag}>`;
+}
+function segmented(options, selected, attrs = '') {
+  return `<div class="segc" role="radiogroup" ${attrs}>${options.map((o) => `<button class="${o === selected ? 'on' : ''}" role="radio" aria-checked="${o === selected}">${o === selected ? ic('check') : ''}${esc(o)}</button>`).join('')}</div>`;
+}
+function T1(v, { scrolled = false } = {}) {
+  const c = COPY.t1, r = c.rows;
+  const themes = v.opt === 3 ? ['System', 'Light', 'Dark', 'Black'] : ['System', 'Light', 'Dark'];
+  const wallpaper = v.opt === 2 ? `<div class="row"><span class="tx"><span class="t" style="display:block">${r.wallpaper}</span><span class="m" style="display:block">Android 12+</span></span><span class="tr">${switchCtl(v.wall === 'green', r.wallpaper)}</span></div>` : '';
+  return `<div class="scroll" data-scroll data-scroll-end="${scrolled}"><div class="tbar">${ib('arrow_back', 'Back', 'data-act="back"')}<span class="tl">${c.title}</span></div>
+    <div class="sechead">${c.listening}</div>${settingsRow(...r.voice)}${settingsRow(...r.speed)}${settingsRow(r.code, '', switchCtl(v.readCode, r.code))}${settingsRow(...r.ahead)}
+    <div class="sechead">${c.reading}</div><div class="px16 lb16">${r.size}</div><div class="px16 mt8"><div class="sl" role="slider" aria-valuenow="3" aria-valuemin="1" aria-valuemax="5" aria-label="Text size" tabindex="0"><span class="trk"></span><span class="act" style="width:50%"></span>${[0, 25, 50, 75, 100].map((p) => `<span class="tk" style="left:${p}%"></span>`).join('')}<span class="th" style="left:50%"></span></div><div class="stops"><span>S</span><span>M</span><span class="w6" style="color:var(--fg)">L</span><span>XL</span><span>XXL</span></div></div>
+    <div class="prev" style="--pv:21">${r.preview}</div><div class="px16 lb16 mt8">${r.theme}</div><div class="px16 mt8" style="margin-bottom:8px">${segmented(themes, 'System')}</div>${wallpaper}
+    <div class="sechead">${c.model}</div>${settingsRow(r.model, '', ic('chevron_right'), 'data-act="t2"')}
+    <div class="sechead">${c.storage}</div><div class="px16"><div class="lb16">${r.cache}</div>${progress(31, '', 'margin-top:8px')}<div class="bs fg2 mt4">${r.cacheVal}</div><div class="mt4" style="margin-left:-12px">${btn(r.clear, 'txt')}</div><div class="bs fg2">${r.clearSub}</div></div>${settingsRow(r.lib, '', '')}
+    <div class="sechead">${c.battery}</div>${settingsRow(...r.keep)}
+    <div class="sechead">${c.about}</div>${settingsRow(r.version, '', '')}${settingsRow(r.licenses, '')}${settingsRow(r.source, '')}<div style="height:48px"></div></div>`;
+}
+function T2(v, { both = false, confirm = false } = {}) {
+  const c = COPY.t2, s = COPY.s2;
+  const full = modelCard(s.cards[0], false, `<span class="lb ok mt8" style="display:block">${c.installed}</span>`);
+  const small = modelCard(s.cards[1], false, both
+    ? `<span class="lb ok mt8" style="display:block">Installed</span><span class="mt8" style="display:flex;gap:8px;align-items:center">${btn(c.use, 'sec', 'style="flex:1"')}${btn(c.del, 'txt errc')}</span>`
+    : `<span class="bs fg2 mt8" style="display:block">${c.notInstalled}</span>${btn(s.dlSmall, 'sec', 'style="margin-top:8px"')}`);
+  const dlg = confirm ? scrim() + dialog(c.confirm[0], c.confirm[1], btn(c.confirm[2], 'txt') + btn(c.confirm[3], 'txt errc')) : '';
+  return `<div class="scroll"><div class="tbar">${ib('arrow_back', 'Back', 'data-act="back"')}<span class="tl">${c.title}</span></div><div class="px16" style="display:flex;flex-direction:column;gap:12px">${full}${small}</div></div>${dlg}`;
+}
+
+/* ===== option 2: Material ===== */
+function appBar(v, { hidden = false, scrolled = true } = {}) {
+  const p = pos(v);
+  return `<div class="appbar${hidden ? ' hide' : ''}${scrolled ? ' scrolled' : ''}">${ib('arrow_back', 'Back', 'data-act="back"')}<div class="tx"><div class="tm ell">${esc(BOOKS[0].title)}</div><div class="bs fg2 ell">Ch. ${p.chNum} · p. ${p.page}</div></div>${ib('toc', 'Chapters', 'data-act="chapters"')}${ib('more_vert', 'More', 'data-act="menu"')}</div>`;
+}
+function floatingToolbar(v) {
+  return `<div class="ftb" data-drag="pill">${ib('skip_previous', 'Previous sentence', 'data-act="prev"')}<button class="fplay${v.playing ? ' playing' : ''}" aria-label="${v.playing ? 'Pause' : 'Play'}" data-act="toggle">${ic(v.playing ? 'pause' : 'play_arrow')}</button>${ib('skip_next', 'Next sentence', 'data-act="next"')}
+    <button class="btn txt" data-act="speed-dialog" aria-label="Speed ${SPEEDS[v.speed]}">${SPEEDS[v.speed]}</button>${ib('open_in_full', 'Now playing', 'data-act="now-playing"')}</div>`;
+}
+function nowPlaying(v, { off = false } = {}) {
+  const p = pos(v);
+  const sec2 = [['speed', 'Speed', 'speed-dialog'], ['bedtime', 'Sleep', 'sleep-sheet'], ['record_voice_over', 'Voice', 'voice-sheet'], ['toc', 'Chapters', 'chapters']];
+  return `<div class="np${off ? ' off' : ''}" role="dialog" aria-label="Now playing"><div class="top">${ib('expand_more', 'Close', 'data-act="np-close"')}<span class="tm">Now playing</span>${ib('more_vert', 'More', 'data-act="menu"')}</div>
+    ${tile(BOOKS[0].title, 280, 280, 28, 'cover')}<div class="center mt24"><div style="font:400 calc(24*var(--sp))/calc(32*var(--sp)) var(--sans)" class="ell">${esc(BOOKS[0].title)}</div><div class="b fg2 ell">${esc(p.sectionTitle)}</div></div>
+    <div class="pvw ell3" data-np-preview>${esc(p.s.text)}</div><div class="mt16">${slider(STATS.bookPct, { buffered: STATS.buffered })}</div><div class="times bs fg2"><span>3 h 58 min</span><span>−${STATS.bookLeft}</span></div>
+    <div class="grp"><button class="tonal" aria-label="Previous sentence" data-act="prev">${ic('skip_previous')}</button><button class="fplay big" aria-label="${v.playing ? 'Pause' : 'Play'}" data-act="toggle">${ic(v.playing ? 'pause' : 'play_arrow')}</button><button class="tonal" aria-label="Next sentence" data-act="next">${ic('skip_next')}</button></div>
+    <div class="sec2">${sec2.map(([i, t, act]) => `<button data-act="${act}"><span class="tonal">${ic(i)}</span>${t}</button>`).join('')}</div></div>`;
+}
+function menu2(v) {
+  const items = [['Export audiobook', '', 'export-sheet'], ['Read code & tables aloud', v.readCode ? ic('check') : '', 'switch'], ['Text size', '', ''], ['Settings', '', 'settings']];
+  return scrim() + `<div class="menu" role="menu">${items.map(([t, tr, act]) => `<button role="menuitem" data-act="${act}">${esc(t)}${tr}</button>`).join('')}</div>`;
+}
+function speedDialog(v) {
+  const pct = (v.speed / 5) * 100;
+  return scrim() + `<div class="dlg" role="dialog" aria-label="Speed"><div class="tm">Speed</div><div class="mt24"><div class="sl" role="slider" aria-valuenow="${SPEEDS[v.speed]}" tabindex="0"><span class="trk"></span><span class="act" style="width:${pct}%"></span>${SPEEDS.map((s, i) => `<span class="tk" style="left:${i * 20}%"></span>`).join('')}<span class="th" style="left:${pct}%"></span></div><div class="sllabels"><span>0.75×</span><span>2×</span></div></div>${speedChips(v)}<div class="acts">${btn('Done', 'txt', 'data-act="close"')}</div></div>`;
+}
+function radioSheet(title, items, selected, act, dataKey) {
+  const rows = items.map((t, i) => `<button class="row" role="radio" aria-checked="${i === selected}" data-act="${act}" data-${dataKey}="${i}"><span class="radio${i === selected ? ' on' : ''}"></span><span class="tx b">${esc(t)}</span></button>`).join('');
+  return scrim() + sheet(`<div class="shh"><span class="tm">${esc(title)}</span></div><div class="bd flush">${rows}</div>`, { auto: true, attrs: `aria-label="${esc(title)}"` });
+}
+const sleepSheet2 = (v) => radioSheet(COPY.r4.sleep, SLEEPS, v.sleep, 'set-sleep', 'sleep');
+const voiceSheet2 = (v) => scrim() + sheet(`<div class="shh"><span class="tm">${COPY.r4.voice}</span>${ib('close', 'Close', 'data-act="close"')}</div><div class="bd flush">${voiceRows(v)}</div>`, { attrs: 'aria-label="Voice"' });
+const exportSheet2 = (v, state = 'E1') => scrim() + sheet(exportPage(v, state, { headerBtn: ib('close', 'Close', 'data-act="close"') }), { attrs: 'aria-label="Export audiobook"' });
+function chaptersTree(v, { expanded = CUR.ch } = {}) {
+  const cur = pos(v);
+  const rows = BOOK.outline.map((e, k) => {
+    const ci = k - 1;
+    const open = ci === expanded;
+    const tr = e.kids.length ? ib(open ? 'expand_less' : 'expand_more', `${open ? 'Collapse' : 'Expand'} ${e.title}`, `data-act="tree-toggle" data-ci="${ci}"`, 'drill') : '';
+    const row = `<div class="chrow lvl1"><button class="tt${ci < CUR.ch && ci >= 0 ? ' read' : ''}" data-act="jump" data-first="${e.first}" style="text-align:left;color:inherit;font:inherit"><span class="ell2">${esc(`${e.num ? `${e.num}. ` : ''}${e.title}`)}</span></button><span class="pgc"><span class="pgl">${ci < CUR.ch && ci >= 0 ? ic('check') : ''}${e.page}</span></span>${tr}</div>`;
+    const kids = open ? e.kids.map((s) => chapterRow(s, { current: s === cur.section, read: s.page < cur.page && s !== cur.section, lvl: 2 })).join('') : '';
+    return row + kids;
+  }).join('');
+  return scrim() + sheet(`<div class="shh"><span class="tm">${COPY.r4.chapters}</span>${ib('close', 'Close', 'data-act="close"')}</div><div class="bd flush tree" data-chapters>${rows}</div>`, { detent: '85%', attrs: 'aria-label="Chapters"' });
+}
+function L1m(v, { small = false, playing = false } = {}) {
+  const rows = BOOKS.slice(1).map((b) => `<button class="row two" data-act="open-book">${tile(b.title, 40, 56)}<span class="tx"><span class="b ell" style="display:block">${esc(b.title)}</span><span class="m ell" style="display:block">${b.pages} pages · opened ${b.opened}</span></span>
+    <span class="tr"><span class="ring cprog" style="--pct:${b.pct}" aria-label="${b.pct} %"><span>${b.pct}</span></span></span></button>`).join('');
+  const mini = playing ? `<div class="mini">${tile(BOOKS[0].title, 48, 48, 8)}<div class="tx"><div class="lb16 ell">${esc(BOOKS[0].title)}</div><div class="bs fg2">Ch. 7 · p. 265</div></div>${ib(v.playing ? 'pause' : 'play_arrow', v.playing ? 'Pause' : 'Play', 'data-act="toggle"')}</div>` : '';
+  return `<div class="scroll" data-scroll><div style="height:${small ? 112 : 200}px"></div><div class="fcard">${tile(BOOKS[0].title, 72, 96, 8)}<div class="tx"><div class="cap fg2">${COPY.l1.cont}</div><div class="tm ell2">${esc(BOOKS[0].title)}</div><div class="bs fg2 ell">${BOOKS[0].place}</div>${progress(49, '', 'margin-top:8px')}</div><button class="tonal" aria-label="Play The Long Book from chapter 7" data-act="continue-play">${ic('play_arrow')}</button></div>
+    <div class="lb" style="padding:24px 16px 8px;color:var(--primary)">${COPY.l1.recent}</div>${rows}<div style="height:160px"></div></div>
+    <div class="lab${small ? ' small' : ''}"><div class="ttl">Library</div><div class="acts">${ib('settings', 'Settings', 'data-act="settings"')}</div></div>${mini}<button class="efab${playing ? ' up' : ''}" data-act="open-pdf">${ic('note_add')}${COPY.l1.open}</button>`;
+}
+
+/* ===== option 3: Quiet ===== */
+function ring48(pct) {
+  return `<span class="ring" style="--pct:${pct}" aria-label="${pct} %">${pct ? `<span>${pct}</span>` : ic('play_arrow')}</span>`;
+}
+function L1q(v, { banner: ban = '', importing = null } = {}) {
+  const rows = BOOKS.map((b, k) => `<button class="qrow${k === 0 ? ' cur' : ''}" data-act="${k === 0 ? 'continue-play' : 'open-book'}">${ring48(b.pct)}<span class="tx"><span class="t ell" style="display:block">${esc(b.title)}</span><span class="m ell" style="display:block">${esc(b.place)}</span></span><span class="when">${b.when}</span></button>`).join(divider('i72'));
+  const imp = importing ? `<div class="qrow"><span class="ring" style="--pct:0"><span class="spin"></span></span><span class="tx"><span class="t ell" style="display:block">${COPY.l3.file}</span><span class="flex mt4" style="gap:8px">${importing === 'long' ? progress(56, '', 'width:120px') + `<span class="m">${COPY.l3.page}</span>` : indeterminate('width:120px') + `<span class="m">${COPY.l3.reading}</span>`}</span></span></div>${divider('i72')}` : '';
+  return `<div class="scroll" data-scroll><div class="qhead"><span class="ttl">${COPY.l1.title}</span>${ib('settings', 'Settings', 'data-act="settings"')}</div>${ban ? `<div class="px16" style="margin-bottom:8px">${ban}</div>` : ''}${imp}${rows}<div style="height:120px"></div></div><button class="qfab" aria-label="${COPY.l1.open}" data-act="open-pdf">${ic('note_add')}</button>`;
+}
+function reader3(v, { state = 'expanded', extra = '', full = false, chip = null } = {}) {
+  const cls = { expanded: '', collapsed: 'collapsed', mid: 'mid' }[state];
+  const line = state !== 'expanded' ? `<div class="pline" aria-hidden="true"><span style="width:${STATS.bookPct}%"></span></div>` : '';
+  return `${readerText(v, full)}${pill(v, { oneLine: true, cls })}${line}${backChip('down', !chip)}${extra}`;
+}
+const hintTip = () => `<div class="hintt" role="status"><span class="sp1">Drag up for more. Long-press play for speed.</span>${btn('Got it', 'txt', 'data-act="hint-ok"')}</div>`;
+const scrubber = (v) => `<div class="scrub" role="radiogroup" aria-label="Speed">${[...SPEEDS].reverse().map((s, k) => chip(s, 5 - k === v.speed, `data-act="set-speed" data-speed="${5 - k}"`)).join('')}</div>`;
+function playerSheet3(v, { voiceOpen = false, voiceAll = false, exportOpen = false, sleepOpen = false, exportState = 'E1' } = {}) {
+  const c = COPY.r4, p = pos(v);
+  const seg = `<div class="segc mt8" role="radiogroup" aria-label="Speed">${SPEEDS.map((s, i) => `<button class="${i === v.speed ? 'on' : ''}" role="radio" aria-checked="${i === v.speed}" data-act="set-speed" data-speed="${i}">${s}</button>`).join('')}</div>`;
+  const voiceRows = voiceOpen ? (voiceAll ? VOICES : VOICES.slice(0, 6)).map((vo) => `<button class="row${vo.name === 'Heart' ? ' sel' : ''}" role="radio" aria-checked="${vo.name === 'Heart'}" data-act="pick-voice"><span class="radio${vo.name === 'Heart' ? ' on' : ''}"></span><span class="tx b">${esc(vo.name)}</span><span class="m">${vo.group}</span></button>`).join('') + (voiceAll ? '' : `<div style="display:flex;justify-content:center">${btn('All 28 voices', 'txt', 'data-act="voice-all"')}</div>`) : '';
+  const exportInline = !exportOpen ? '' : exportState === 'E1'
+    ? `<div class="px16" style="padding-bottom:8px">${COPY.e1.rows.map(([k, val]) => `<div class="krow bs"><span class="k">${k}</span><span>${val}</span></div>`).join('')}${btn('Start', '', 'style="margin-top:12px;height:48px" data-act="start-export"')}</div>`
+    : `<div class="px16" style="padding-bottom:16px">${exportBody(v, exportState, { cancelAct: 'export-inline' })}</div>`;
+  return scrim() + sheet(`<div class="bd">${transportRow(v)}<div class="mt16">${slider(STATS.bookPct, { buffered: STATS.buffered })}</div><div class="flex cap fg2 mt4"><span>Ch. ${p.chNum} · ${STATS.bookPct} %</span><span class="right">${STATS.bookLeft} left</span></div>
+    <button class="mt16" data-act="chapters" style="display:block;text-align:left;color:inherit;width:100%"><span class="lb16 ell2">${esc(`${p.chNum}. ${p.chapterTitle} › ${p.sectionTitle}`)}</span><span class="bs fg2" style="display:block">${STATS.chapterPct} % of this chapter · ${STATS.chapterLeft} left in it · Page ${p.page} · PDF page ${STATS.pdfPage} of ${STATS.pdfPages}</span></button>
+    <div class="lb w6 mt16">${c.speed}</div>${seg}<div class="mt8">
+    ${sheetRow('record_voice_over', c.voice, c.voiceSub, ic(voiceOpen ? 'expand_less' : 'expand_more'), `data-act="voice-inline" aria-expanded="${voiceOpen}"`)}${voiceRows}${divider('i0')}
+    ${sheetRow('bedtime', c.sleep, v.sleep ? c.stopsAt : SLEEPS[v.sleep], ic(sleepOpen ? 'expand_less' : 'expand_more'), `data-act="sleep-row" aria-expanded="${sleepOpen}"`)}${sleepOpen ? sleepChips(v) : ''}${divider('i0')}
+    <div class="row">${ic('menu_book', 'lead')}<span class="tx"><span class="t" style="display:block">${c.readCode}</span></span><span class="tr">${switchCtl(v.readCode, c.readCode)}</span></div>${divider('i0')}
+    ${sheetRow('download', c.export, c.exportSub, ic(exportOpen ? 'expand_less' : 'expand_more'), `data-act="export-inline" aria-expanded="${exportOpen}"`)}${exportInline}${divider('i0')}
+    ${sheetRow('menu_book', c.library, '', ic('chevron_right'), 'data-act="to-library"')}</div></div>`, { detent: '600px', attrs: 'aria-label="Player"' });
+}
+function outline3(v, { query = '' } = {}) {
+  const cur = pos(v);
+  const q = query.toLowerCase();
+  const mark = (t) => { if (!q) return esc(t); const k = t.toLowerCase().indexOf(q); return k < 0 ? esc(t) : `${esc(t.slice(0, k))}<b>${esc(t.slice(k, k + q.length))}</b>${esc(t.slice(k + q.length))}`; };
+  const matches = (e) => !q || e.title.toLowerCase().includes(q);
+  const rows = BOOK.outline.map((e) => {
+    const secs = e.kids.filter((s) => matches(s) || s.kids.some(matches));
+    if (q && !secs.length) return '';
+    const head = `<button class="o1${e === cur.chapter ? ' cur' : ''}" data-act="jump" data-first="${e.first}"><span class="tt">${mark(`${e.num ? `${e.num}. ` : ''}${e.title}`)}</span><span class="pg">${e.page}</span></button>`;
+    const kids = (q ? secs : e.kids).map((s) => {
+      const subs = (q ? s.kids.filter(matches) : s.kids).map((t) => `<button class="o3" data-act="jump" data-first="${t.first}"><span class="tt">${mark(t.title)}</span><span class="pg">${t.page}</span></button>`).join('');
+      return `<button class="o2${s === cur.section ? ' cur' : ''}" data-act="jump" data-first="${s.first}"><span class="tt">${mark(`${s.num} ${s.title}`)}</span><span class="pg">${s.page}</span></button>${subs}`;
+    }).join('');
+    return head + kids;
+  }).join('');
+  const field = `<div class="search" role="search">${ic('search')}<span>${q ? `<span class="typed">${esc(query)}</span>` : 'Find a chapter or section'}</span></div>`;
+  return scrim() + sheet(`<div class="shh"><span class="tm">${COPY.r4.chapters}</span>${ib('close', 'Close', 'data-act="close"')}</div>${field}<div class="bd flush outl" data-chapters>${rows}</div>`, { cls: 'full', attrs: 'aria-label="Chapters"' });
+}
+
+/* ===== option 4: Stage ===== */
+function modeSeg(v, mode) {
+  return `<div class="segc modeseg" role="radiogroup" aria-label="Reader mode"><button class="${mode === 'read' ? 'on' : ''}" role="radio" aria-checked="${mode === 'read'}" data-act="mode-read">Read</button><button class="${mode === 'listen' ? 'on' : ''}" role="radio" aria-checked="${mode === 'listen'}" data-act="mode-listen">Listen</button></div>`;
+}
+function L1s(v, { banner: ban = '', importing = null } = {}) {
+  const b = BOOKS[0];
+  const cells = BOOKS.slice(1).map((k) => `<button class="gtile" data-act="open-book" aria-label="${esc(k.title)}, ${k.pct} %"><span class="tile ${hue(k.title)}"><span class="ell3">${esc(k.title)}</span>${progress(k.pct)}</span><span class="cap fg2">${k.pct} % · ${k.when === 'now' ? 'now' : k.opened}</span></button>`).join('');
+  const imp = importing ? `<div class="gtile"><span class="tile" style="background:var(--bg2);color:var(--fg)"><span class="ell3">${COPY.l3.file}</span>${importing === 'long' ? progress(56) : indeterminate('position:absolute;left:12px;right:12px;bottom:12px')}</span><span class="cap fg2">${importing === 'long' ? COPY.l3.page : COPY.l3.reading}</span></div>` : '';
+  return `<div class="scroll" data-scroll>${libTop(v)}${ban ? `<div class="px16" style="margin-bottom:16px">${ban}</div>` : ''}<div class="hero">${tile(b.title, 120, 160, 12)}<div class="tx"><div class="tm ell2">${esc(b.title)}</div><div class="bs fg2 ell">Ch. 7 · ${esc(CUR_ENTRY.title)}</div><div class="flex mt4">${progress(b.pct, '', 'flex:1')}<span class="cap fg2">${b.pct} %</span></div></div>
+    <div class="btns">${btn('Listen from p. 265', '', 'data-act="continue-play"', 'headphones')}${btn('Read', 'sec', 'data-act="open-book"', 'menu_book')}</div></div>
+    <div class="lb w6" style="padding:24px 16px 12px">${COPY.l1.recent}</div><div class="grid"><button class="gtile" data-act="open-pdf"><span class="open">${ic('note_add')}<span class="lb">${COPY.l1.open}</span></span></button>${imp}${cells}</div></div>`;
+}
+function stageSentence(i) {
+  const s = BOOK.sentences[i];
+  if (!s) return '';
+  if (s.kind === 'cue') return `<div class="ccard"><span class="lb">Code example</span><pre>${esc(BOOK.blocks[s.b].text)}</pre><span class="cap fg2" style="display:block;margin-top:8px">${CODE_CUE}</span></div>`;
+  return esc(s.text);
+}
+function stage(v, { anim = '', overlay = '' } = {}) {
+  const p = pos(v);
+  const ticks = CUR_ENTRY.kids.map((s, k) => `<span class="tk" style="left:${(k / CUR_ENTRY.kids.length * 100).toFixed(1)}%"></span>`).join('');
+  return `<div class="stage" data-stage><div class="hdr"><div class="bs fg2">${esc(BOOKS[0].title)}</div><div class="ch ell">${esc(p.sectionTitle)}</div></div>
+    <div class="tp ${anim}" data-act="stage-tap" data-tp><div class="nb ell3" aria-hidden="true">${stageSentence(v.idx - 1)}</div><div class="cur" aria-live="polite">${stageSentence(v.idx)}</div><div class="nb ell3" aria-hidden="true">${stageSentence(v.idx + 1)}</div></div>
+    <div class="tz"><div><div class="sl" role="progressbar" aria-valuenow="${STATS.chapterPct}" style="height:12px"><span class="trk"></span><span class="act" style="width:${STATS.chapterPct}%"></span>${ticks}</div><div class="flex cap fg2 mt4"><span>${STATS.chapterPct} % of chapter ${p.chNum}</span><span class="right">${STATS.chapterLeft} left</span></div></div>
+    <div class="trow"><button class="sbtn s64" aria-label="Previous sentence" data-act="prev">${ic('skip_previous')}</button><button class="sbtn s88" aria-label="${v.playing ? 'Pause' : 'Play'}" data-act="toggle">${ic(v.playing ? 'pause' : 'play_arrow')}</button><button class="sbtn s64" aria-label="Next sentence" data-act="next">${ic('skip_next')}</button></div>
+    <div class="secs">${btn('‹ Section', 'sec', 'data-act="prev-section"')}${btn('Section ›', 'sec', 'data-act="next-section"')}</div>
+    <div class="icons"><button class="ib" aria-label="Speed ${SPEEDS[v.speed]}" data-act="speed-sheet">${SPEEDS[v.speed]}</button>${ib('bedtime', 'Sleep timer', 'data-act="sleep-sheet"')}${ib('record_voice_over', 'Voice', 'data-act="voice-sheet"')}${ib('toc', 'Chapters', 'data-act="chapters"')}</div></div>
+    ${modeSeg(v, 'listen')}<div data-stage-overlay>${overlay}</div></div>`;
+}
+const speedSheet4 = (v) => scrim() + sheet(`<div class="shh"><span class="tm">${COPY.r4.speed}</span>${ib('close', 'Close', 'data-act="close"')}</div><div class="bd">${speedChips(v)}</div>`, { auto: true, attrs: 'aria-label="Speed"' });
+const sleepSheet4 = (v) => scrim() + sheet(`<div class="shh"><span class="tm">${COPY.r4.sleep}</span>${ib('close', 'Close', 'data-act="close"')}</div><div class="bd">${sleepChips(v)}</div>`, { auto: true, attrs: 'aria-label="Sleep timer"' });
+const voiceSheet4 = (v) => scrim() + sheet(`<div class="shh"><span class="tm">${COPY.r4.voice}</span>${ib('close', 'Close', 'data-act="close"')}</div><div class="bd flush">${voiceRows(v)}</div>`, { attrs: 'aria-label="Voice"' });
+
+/* ===== frame registry: every static state per option ===== */
+const GROUPS = [['first', 'First run'], ['library', 'Library'], ['reader', 'Reader & player'], ['chapters', 'Chapters'], ['background', 'Background'], ['export', 'Export'], ['settings', 'Settings']];
+
+/* f(id, name, note, build, extra): build(v) returns the screen's inner HTML; extra = {scrim, scroll, shift, x2, state} */
+const f = (id, name, note, build, extra = {}) => ({ id, name, note, build, ...extra });
+const RD = { scrim: true, scroll: 'hl' };
+
+function baseFrames(o) {
+  const rd = o.reader, lib = o.library, lib2 = o.empty, sheetFn = o.player, chap = o.chapters;
+  return {
+    first: [
+      f('S1', 'Welcome', 'First run. "Not now, just read" skips the voice (Q11).', S1),
+      f('S2', 'Choose model', 'Nothing pre-selected; the primary button is disabled until a card is picked.', S2),
+      f('S2s', 'Choose model · selected', '"Full quality" picked: 2 px accent border, container background.', (v) => S2(v, { sel: 'full' })),
+      f('S2b', 'Metered dialog', 'Shown when the download starts on mobile data.', S2b),
+      f('S3', 'Downloading', 'Progress, speed line and the reassurance card.', S3),
+      f('S3a', 'Downloading · paused', '"Resume" becomes the primary button.', (v) => S3(v, 'a')),
+      f('S3b', 'Waiting for network', 'Warn banner between the speed line and the card.', (v) => S3(v, 'b')),
+      f('S3c', 'Damaged · retry', 'Error banner with "Try again".', (v) => S3(v, 'c')),
+      f('S3d', 'Storage full', 'Error banner; the download cannot continue.', (v) => S3(v, 'd')),
+      f('S4', 'Ready', 'Hear a sample, then open a PDF.', S4),
+    ],
+    library: [
+      f('L1', 'Library', 'Continue card on top, recent books, "Open PDF" at the bottom.', lib),
+      f('L2', 'Empty', 'No books yet.', lib2),
+      f('L3', 'Importing', 'Indeterminate progress while the text is cleaned.', (v) => lib(v, { importing: 'short' })),
+      f('L3b', 'Importing · long', 'Determinate progress with the page count.', (v) => lib(v, { importing: 'long' })),
+      f('L4', 'Import error', COPY.l4.others, o.importError),
+      f('L5', 'Voice not installed', 'Banner above the Continue card; reading works without the voice.', (v) => lib(v, { banner: banner('warn', 'warning', COPY.l5.text, btn(COPY.l5.action, 'txt')) })),
+      f('L6', 'Already in library', 'Snackbar over the reader after opening a known PDF.', o.snackbar, RD),
+    ],
+    reader: [
+      f('R1', 'Reader, playing', 'Edge-to-edge text; the highlight sits at 35 % of the height.', rd, RD),
+      f('R2', 'Scrolled away', 'Highlight below the view: "Back to current" chip with ↓.', (v) => rd(v, { chip: 'down' }), { scrim: true, scroll: 'hl', shift: -600 }),
+      f('R3', 'Preparing', 'Play tapped: spinner in the status, ring around the play button.', (v) => rd({ ...v, prep: true }), RD),
+      f('R4', 'Player sheet · half', 'Transport, slider, chapter card and speed visible at the half detent.', (v) => rd(v) + sheetFn(v), RD),
+      f('R4f', 'Player sheet · full', 'All rows visible.', (v) => rd(v) + sheetFn(v, { detent: '100%' }), RD),
+      f('R5', 'Voice page', '"Heart" selected; "Bella" playing a sample.', (v) => rd(v) + o.voice(v), RD),
+      f('R6', 'Sleep timer', '"30 min" selected; the pill shows the moon and "28 min".', (v) => rd({ ...v, sleep: 2 }) + o.sleep({ ...v, sleep: 2 }), RD),
+      f('R7', 'Slow phone', 'Shown once per book when audio runs out; never while it keeps up.', (v) => rd({ ...v, speed: 3, slow: true }, { tip: slowTip(false) }), RD),
+      f('R7p', 'Slow phone + Prepare', 'Only if the spike needs it: adds "Prepare this chapter while charging".', (v) => rd({ ...v, speed: 3, slow: true }, { tip: slowTip(true) }), RD),
+      f('R9', 'Voice failed', 'Error banner under the status bar; pill says "Voice unavailable".', (v) => rd({ ...v, playing: false, voice: 'failed' }, { topBanner: true }), RD),
+      f('R10', 'Notification permission', 'Our sheet first, so the system dialog is expected.', (v) => rd(v) + o.notif(v), RD),
+      f('R10b', 'System dialog', 'Android asks; "Don’t allow" keeps the player in-app only.', (v) => rd(v) + o.notifSys(v), RD),
+      f('R11', 'Predictive back', 'Back swipe in progress: release to go to the library.', (v) => lib(v) + `<div class="layer peek" aria-hidden="true">${rd(v)}</div>`, { scroll: 'hl' }),
+      f('R12', 'Reader · 200 % font', 'Status shows line 1 only; the pill grows to 72.', rd, { scrim: true, scroll: 'hl', x2: true }),
+      f('R12b', 'Library · 200 % font', 'The Continue card stacks the play button under the text.', lib, { x2: true }),
+    ],
+    chapters: [
+      f('R8', 'Chapters sheet', 'Opens with the current chapter centred; "›" drills into sections.', (v) => rd(v) + chap(v), RD),
+      f('R8b', 'Drilled in', 'Sections of chapter 7; 7.1 and 7.2 read, 7.3 current at 38 %.', (v) => rd(v) + chap(v, { drill: [CUR_ENTRY] }), RD),
+      f('R8c', 'No chapters', 'Pill status shows "p. 12 of 18" on one line.', (v) => rd({ ...v, noChapters: true }) + chap(v, { empty: true }), RD),
+    ],
+    background: [
+      f('N1', 'Notification card', 'System-drawn; we only set title, subtitle, artwork and buttons. Next = next sentence.', N1),
+      f('N2', 'Lock screen', 'Same card; no seek bar (each item is one sentence).', N2),
+      f('N3', 'Export notification', 'Progress with Pause and Cancel.', N3),
+      f('N4', 'Download notification', 'Progress with Pause.', N4),
+    ],
+    export: [
+      f('E1', 'Ready to start', 'What you get and how long it takes, before the button.', (v) => rd(v) + o.export(v, 'E1'), RD),
+      f('E2', 'Running', 'Listening comes first; the export slows down while you listen.', (v) => rd(v) + o.export(v, 'E2'), RD),
+      f('E3', 'Paused by Android', 'Background time limit; continues while charging or when opened.', (v) => rd(v) + o.export(v, 'E3'), RD),
+      f('E4', 'Done', 'Save to Audiobooks, Save as… or Share.', (v) => rd(v) + o.export(v, 'E4'), RD),
+      f('E5', 'Failed', 'Out of space; finished parts are kept.', (v) => rd(v) + o.export(v, 'E5'), RD),
+    ],
+    settings: [
+      f('T1', 'Settings', 'Scrolled to the top.', T1),
+      f('T1b', 'Settings · bottom', 'Storage, battery and about.', (v) => T1(v, { scrolled: true }), { scroll: 'end' }),
+      f('T2', 'Voice model', 'Full quality installed; the smaller one can be downloaded.', T2),
+      f('T2b', 'Both installed', '"Use this" switches; "Delete" frees 126 MB.', (v) => T2(v, { both: true })),
+      f('T2c', 'Delete confirm', 'Nothing is lost that cannot be downloaded again.', (v) => T2(v, { both: true, confirm: true })),
+    ],
+  };
+}
+
+/* option 1 "Pill" */
+function reader1(v, { chip = null, tip = '', topBanner = false } = {}) {
+  const extra = (tip || '') + (topBanner ? `<div class="topban">${banner('err', 'error', COPY.r9.text, btn(COPY.r9.action, 'txt'))}</div>` : '');
+  return `${readerText(v)}${pill(v)}${backChip('down', !chip)}${extra}`;
+}
+const OPT1 = {
+  reader: reader1, library: L1, empty: L2, importError: (v) => L1(v) + importErrorSheet(v), snackbar: (v) => reader1(v) + snackbar(COPY.l6),
+  player: (v, o) => playerSheet(v, o), chapters: chaptersSheet,
+  voice: (v) => playerSheet(v, { detent: '100%', page: 'voice' }), sleep: (v) => playerSheet(v, { detent: '100%', sleepOpen: true }),
+  notif: (v) => scrim() + sheet(`<div class="bd"><div class="tm">${COPY.r10.title}</div><div class="b mt12">${COPY.r10.body}</div>${btn(COPY.r10.cont, '', 'style="margin-top:24px"')}</div>`, { auto: true, attrs: 'aria-label="Notification permission"' }),
+  notifSys: (v) => scrim() + `<div class="dlg sys" role="dialog"><div class="mark s32" style="margin:0 auto">L</div><div class="b mt16">${COPY.r10.sys}</div><div class="acts" style="flex-direction:column;align-items:stretch">${btn(COPY.r10.allow, 'txt')}${btn(COPY.r10.deny, 'txt')}</div></div>`,
+  export: (v, state) => playerSheet(v, { detent: '100%', page: 'export', exportState: state }),
+};
+
+/* option 2 "Material": reader with app bar + floating toolbar; player = Now playing */
+function reader2s(v, { chip = null, tip = '', topBanner = false, hidden = false } = {}) {
+  const extra = (tip || '') + (topBanner ? `<div class="topban" style="top:104px">${banner('err', 'error', COPY.r9.text, btn(COPY.r9.action, 'txt'))}</div>` : '');
+  return `${readerText(v)}${appBar(v, { hidden })}${floatingToolbar(v)}${backChip('down', !chip)}${extra}`;
+}
+const OPT2 = {
+  ...OPT1, reader: reader2s, library: (v, o = {}) => L1m(v, o),
+  empty: (v) => `<div class="empty" style="bottom:0"><div class="tl">${COPY.l2.title}</div><div class="b fg2 mt8">${COPY.l2.body}</div><div class="cap fg2 mt12">${COPY.l2.limits}</div></div><div class="lab small"><div class="ttl">Library</div><div class="acts">${ib('settings', 'Settings')}</div></div><button class="efab">${ic('note_add')}${COPY.l1.open}</button>`,
+  importError: (v) => L1m(v) + importErrorSheet(v), snackbar: (v) => reader2s(v) + snackbar(COPY.l6),
+  player: (v) => menu2(v), chapters: (v, o = {}) => o.empty ? chaptersSheet(v, o) : chaptersTree(v, o.drill ? { expanded: 3 } : {}),
+  voice: voiceSheet2, sleep: sleepSheet2, export: (v, state) => exportSheet2(v, state),
+};
+function framesOption2() {
+  const fr = baseFrames(OPT2);
+  fr.library.splice(1, 0, f('L1b', 'Library · scrolled', 'The large title collapses to a 64 dp bar.', (v) => L1m(v, { small: true })), f('L1c', 'Library · playing', 'A mini player sits above the FAB; the FAB moves up.', (v) => L1m(v, { playing: true })));
+  fr.reader.splice(1, 0, f('R1b', 'App bar hidden', 'Scrolling down hides the app bar; scrolling up brings it back.', (v) => reader2s(v, { hidden: true }), RD));
+  fr.reader = fr.reader.map((x) => x.id === 'R4' ? f('R4', 'More menu', 'The player sheet is replaced by Now playing (R13); "more" is a Material menu.', (v) => reader2s(v) + menu2(v), RD) : x).filter((x) => x.id !== 'R4f');
+  fr.reader.splice(5, 0, f('R13', 'Now playing', 'Full-screen player with cover, scrubber, button group and tonal buttons.', (v) => reader2s(v) + nowPlaying(v), RD),
+    f('R13s', 'Speed dialog', 'Slider with 0.25 steps plus chips.', (v) => reader2s(v) + nowPlaying(v) + speedDialog(v), RD));
+  fr.reader = fr.reader.map((x) => x.id === 'R5' ? { ...x, name: 'Voice sheet', note: 'Opened from Now playing; a modal list with radio items.' } : x.id === 'R6' ? { ...x, name: 'Sleep timer sheet', note: 'Modal bottom sheet with radio items.' } : x);
+  fr.chapters = fr.chapters.map((x) => x.id === 'R8' ? { ...x, name: 'Chapters tree', note: 'Expandable tree; the current chapter opens expanded; current row = tonal pill.' } : x.id === 'R8b' ? { ...x, name: 'Another chapter expanded', note: 'Chapter 4’s long title wraps to two lines.' } : x);
+  return fr;
+}
+
+/* option 3 "Quiet" */
+function reader3s(v, { chip = null, tip = '', topBanner = false, state = 'expanded' } = {}) {
+  const extra = (tip || '') + (topBanner ? `<div class="topban">${banner('err', 'error', COPY.r9.text, btn(COPY.r9.action, 'txt'))}</div>` : '');
+  return reader3(v, { state, extra, chip });
+}
+const OPT3 = {
+  ...OPT1, reader: reader3s, library: L1q, empty: (v) => `<div class="qhead"><span class="ttl">${COPY.l1.title}</span>${ib('settings', 'Settings')}</div><div class="empty" style="bottom:0"><div class="tl">${COPY.l2.title}</div><div class="b fg2 mt8">${COPY.l2.body}</div><div class="cap fg2 mt12">${COPY.l2.limits}</div></div><button class="qfab" aria-label="${COPY.l1.open}">${ic('note_add')}</button>`,
+  importError: (v) => L1q(v) + importErrorSheet(v), snackbar: (v) => reader3s(v) + snackbar(COPY.l6),
+  player: (v) => playerSheet3(v), chapters: (v, o = {}) => o.empty ? chaptersSheet(v, { empty: true, cls: 'full' }) : outline3(v),
+  voice: (v) => playerSheet3(v, { voiceOpen: true }), sleep: (v) => playerSheet3(v, { sleepOpen: true }),
+  export: (v, state) => playerSheet3(v, { exportOpen: true, exportState: state }),
+};
+function framesOption3() {
+  const fr = baseFrames(OPT3);
+  fr.reader.splice(1, 0,
+    f('R1c', 'Collapsed pill', 'After scrolling down while playing, or 4 s without touches: a round play button and a 2 dp progress line.', (v) => reader3s(v, { state: 'collapsed' }), RD),
+    f('R1t', 'Pill morphing', 'Transition frame between expanded and collapsed.', (v) => reader3s(v, { state: 'mid' }), RD),
+    f('R1h', 'One-time hint', 'Shown once: gestures are invisible, so the app says them.', (v) => reader3s(v) + hintTip(), RD),
+    f('R1s', 'Speed scrubber', 'Long-press play: slide to a speed, release to apply.', (v) => reader3s(v) + scrubber(v), RD));
+  fr.reader = fr.reader.map((x) => x.id === 'R4' ? { ...x, name: 'Player sheet', note: 'Single page: segmented speed, inline voice list, inline sleep and export rows.' } : x.id === 'R5' ? { ...x, name: 'Voice inline', note: 'Six rows plus "All 28 voices".' } : x.id === 'R6' ? { ...x, name: 'Sleep inline', note: 'Chips inside the row.' } : x).filter((x) => x.id !== 'R4f');
+  fr.chapters = [
+    f('R8', 'Chapters outline', 'Full-height, searchable, sticky chapter headers; every level in one list.', (v) => reader3s(v) + outline3(v), RD),
+    f('R8s', 'Search "summ"', 'Results grouped under their chapter headers, match bolded.', (v) => reader3s(v) + outline3(v, { query: 'summ' }), RD),
+    f('R8b', 'Outline · sections', 'Level 2 and 3 entries indented; the current entry has the accent bar.', (v) => reader3s(v) + outline3(v), { scrim: true, scroll: 'hl', shiftSheet: 160 }),
+    f('R8c', 'No chapters', 'The empty text in the full-height sheet.', (v) => reader3s({ ...v, noChapters: true }) + chaptersSheet(v, { empty: true, cls: 'full' }), RD),
+  ];
+  fr.export = fr.export.map((x) => ({ ...x, note: `${x.note} (inline in the player sheet)` }));
+  return fr;
+}
+
+/* option 4 "Stage" */
+function reader4s(v, o = {}) { return reader1(v, o) + modeSeg(v, 'read'); }
+const OPT4 = { ...OPT1, reader: reader4s, library: L1s, snackbar: (v) => reader4s(v) + snackbar(COPY.l6), importError: (v) => L1s(v) + importErrorSheet(v) };
+function framesOption4() {
+  const fr = baseFrames(OPT4);
+  fr.reader.splice(1, 0,
+    f('R13', 'Listen stage', 'Current sentence large in the middle; giant controls in the thumb zone.', (v) => stage(v), { scrim: false }),
+    f('R13c', 'Stage · code block', 'A code block becomes a card; "Code example." is what is read.', (v) => stage({ ...v, idx: BOOK.blocks[BOOK.blocks.findIndex((b) => b.kind === 'code' && b.text.startsWith('outline'))].cue })),
+    f('R13s', 'Stage · speed sheet', 'Small sheets in stage colours for speed, sleep and voice.', (v) => stage(v, { overlay: speedSheet4(v) })),
+    f('R8L', 'Chapters in Listen mode', 'Option 1’s sheet in stage colours.', (v) => stage(v, { overlay: chaptersSheet(v) })));
+  fr.library = fr.library.map((x) => x.id === 'L1' ? { ...x, name: 'Shelf', note: 'Hero with "Listen from p. 265" and "Read"; a two-column grid of covers; "Open PDF" is the first cell.' } : x);
+  return fr;
+}
+
+const FRAMES = { 1: () => baseFrames(OPT1), 2: framesOption2, 3: framesOption3, 4: framesOption4 };
+
+/* ===== the live phone: one interactive prototype per option ===== */
+const SPRING_MS = 320;
+const STEP_MS = 2500;
+const HALF_DETENT = 600;
+const LONG_PRESS_MS = 500;
+const IDLE_COLLAPSE_MS = 4000;
+const EXPORT_ANIM_MS = 6000;
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const after = (ms, fn) => setTimeout(fn, reducedMotion() ? 0 : ms);
+
+class Live {
+  constructor(host, opt, env) {
+    this.host = host;
+    this.v = defaultView({ opt, ...env, playing: false, screen: 'L1', mode: 'read' });
+    this.s = { sheet: null, page: null, drill: null, detent: 'half', sleepOpen: false, exportState: 'E1', follow: true, collapsed: false, hint: true, voiceOpen: false, voiceAll: false, exportOpen: false, expanded: CUR.ch, barHidden: false, settings: null, scrub: false };
+    this.timer = null;
+    host.innerHTML = phone(this.v, '');
+    this.screen = host.querySelector('.screen');
+    this.screen.insertAdjacentHTML('afterbegin', `<div class="layer lib" data-layer="lib"></div>`);
+    this.lib = this.screen.querySelector('[data-layer="lib"]');
+    this.renderLib();
+    this.screen.addEventListener('click', (e) => this.onClick(e));
+    this.screen.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+    this.screen.addEventListener('wheel', (e) => this.onManualScroll(e), { passive: true });
+    this.screen.addEventListener('touchmove', (e) => this.onManualScroll(e), { passive: true });
+    this.screen.addEventListener('scroll', (e) => this.onScroll(e), true);
+  }
+
+  /* ---- environment from the toolbar ---- */
+  setEnv(env) {
+    Object.assign(this.v, env);
+    this.screen.dataset.theme = this.v.theme;
+    this.screen.dataset.w = this.v.w;
+    if (this.v.opt === 2) this.screen.dataset.wall = this.v.wall;
+    this.renderChrome();
+  }
+
+  /* ---- rendering ---- */
+  libHtml() {
+    const o = { 1: L1, 2: (v) => L1m(v, { playing: v.playing }), 3: L1q, 4: L1s }[this.v.opt];
+    return o(this.v);
+  }
+  renderLib() { this.lib.innerHTML = this.libHtml(); }
+  readerBody() {
+    const v = this.v;
+    if (v.opt === 2) return `${readerText(v, true)}${appBar(v, { hidden: this.s.barHidden, scrolled: true })}${floatingToolbar(v)}${backChip('down', true)}`;
+    if (v.opt === 3) return reader3(v, { full: true, state: this.s.collapsed ? 'collapsed' : 'expanded', extra: this.s.hint ? hintTip() : '' });
+    const base = reader(v, { full: true });
+    return v.opt === 4 ? base + modeSeg(v, 'read') : base;
+  }
+  openReader() {
+    const layer = document.createElement('div');
+    layer.className = 'layer push';
+    layer.dataset.layer = 'reader';
+    layer.innerHTML = this.readerBody();
+    this.screen.appendChild(layer);
+    this.reader = layer;
+    this.rd = layer.querySelector('.rd');
+    this.v.screen = 'R';
+    this.s.follow = true;
+    this.setScrim(true);
+    this.scrollToHl(false);
+    requestAnimationFrame(() => layer.classList.remove('push'));
+    this.syncTimer();
+  }
+  closeReader() {
+    this.stopTimer();
+    this.reader?.remove();
+    this.reader = null;
+    this.v.screen = 'L1';
+    this.v.mode = 'read';
+    this.setScrim(false);
+    this.renderLib();
+  }
+  setScrim(on) { this.screen.querySelector('.sb').classList.toggle('scrim', on); }
+  /* replaces the controls around the text without touching the text */
+  renderChrome() {
+    if (this.v.screen === 'L1') { this.renderLib(); return; }
+    if (this.v.screen === 'T') { this.settings.innerHTML = this.s.settings === 'T2' ? T2(this.v) : T1(this.v); return; }
+    if (!this.reader) return;
+    const v = this.v;
+    const swap = (sel, html) => { const el = this.reader.querySelector(sel); if (el) el.outerHTML = html; };
+    if (v.opt === 2) { swap('.appbar', appBar(v, { hidden: this.s.barHidden })); swap('.ftb', floatingToolbar(v)); }
+    else swap('.pill', pill(v, { oneLine: v.opt === 3, cls: v.opt === 3 && this.s.collapsed ? 'collapsed' : '', expanded: this.s.sheet === 'player' }));
+    if (v.opt === 3) { const line = this.reader.querySelector('.pline'); if (this.s.collapsed && !line) this.reader.insertAdjacentHTML('beforeend', `<div class="pline" aria-hidden="true"><span style="width:${STATS.bookPct}%"></span></div>`); else if (!this.s.collapsed && line) line.remove(); }
+    if (v.opt === 4 && v.mode === 'listen') { const st = this.reader.querySelector('.stage'); if (st) st.outerHTML = stage(v, { overlay: st.querySelector('[data-stage-overlay]').innerHTML }); }
+    this.updateChip();
+    const np = this.screen.querySelector('.np');
+    if (np) { np.outerHTML = nowPlaying(v); }
+  }
+  overlayHtml() {
+    const v = this.v, s = this.s;
+    switch (s.sheet) {
+      case 'player': return v.opt === 3 ? playerSheet3(v, { voiceOpen: s.voiceOpen, voiceAll: s.voiceAll, exportOpen: s.exportOpen, sleepOpen: s.sleepOpen, exportState: s.exportState })
+        : playerSheet(v, { detent: s.detent === 'full' ? '100%' : `${HALF_DETENT}px`, page: s.page, sleepOpen: s.sleepOpen, exportState: s.exportState });
+      case 'chapters': return v.opt === 2 ? chaptersTree(v, { expanded: s.expanded }) : v.opt === 3 ? outline3(v) : chaptersSheet(v, { drill: s.drill });
+      case 'menu': return menu2(v);
+      case 'speed': return v.opt === 2 ? speedDialog(v) : speedSheet4(v);
+      case 'sleep': return v.opt === 2 ? sleepSheet2(v) : sleepSheet4(v);
+      case 'voice': return v.opt === 2 ? voiceSheet2(v) : voiceSheet4(v);
+      case 'export': return exportSheet2(v, s.exportState);
+      case 'np': return nowPlaying(v);
+      case 'scrub': return scrubber(v);
+      default: return '';
+    }
+  }
+  overlayHost() {
+    const st = this.reader?.querySelector('[data-stage-overlay]');
+    return this.v.mode === 'listen' && st ? st : this.screen;
+  }
+  topOverlay() { const all = this.screen.querySelectorAll('[data-overlay]'); return all[all.length - 1] || null; }
+  /* sheets opened from Now playing stack on top of it; everything else replaces what is open */
+  openOverlay(kind) {
+    if (this.s.sheet === 'np' && kind !== 'np') this.s.under = 'np'; else this.closeOverlayNow();
+    this.s.sheet = kind;
+    const host = this.overlayHost();
+    const wrap = document.createElement('div');
+    wrap.dataset.overlay = kind;
+    wrap.innerHTML = this.overlayHtml();
+    host.appendChild(wrap);
+    const sh = wrap.querySelector('.sheet, .np');
+    if (sh) { sh.classList.add('off'); requestAnimationFrame(() => sh.classList.remove('off')); }
+    this.renderChrome();
+    this.centreCurrentChapter();
+  }
+  /* re-renders the open overlay in place (no animation), keeping its scroll position */
+  refreshOverlay() {
+    const wrap = this.topOverlay();
+    if (!wrap) return;
+    const bd = wrap.querySelector('.bd');
+    const top = bd ? bd.scrollTop : 0;
+    wrap.innerHTML = this.overlayHtml();
+    const nb = wrap.querySelector('.bd');
+    if (nb) nb.scrollTop = top;
+  }
+  closeOverlay() {
+    const wrap = this.topOverlay();
+    this.s.sheet = this.s.under || null; this.s.under = null; this.s.page = null; this.s.drill = null; this.s.sleepOpen = false; this.s.detent = 'half';
+    if (!wrap) return;
+    const sh = wrap.querySelector('.sheet, .np');
+    wrap.querySelector('.scrimL')?.classList.add('off');
+    if (sh) { sh.classList.remove('drag'); sh.classList.add('off'); after(SPRING_MS, () => wrap.remove()); } else wrap.remove();
+    this.renderChrome();
+  }
+  closeOverlayNow() { this.screen.querySelectorAll('[data-overlay]').forEach((n) => n.remove()); this.s.sheet = null; this.s.under = null; }
+  pushPage(page) {
+    this.s.page = page;
+    const sh = this.topOverlay()?.querySelector('.sheet');
+    if (!sh) return;
+    this.s.detent = 'full';
+    sh.style.setProperty('--detent', '100%');
+    sh.insertAdjacentHTML('beforeend', `<div class="page push">${page === 'voice' ? voicePage(this.v) : exportPage(this.v, this.s.exportState)}</div>`);
+    const pg = sh.querySelector('.page');
+    requestAnimationFrame(() => pg.classList.remove('push'));
+  }
+  popPage() {
+    const pg = this.topOverlay()?.querySelector('.page');
+    this.s.page = null;
+    if (!pg) return;
+    pg.classList.add('push');
+    after(SPRING_MS, () => pg.remove());
+  }
+  openSettings(which = 'T1') {
+    const layer = document.createElement('div');
+    layer.className = 'layer push';
+    layer.dataset.layer = 'settings';
+    layer.innerHTML = which === 'T2' ? T2(this.v) : T1(this.v);
+    this.screen.appendChild(layer);
+    this.settings = layer;
+    this.s.settings = which;
+    this.v.screen = 'T';
+    requestAnimationFrame(() => layer.classList.remove('push'));
+  }
+  closeSettings() { this.settings?.remove(); this.settings = null; this.v.screen = this.reader ? 'R' : 'L1'; }
+  centreCurrentChapter() {
+    const wrap = this.topOverlay();
+    const cur = wrap?.querySelector('[data-chapters] .cur, [data-chapters] .chrow.cur');
+    const bd = wrap?.querySelector('.bd');
+    if (cur && bd) bd.scrollTop = cur.offsetTop - bd.offsetTop - (bd.clientHeight - cur.offsetHeight) / 2;
+  }
+
+  /* ---- playback ---- */
+  syncTimer() { this.stopTimer(); if (this.v.playing && this.v.screen !== 'L1') this.timer = setInterval(() => this.step(1), STEP_MS); }
+  stopTimer() { clearInterval(this.timer); this.timer = null; }
+  togglePlay() {
+    this.v.playing = !this.v.playing;
+    this.v.ended = false;
+    if (this.v.playing && this.v.opt !== 2) { this.v.prep = true; after(900, () => { this.v.prep = false; this.renderChrome(); }); }
+    this.renderChrome();
+    this.syncTimer();
+    this.armIdle();
+  }
+  setIdx(i, dir = 1) {
+    const n = BOOK.sentences.length;
+    if (i >= n) { this.v.ended = true; this.v.playing = false; this.stopTimer(); this.renderChrome(); return; }
+    this.v.idx = Math.max(0, Math.min(n - 1, i));
+    this.v.ended = false;
+    const old = this.rd?.querySelector('.s.hl');
+    old?.classList.remove('hl');
+    this.rd?.querySelector(`.s[data-i="${this.v.idx}"]`)?.classList.add('hl');
+    if (this.s.follow) this.scrollToHl(true);
+    if (this.v.mode === 'listen') this.renderStage(dir);
+    this.renderChrome();
+  }
+  step(d) { this.setIdx(this.v.idx + d, d); }
+  jumpSection(d) {
+    const p = pos(this.v);
+    const flat = BOOK.outline.flatMap((c) => c.kids.length ? c.kids : [c]);
+    const k = flat.findIndex((e) => e === (p.section || p.chapter));
+    const target = flat[Math.max(0, Math.min(flat.length - 1, k + d))];
+    this.setIdx(target.first, d);
+  }
+  renderStage(dir) {
+    const tp = this.reader?.querySelector('[data-tp]');
+    if (!tp) return;
+    const html = stage(this.v);
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    tp.innerHTML = tmp.querySelector('[data-tp]').innerHTML;
+    this.reader.querySelector('.stage .hdr').innerHTML = tmp.querySelector('.hdr').innerHTML;
+    tp.classList.remove('up', 'down');
+    void tp.offsetWidth;
+    tp.classList.add(dir > 0 ? 'up' : 'down');
+  }
+
+  /* ---- scrolling ---- */
+  scrollToHl(smooth) {
+    const hl = this.rd?.querySelector('.s.hl');
+    if (!hl || !this.rd) return;
+    this.programmatic = true;
+    this.rd.scrollTo({ top: hl.offsetTop - this.screen.clientHeight * .35, behavior: smooth && !reducedMotion() ? 'smooth' : 'auto' });
+    clearTimeout(this.progTimer);
+    this.progTimer = setTimeout(() => { this.programmatic = false; this.updateChip(); }, smooth ? 700 : 50);
+  }
+  onManualScroll(e) {
+    if (!this.rd || !this.rd.contains(e.target)) return;
+    this.s.follow = false;
+    this.armIdle();
+  }
+  onScroll(e) {
+    if (e.target !== this.rd) return;
+    const top = this.rd.scrollTop;
+    const delta = top - (this.lastTop || 0);
+    this.lastTop = top;
+    if (this.programmatic) return;
+    this.updateChip();
+    if (this.v.opt === 2 && Math.abs(delta) > 4) { const hide = delta > 0; if (hide !== this.s.barHidden) { this.s.barHidden = hide; this.reader.querySelector('.appbar')?.classList.toggle('hide', hide); } }
+    if (this.v.opt === 3 && Math.abs(delta) > 4) { const col = delta > 0 && this.v.playing; if (col !== this.s.collapsed) { this.s.collapsed = col; this.renderChrome(); } }
+  }
+  updateChip() {
+    const chipEl = this.reader?.querySelector('.btc');
+    const hl = this.rd?.querySelector('.s.hl');
+    if (!chipEl || !hl) return;
+    const y = hl.offsetTop - this.rd.scrollTop;
+    const H = this.screen.clientHeight;
+    const out = y < 32 || y > H - 148;
+    const show = !this.s.follow && out;
+    chipEl.classList.toggle('off', !show);
+    chipEl.querySelector('svg').outerHTML = ic(y > H - 148 ? 'arrow_downward' : 'arrow_upward');
+  }
+  armIdle() {
+    if (this.v.opt !== 3) return;
+    clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => { if (this.v.playing && this.v.screen === 'R' && !this.s.sheet && !this.s.collapsed) { this.s.collapsed = true; this.renderChrome(); } }, IDLE_COLLAPSE_MS);
+  }
+
+  /* ---- export animation ---- */
+  /* "Start export" runs the progress from 42 % to 100 % over 6 s, then shows E4 */
+  startExport() {
+    this.s.exportState = 'E2';
+    const inPage = this.v.opt === 1 || this.v.opt === 4;
+    if (inPage) { const pg = this.topOverlay()?.querySelector('.page'); if (pg) pg.innerHTML = exportPage(this.v, 'E2'); } else this.refreshOverlay();
+    const t0 = Date.now();
+    clearInterval(this.exportTimer);
+    this.exportTimer = setInterval(() => {
+      const k = Math.min(1, (Date.now() - t0) / EXPORT_ANIM_MS);
+      const pct = Math.round(42 + 58 * k);
+      const wrap = this.topOverlay();
+      const bar = wrap?.querySelector('.pr.big > span');
+      const label = wrap?.querySelector('[data-export-label]');
+      if (bar) bar.style.width = `${pct}%`;
+      if (label) label.textContent = `Exporting · ${pct} %`;
+      if (k < 1 && wrap) return;
+      clearInterval(this.exportTimer);
+      this.s.exportState = 'E4';
+      if (!wrap) return;
+      if (inPage) { const pg = wrap.querySelector('.page'); if (pg) pg.innerHTML = exportPage(this.v, 'E4'); } else this.refreshOverlay();
+    }, 100);
+  }
+
+  /* ---- system back ---- */
+  back() {
+    if (this.s.scrub) { this.closeOverlay(); this.s.scrub = false; return; }
+    if (this.s.page) { this.popPage(); return; }
+    if (this.s.sheet) { this.closeOverlay(); return; }
+    if (this.v.screen === 'T') { if (this.s.settings === 'T2') { this.s.settings = 'T1'; this.renderChrome(); return; } this.closeSettings(); return; }
+    if (this.v.screen === 'R') {
+      this.reader.classList.add('peek');
+      after(400, () => this.closeReader());
+    }
+  }
+
+  /* ---- clicks ---- */
+  onClick(e) {
+    if (this.suppressClick) { this.suppressClick = false; e.preventDefault(); return; }
+    const sentence = e.target.closest('.s[data-i]');
+    if (sentence && this.rd?.contains(sentence)) { this.s.follow = true; this.setIdx(Number(sentence.dataset.i)); return; }
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.dataset.act;
+    const v = this.v, s = this.s;
+    const actions = {
+      'continue-play': () => { this.openReader(); if (v.opt === 4) { this.enterListen(); } if (!v.playing) this.togglePlay(); },
+      'open-book': () => { if (v.screen !== 'R') this.openReader(); },
+      'open-pdf': () => { if (v.screen !== 'R') this.openReader(); else this.closeOverlay(); },
+      'to-library': () => { this.closeOverlayNow(); this.closeReader(); },
+      'settings': () => { this.closeOverlayNow(); this.openSettings('T1'); },
+      't2': () => { s.settings = 'T2'; this.renderChrome(); },
+      'back': () => this.back(),
+      'toggle': () => this.togglePlay(),
+      'prev': () => this.step(-1), 'next': () => this.step(1),
+      'prev-section': () => this.jumpSection(-1), 'next-section': () => this.jumpSection(1),
+      'chapters': () => { if (s.sheet === 'player' && v.opt !== 3) this.closeOverlayNow(); this.openOverlay('chapters'); },
+      'more': () => { if (s.sheet === 'player') { this.closeOverlay(); return; } this.openOverlay(v.opt === 2 ? 'menu' : 'player'); },
+      'menu': () => this.openOverlay('menu'),
+      'now-playing': () => this.openOverlay('np'),
+      'np-close': () => this.closeOverlay(),
+      'speed-dialog': () => this.openOverlay('speed'), 'speed-sheet': () => this.openOverlay('speed'),
+      'sleep-sheet': () => this.openOverlay('sleep'), 'voice-sheet': () => this.openOverlay('voice'), 'export-sheet': () => { s.exportState = 'E1'; this.openOverlay('export'); },
+      'close': () => this.closeOverlay(),
+      'btc': () => { s.follow = true; this.scrollToHl(true); },
+      'set-speed': () => { v.speed = Number(el.dataset.speed); if (s.sheet === 'scrub') { this.closeOverlay(); s.scrub = false; } else this.refreshOverlay(); this.renderChrome(); this.reader?.querySelector('.tip')?.remove(); },
+      'set-sleep': () => { v.sleep = Number(el.dataset.sleep); if (s.sheet === 'sleep') this.closeOverlay(); else this.refreshOverlay(); this.renderChrome(); },
+      'sleep-row': () => { s.sleepOpen = !s.sleepOpen; this.refreshOverlay(); },
+      'switch': () => { v.readCode = !v.readCode; if (s.sheet === 'menu') this.closeOverlay(); else this.refreshOverlay(); if (v.screen === 'T') this.renderChrome(); },
+      'voice-page': () => this.pushPage('voice'),
+      'export-page': () => { s.exportState = 'E1'; this.pushPage('export'); },
+      'page-back': () => this.popPage(),
+      'pick-voice': () => { const pg = this.topOverlay(); pg?.querySelectorAll('[data-act="pick-voice"]').forEach((r) => { const on = r === el; r.closest('.row').classList.toggle('sel', on); r.setAttribute('aria-checked', on); r.querySelector('.radio')?.classList.toggle('on', on); }); },
+      'hear': () => { el.outerHTML = `<span class="eq" aria-label="Playing sample"><i></i><i></i><i></i></span>`; },
+      'start-export': () => this.startExport(),
+      'drill': () => { const num = el.dataset.num; const ch = BOOK.outline.find((c) => c.num === num); s.drill = ch ? [ch] : [s.drill[0], s.drill[0].kids.find((k) => k.num === num)]; this.refreshOverlay(); },
+      'drill-back': () => { s.drill = s.drill.length === 2 ? [s.drill[0]] : null; this.refreshOverlay(); },
+      'jump': () => { s.follow = true; this.setIdx(Number(el.dataset.first)); this.closeOverlay(); },
+      'tree-toggle': () => { const ci = Number(el.dataset.ci); s.expanded = s.expanded === ci ? -1 : ci; this.refreshOverlay(); },
+      'voice-inline': () => { s.voiceOpen = !s.voiceOpen; s.voiceAll = false; this.refreshOverlay(); },
+      'voice-all': () => { s.voiceAll = true; this.refreshOverlay(); },
+      'export-inline': () => { s.exportOpen = !s.exportOpen; s.exportState = 'E1'; this.refreshOverlay(); },
+      'hint-ok': () => { s.hint = false; this.reader?.querySelector('.hintt')?.remove(); },
+      'dismiss-tip': () => this.reader?.querySelector('.tip')?.remove(),
+      'mode-listen': () => this.enterListen(),
+      'mode-read': () => this.leaveListen(),
+      'stage-tap': () => { if (this.swiped) { this.swiped = false; return; } this.togglePlay(); this.flash(); },
+    };
+    actions[act]?.();
+    this.armIdle();
+  }
+  enterListen() {
+    if (!this.reader || this.v.opt !== 4) return;
+    this.closeOverlayNow();
+    this.v.mode = 'listen';
+    this.setScrim(false);
+    this.reader.querySelector('.stage')?.remove();
+    this.reader.insertAdjacentHTML('beforeend', stage(this.v));
+    this.renderChrome();
+  }
+  leaveListen() {
+    this.closeOverlayNow();
+    this.v.mode = 'read';
+    this.setScrim(true);
+    this.reader?.querySelector('.stage')?.remove();
+    this.s.follow = true;
+    this.scrollToHl(false);
+    this.renderChrome();
+  }
+  flash() {
+    const st = this.reader?.querySelector('.stage');
+    if (!st) return;
+    st.insertAdjacentHTML('beforeend', `<div class="flash" aria-hidden="true">${ic(this.v.playing ? 'play_arrow' : 'pause')}</div>`);
+    after(600, () => st.querySelector('.flash')?.remove());
+  }
+
+  /* ---- pointer gestures: sheet follows the finger, pill drag/swipe, long-press, stage swipes ---- */
+  onPointerDown(e) {
+    if (e.button !== 0) return;
+    this.armIdle();
+    const handle = e.target.closest('[data-drag="sheet"]');
+    const pillEl = e.target.closest('[data-drag="pill"]');
+    const tp = e.target.closest('[data-tp]');
+    if (handle) return this.dragSheet(e, handle.closest('.sheet'));
+    if (pillEl) return this.dragPill(e, pillEl);
+    if (tp) return this.swipeStage(e, tp);
+  }
+  track(e, { move, up }) {
+    const x0 = e.clientX, y0 = e.clientY;
+    const onMove = (ev) => move(ev.clientX - x0, ev.clientY - y0, ev);
+    const onUp = (ev) => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onUp); up(ev.clientX - x0, ev.clientY - y0); };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  }
+  sheetFull() { return this.screen.clientHeight - 48; }
+  /* release after a drag: a sheet being pulled open stays once a quarter of the half detent shows; an open one closes below 70 % of it */
+  snapSheet(sh, visible, { opening = false } = {}) {
+    sh.classList.remove('drag');
+    const full = this.sheetFull();
+    const half = Math.min(HALF_DETENT, full);
+    const isAuto = sh.classList.contains('auto');
+    if (visible < (isAuto ? sh.offsetHeight : half) * (opening ? .25 : .7)) { this.closeOverlay(); return; }
+    if (isAuto) { sh.style.transform = ''; return; }
+    const toFull = visible > half + (full - half) * .4 || this.s.page;
+    this.s.detent = toFull ? 'full' : 'half';
+    sh.style.transform = '';
+    sh.style.setProperty('--detent', toFull ? '100%' : `${half}px`);
+  }
+  dragSheet(e, sh) {
+    e.preventDefault();
+    const base = sh.getBoundingClientRect().top;
+    const screenTop = this.screen.getBoundingClientRect().top;
+    const zoom = this.screen.offsetHeight / this.screen.getBoundingClientRect().height;
+    const startOffset = (base - screenTop) * zoom;
+    sh.classList.add('drag');
+    this.track(e, {
+      move: (dx, dy) => { const off = Math.max(48, startOffset + dy * zoom); sh.style.transform = `translateY(${off - 48}px)`; },
+      up: (dx, dy) => { const off = Math.max(48, startOffset + dy * zoom); this.snapSheet(sh, this.screen.clientHeight - off); },
+    });
+  }
+  dragPill(e, pillEl) {
+    const zoom = this.screen.offsetHeight / this.screen.getBoundingClientRect().height;
+    let opened = null, moved = false, pressed = null;
+    const playEl = e.target.closest('[data-act="toggle"]');
+    if (this.v.opt === 3 && playEl) pressed = setTimeout(() => { this.suppressClick = true; this.s.scrub = true; this.openOverlay('scrub'); }, LONG_PRESS_MS);
+    const lines = pillEl.querySelector('.lines');
+    this.track(e, {
+      move: (dx, dy) => {
+        if (Math.abs(dx) + Math.abs(dy) > 8) { clearTimeout(pressed); moved = true; }
+        if (this.s.scrub) { const chipAt = document.elementFromPoint(e.clientX + dx, e.clientY + dy)?.closest('.scrub .chip'); if (chipAt) { this.screen.querySelectorAll('.scrub .chip').forEach((c) => c.classList.toggle('on', c === chipAt)); this.hoverSpeed = Number(chipAt.dataset.speed); } return; }
+        if (this.v.opt === 3 && this.s.collapsed && dy * zoom < -24) { this.s.collapsed = false; this.renderChrome(); this.suppressClick = true; return; }
+        if (!opened && dy * zoom < -16 && (this.v.opt !== 2)) { this.suppressClick = true; this.openOverlay('player'); opened = this.topOverlay().querySelector('.sheet'); opened.classList.add('drag'); }
+        if (opened) { const visible = Math.max(0, -dy * zoom); opened.style.transform = `translateY(${Math.max(0, this.sheetFull() - visible)}px)`; }
+      },
+      up: (dx, dy) => {
+        clearTimeout(pressed);
+        if (this.s.scrub) { if (this.hoverSpeed !== undefined) this.v.speed = this.hoverSpeed; this.hoverSpeed = undefined; this.s.scrub = false; this.closeOverlay(); this.suppressClick = moved; return; }
+        if (opened) { this.snapSheet(opened, -dy * zoom, { opening: true }); return; }
+        if (this.v.opt === 3 && Math.abs(dx * zoom) >= 48 && Math.abs(dx) > Math.abs(dy)) {
+          this.suppressClick = true;
+          lines?.classList.add(dx < 0 ? 'nudge-l' : 'nudge-r');
+          after(120, () => lines?.classList.remove('nudge-l', 'nudge-r'));
+          this.step(dx < 0 ? 1 : -1);
+        } else if (moved) this.suppressClick = true;
+      },
+    });
+  }
+  swipeStage(e, tp) {
+    this.track(e, {
+      move: () => {},
+      up: (dx, dy) => { if (Math.abs(dx) >= 48 && Math.abs(dx) > Math.abs(dy)) { this.swiped = true; this.step(dx < 0 ? 1 : -1); } },
+    });
+  }
+}
+
+/* ===== page: toolbar, galleries, live phones, solo mode ===== */
+const INTRO = {
+  1: { name: 'Pill', sub: 'a faithful port of option D',
+    idea: 'The web reader you chose, adapted to a thumb. Text fills the screen, no top bar. One floating pill at the bottom: previous · play · next · a two-line status ("Ch. 7 · p. 265" / "Long Documents") · more. Tapping the status opens the chapters sheet; "more" opens the player sheet (the web popover as a bottom sheet). A small "Back to current" chip appears when you scroll away, like Telegram\'s "jump to latest" button. Library is the web\'s list with a "Continue" card on top and the "Open PDF" button at the bottom.',
+    suits: 'you, if the web app should feel like the same product in your pocket. People who read along while listening.',
+    pros: 'same product on both platforms (one design language, one set of tokens); least chrome on the reading screen; closest to spec §11 (cheapest to build for M2); the pill is now a standard Material pattern (floating toolbar).',
+    cons: 'speed and voice are one tap deeper than in Speechify; the pill always covers ~100 dp of text (the reader pads for it); no big "now playing" screen for eyes-free listening.',
+    tries: ['Tap the Continue card\'s play button (starts playing) or a recent row (paused): the reader slides in.', 'Play/pause: the highlight moves every 2.5 s, skips the code block (the cue line is read instead) and the text follows at 35 % height.', 'Tap any sentence to jump there.', 'Scroll by hand: following stops and "Back to current" appears (↓ or ↑). Tap it to go back.', 'Prev/next: one sentence.', 'Tap the pill status: chapters sheet; "›" on chapter 7 drills in; "‹ All chapters" goes back; tap a row to jump.', 'Tap "more": the player sheet at the half detent; drag its handle up (full) or down past 30 % (close). Or drag the pill itself upward: the sheet follows the pointer.', 'In the sheet: speed chips, "Voice" page, "Sleep timer" chips, "Export audiobook" → Start export animates 42 → 100 % in 6 s.', '◁ Back closes the topmost sheet/page; on the reader it shows the predictive-back preview, then the library.', 'Library settings icon → Settings; ◁ Back returns.'] },
+  2: { name: 'Material', sub: 'Material 3 Expressive, the Android-native look',
+    idea: 'Look like a Google app. Library with a large collapsing title, book tiles, and a floating "Open PDF" button. Reader with a top app bar (back, title, "Ch. 7 · p. 265" subtitle, chapters, overflow) that hides on scroll, and a coloured floating toolbar at the bottom (prev · play · next · speed · expand). "Expand" opens a full-screen Now playing screen (big cover tile, scrubber with chapter ticks, large transport buttons, speed / sleep / voice / chapters). Chapters is an expandable tree. Optional wallpaper colours.',
+    suits: 'people who want the app to look like the rest of their phone; people used to Pocket Casts or Spotify.',
+    pros: 'instantly familiar; all Material widgets, so less custom code; a real full-screen player for listening without reading.',
+    cons: 'more chrome, less text on screen; two places show the same controls (toolbar and Now playing); looks less like the web app; wallpaper colours can clash with the yellow highlight and make contrast harder to guarantee.',
+    tries: ['Tap the Continue card\'s play button or a recent row: the reader slides in under a top app bar.', 'Scroll down: the app bar hides; scroll up: it returns.', 'Floating toolbar: prev · play (the square FAB rounds while playing) · next · speed (dialog) · expand.', 'Expand → Now playing slides up; its tonal buttons open speed, sleep, voice and chapters.', '"Chapters" in the app bar → the expandable tree; the current chapter is expanded on open.', '"More" → Material menu (export, read code, text size, settings).', 'Toolbar "Wallpaper: Blue | Green" swaps the dynamic-colour palette.', '◁ Back closes the topmost layer; on the reader it previews the library, then goes there.'] },
+  3: { name: 'Quiet', sub: 'Telegram\'s principles taken literally',
+    idea: 'Speed and calm through gestures. While you read or listen and scroll down, the pill shrinks to a single 56 dp play button in the thumb corner plus a 2 dp progress line along the bottom edge; scroll up and the full pill comes back. The pill takes gestures: drag it up and the player sheet follows your finger; long-press play for a speed scrubber. Library is a dense Telegram-style list with progress rings. Chapters is one full-height searchable outline with sticky chapter headers. Dark theme is true black (both test phones have OLED screens). No shadows, hairlines only.',
+    suits: 'heavy daily use, one-handed, people who like Telegram\'s feel.',
+    pros: 'the most text on screen; fastest to operate once learned; search scales to 390-entry books (GoF).',
+    cons: 'gestures are invisible (need a one-time hint and TalkBack alternatives); more custom gesture code (more to test on two phones); a collapsed pill hides the chapter label until you scroll up.',
+    tries: ['Tap the first (current) row to open the reader playing; a one-time hint explains the gestures.', 'Scroll down while playing, or leave it 4 s: the pill collapses to a round play button + progress line. Scroll up or swipe up on it to expand.', 'Drag the pill up: the player sheet follows the pointer.', 'Swipe the pill left/right ≥ 48 px: next/previous sentence (the status text nudges).', 'Long-press play (500 ms): the speed scrubber; slide to a speed, release to apply.', 'Player sheet: segmented speed, inline voice list ("All 28 voices"), inline sleep chips, inline export summary + Start.', 'Pill status → the full-height searchable outline (sticky chapter headers).', '◁ Back as in option 1.'] },
+  4: { name: 'Stage', sub: 'listen-first, my bolder idea',
+    idea: 'Two modes for one book, switched by a "Read | Listen" toggle at the top. Read = option 1\'s reader. Listen = a stage: a calm full-screen view where the current sentence is large (28 sp) in the middle, the previous and next ones smaller above and below, and the sentences glide up like a teleprompter. The bottom 40 % is giant controls for the thumb: previous / play (88 dp) / next, "‹ Section" and "Section ›" jumps, speed, sleep, voice, chapters. Tap anywhere on the stage = play/pause; swipe left/right = next/previous sentence (eyes-free on a walk). Library is a shelf: the current book as a big hero with a play button, then a two-column grid of generated title covers.',
+    suits: 'listening on the move (walking, commuting, cooking); people who glance rather than read.',
+    pros: 'the best eyes-free and one-hand experience; a strong identity; works great with the lock screen (same idea).',
+    cons: 'the most to build (a second reader mode); two modes can confuse; the grid library shows fewer books per screen; code blocks and tables need a special stage card.',
+    tries: ['"Listen from p. 265" opens the Listen stage playing; "Read" or a grid tile opens the reader (option 1) paused.', 'On the stage: tap the teleprompter = play/pause (with a flash); swipe left/right = next/previous sentence (the stack glides).', '"‹ Section / Section ›" jump between sections; speed, sleep and voice open small sheets in stage colours; chapters opens option 1\'s sheet in stage colours.', 'The "Read | Listen" toggle switches modes at the same sentence.', 'In Read mode everything works as in option 1 (pill, player sheet, chapters, export, Back).'] },
+};
+
+const params = new URLSearchParams(location.search);
+const hashParams = new URLSearchParams(location.hash.slice(1));
+const ENV = { opt: Number(params.get('opt') || hashParams.get('opt') || 1), theme: params.get('theme') || hashParams.get('theme') || 'light', w: Number(params.get('w') || hashParams.get('w') || 412), wall: params.get('wall') || hashParams.get('wall') || 'blue' };
+const SOLO = params.get('screen');
+const lives = {};
+const built = {};
+
+function frameHtml(fr, v) {
+  const view = defaultView({ ...v, x2: !!fr.x2 });
+  return phone(view, fr.build(view), { scrim: !!fr.scrim });
+}
+/* static frames are rendered scrolled to their state once they are laid out */
+function positionFrame(fig, fr) {
+  const H = fig.querySelector('.screen').clientHeight;
+  fig.querySelectorAll('.rd').forEach((rd) => {
+    const hl = rd.querySelector('.s.hl');
+    if (hl) rd.scrollTop = hl.offsetTop - H * .35 + (fr.shift || 0);
+  });
+  fig.querySelectorAll('[data-scroll-end="true"]').forEach((el) => { el.scrollTop = el.scrollHeight; });
+  const bd = fig.querySelector('[data-overlay] .bd, .sheet .bd');
+  const cur = bd?.querySelector('.cur');
+  if (bd && cur) bd.scrollTop = cur.offsetTop - bd.offsetTop - (bd.clientHeight - cur.offsetHeight) / 2 + (fr.shiftSheet || 0);
+}
+function allFrames(opt) { return Object.values(FRAMES[opt]()).flat(); }
+
+function buildSection(opt) {
+  const sec = document.getElementById(`opt-${opt}`);
+  const v = { ...ENV, opt };
+  const i = INTRO[opt];
+  const groups = FRAMES[opt]();
+  const gallery = GROUPS.map(([key, title]) => `<h2 class="group">${title}</h2><div class="gallery">${groups[key].map((fr) => `<figure class="frame" data-id="${fr.id}"><div class="zoom">${frameHtml(fr, v)}</div><figcaption>${fr.id} · ${esc(fr.name)}<small>${esc(fr.note)}</small></figcaption></figure>`).join('')}</div>`).join('');
+  sec.innerHTML = `<div class="intro"><h1>Option ${opt} “${i.name}”: ${esc(i.sub)}</h1><p><strong>Idea.</strong> ${esc(i.idea)}</p><p><strong>Suits:</strong> ${esc(i.suits)}</p><p class="mix"><strong>Pros:</strong> ${esc(i.pros)}<br><strong>Cons:</strong> ${esc(i.cons)}</p></div>
+    <div class="live"><div><div data-live></div><div class="sysbar"><button data-sys="back">◁ Back</button></div></div><div><h2>How to try</h2><ol>${i.tries.map((t) => `<li>${esc(t)}</li>`).join('')}</ol></div></div>${gallery}`;
+  lives[opt] = new Live(sec.querySelector('[data-live]'), opt, v);
+  sec.querySelector('[data-sys="back"]').addEventListener('click', () => lives[opt].back());
+  built[opt] = true;
+}
+function showOption(opt) {
+  ENV.opt = opt;
+  if (!built[opt]) buildSection(opt);
+  document.querySelectorAll('.option').forEach((s) => s.classList.toggle('on', Number(s.dataset.opt) === opt));
+  document.querySelectorAll('[role="tab"]').forEach((t) => t.setAttribute('aria-selected', Number(t.dataset.opt) === opt));
+  document.querySelector('[data-wall-seg]').hidden = opt !== 2;
+  const groups = FRAMES[opt]();
+  const all = Object.values(groups).flat();
+  document.querySelectorAll(`#opt-${opt} figure.frame`).forEach((fig) => positionFrame(fig, all.find((fr) => fr.id === fig.dataset.id)));
+  saveHash();
+}
+function saveHash() { history.replaceState(null, '', `#opt=${ENV.opt}&theme=${ENV.theme}&w=${ENV.w}&wall=${ENV.wall}`); }
+function applyTheme() {
+  document.documentElement.dataset.theme = ENV.theme;
+  document.querySelectorAll('.screen').forEach((s) => { s.dataset.theme = ENV.theme; });
+  document.querySelectorAll('[data-theme-btn]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.themeBtn === ENV.theme));
+  Object.values(lives).forEach((l) => l.setEnv({ theme: ENV.theme }));
+  saveHash();
+}
+function applyWall() {
+  document.querySelectorAll('.screen[data-opt="2"]').forEach((s) => { s.dataset.wall = ENV.wall; });
+  document.querySelectorAll('[data-wall]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.wall === ENV.wall));
+  Object.values(lives).forEach((l) => l.setEnv({ wall: ENV.wall }));
+  saveHash();
+}
+function applyWidth() {
+  document.querySelectorAll('[data-w-btn]').forEach((b) => b.setAttribute('aria-pressed', Number(b.dataset.wBtn) === ENV.w));
+  Object.keys(built).forEach((k) => { built[k] = false; delete lives[k]; });
+  showOption(ENV.opt);
+}
+
+function initPage() {
+  document.documentElement.dataset.theme = ENV.theme;
+  document.querySelectorAll('[role="tab"]').forEach((t) => t.addEventListener('click', () => showOption(Number(t.dataset.opt))));
+  document.querySelectorAll('[data-theme-btn]').forEach((b) => b.addEventListener('click', () => { ENV.theme = b.dataset.themeBtn; applyTheme(); }));
+  document.querySelectorAll('[data-w-btn]').forEach((b) => b.addEventListener('click', () => { ENV.w = Number(b.dataset.wBtn); applyWidth(); }));
+  document.querySelectorAll('[data-wall]').forEach((b) => b.addEventListener('click', () => { ENV.wall = b.dataset.wall; applyWall(); }));
+  applyWidth();
+  applyTheme();
+  applyWall();
+}
+function initSolo() {
+  document.body.classList.add('solo');
+  const host = document.createElement('div');
+  host.className = 'solo-frame';
+  document.body.appendChild(host);
+  if (SOLO === 'live') { const live = new Live(host, ENV.opt, ENV); if (params.get('play') === '1') live.onClick({ target: host.querySelector('[data-act="continue-play"]'), preventDefault() {} }); return; }
+  const fr = allFrames(ENV.opt).find((x) => x.id === SOLO);
+  if (!fr) { host.textContent = `No screen "${SOLO}" in option ${ENV.opt}.`; return; }
+  host.innerHTML = frameHtml(fr, ENV);
+  positionFrame(host, fr);
+}
+document.fonts.ready.then(() => (SOLO ? initSolo() : initPage()));
+</script>
+</body>
+</html>
