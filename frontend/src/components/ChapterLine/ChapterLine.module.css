@@ -1,0 +1,15 @@
+.line { display: grid; gap: .15rem; }
+.path {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--fg);
+  cursor: pointer;
+  line-height: 1.35;
+}
+.progress { color: var(--fg2); font-size: .8125rem; }

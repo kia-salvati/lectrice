@@ -16,7 +16,9 @@
 }
 .row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .muted { color: var(--fg2); }
-.location { color: var(--fg2); font-size: .8125rem; margin-top: .25rem; }
+.position { display: grid; gap: .5rem; }
+.locationRow { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
+.location { color: var(--fg2); font-size: .8125rem; }
 .settings { display: grid; gap: .6rem; }
 .settings > label { display: grid; grid-template-columns: 4rem 1fr; align-items: center; }
 .settings input[type="checkbox"] { margin: 0; justify-self: start; }

@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import controls from '../../styles/controls.module.css';
-import type { PlayerState } from '../../utils/playerStatus';
-import { LocateIcon, MoreIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, WaitIcon } from '../icons/icons';
+import type { PlayerState, StatusPart } from '../../utils/playerStatus';
+import { ListIcon, LocateIcon, MoreIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, WaitIcon } from '../icons/icons';
 import styles from './MiniPlayer.module.css';
 
 interface MiniPlayerProps {
   playerState: PlayerState;
-  statusText: string;
+  /** Joined with " · "; only a part that shrinks gets the ellipsis. */
+  statusParts: readonly StatusPart[];
   canGoBack: boolean;
   canGoForward: boolean;
   /** Auto-scroll was interrupted by the reader; offer a way back. */
@@ -15,9 +16,16 @@ interface MiniPlayerProps {
   onPrevious: () => void;
   onNext: () => void;
   onBackToCurrent: () => void;
-  /** The <PlayerPopover/>; the pill only decides whether it is open. */
+  /** The <PlayerPopover/>. The page owns whether it is open, since opening the chapters closes it. */
   popover: React.ReactNode;
   popoverId: string;
+  isPopoverOpen: boolean;
+  onPopoverOpenChange: (open: boolean) => void;
+  /** The chapters button: hidden while the rail shows the chapters already. */
+  showChaptersButton: boolean;
+  isChaptersOpen: boolean;
+  chaptersPanelId: string;
+  onToggleChapters: () => void;
 }
 
 interface PlayButtonLook { icon: React.ReactNode; label: string; busy: boolean; disabled: boolean; }
@@ -40,8 +48,7 @@ const STATUS_CLASS: Record<PlayerState, string> = {
 
 const pillButton = `${controls.iconButton} ${styles.pillButton}`;
 
-export const MiniPlayer = ({ playerState, statusText, canGoBack, canGoForward, showBackToCurrent, onTogglePlay, onPrevious, onNext, onBackToCurrent, popover, popoverId }: MiniPlayerProps) => {
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+export const MiniPlayer = ({ playerState, statusParts, canGoBack, canGoForward, showBackToCurrent, onTogglePlay, onPrevious, onNext, onBackToCurrent, popover, popoverId, isPopoverOpen, onPopoverOpenChange, showChaptersButton, isChaptersOpen, chaptersPanelId, onToggleChapters }: MiniPlayerProps) => {
   const pillRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const play = PLAY_BUTTON[playerState];
@@ -51,11 +58,11 @@ export const MiniPlayer = ({ playerState, statusText, canGoBack, canGoForward, s
     if (!isPopoverOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      setIsPopoverOpen(false);
+      onPopoverOpenChange(false);
       moreButtonRef.current?.focus();
     };
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.target instanceof Node && !pillRef.current?.contains(event.target)) setIsPopoverOpen(false);
+      if (event.target instanceof Node && !pillRef.current?.contains(event.target)) onPopoverOpenChange(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('pointerdown', handlePointerDown);
@@ -63,16 +70,24 @@ export const MiniPlayer = ({ playerState, statusText, canGoBack, canGoForward, s
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('pointerdown', handlePointerDown);
     };
-  }, [isPopoverOpen]);
+  }, [isPopoverOpen, onPopoverOpenChange]);
 
   return (
     <div className={styles.pill} ref={pillRef}>
       <button type="button" className={pillButton} aria-label="Previous sentence" disabled={!canGoBack} onClick={onPrevious}><PrevIcon /></button>
       <button type="button" className={`${controls.iconButton} ${controls.play} ${styles.pillPlay}`} aria-label={play.label} aria-busy={play.busy} disabled={play.disabled} onClick={onTogglePlay}>{play.icon}</button>
       <button type="button" className={pillButton} aria-label="Next sentence" disabled={!canGoForward} onClick={onNext}><NextIcon /></button>
-      <span role="status" className={STATUS_CLASS[playerState]}>{statusText}</span>
+      <span role="status" className={STATUS_CLASS[playerState]}>
+        {statusParts.map((part, at) => (
+          <Fragment key={at}>
+            {at > 0 && <span className={styles.separator} aria-hidden="true">·</span>}
+            <span className={part.shrinks ? styles.shrinks : styles.fixed}>{part.text}</span>
+          </Fragment>
+        ))}
+      </span>
       {showBackToCurrent && <button type="button" className={pillButton} aria-label="Scroll to the current sentence" onClick={onBackToCurrent}><LocateIcon /></button>}
-      <button type="button" ref={moreButtonRef} className={pillButton} aria-label="More controls" aria-expanded={isPopoverOpen} aria-controls={popoverId} onClick={() => setIsPopoverOpen((open) => !open)}><MoreIcon /></button>
+      {showChaptersButton && <button type="button" className={pillButton} aria-label="Chapters" aria-expanded={isChaptersOpen} aria-controls={chaptersPanelId} data-chapters-trigger onClick={onToggleChapters}><ListIcon /></button>}
+      <button type="button" ref={moreButtonRef} className={pillButton} aria-label="More controls" aria-expanded={isPopoverOpen} aria-controls={popoverId} onClick={() => onPopoverOpenChange(!isPopoverOpen)}><MoreIcon /></button>
       {isPopoverOpen && popover}
     </div>
   );

@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lectrice — chapter options</title>
+<style>
+:root{
+  --bg:#ffffff; --bg2:#f3f3ef; --fg:#1c1f24; --fg2:#5b636d; --line:#d3d3cd;
+  --accent:#1d5fae; --on-accent:#ffffff;
+  --hl:#ffe58f; --hl-fg:#1c1f24;
+  --serif: Charter, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif;
+  --gutter:4.5rem;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121417; --bg2:#1c1f24; --fg:#e8e6e1; --fg2:#a8adb5; --line:#363a41;
+    --accent:#8ab8ff; --on-accent:#0b1a33;
+    --hl:#4d4214; --hl-fg:#fff6d8;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121417; --bg2:#1c1f24; --fg:#e8e6e1; --fg2:#a8adb5; --line:#363a41;
+  --accent:#8ab8ff; --on-accent:#0b1a33;
+  --hl:#4d4214; --hl-fg:#fff6d8;
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0; background:var(--bg); color:var(--fg); font-family:var(--sans); display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden}
+[hidden]{display:none !important}
+button,select,input{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+.muted{color:var(--fg2)}
+@media (prefers-reduced-motion: reduce){ *{animation:none !important; scroll-behavior:auto !important} }
+
+/* ---------- prototype chrome: switcher + notes ---------- */
+.top{border-bottom:1px solid var(--line); background:var(--bg2); padding:.5rem 1rem; display:flex; flex-wrap:wrap; gap:.5rem 1rem; align-items:center; font-size:.875rem; flex:none}
+.top .brand{font-weight:600}
+.tabs{display:flex; gap:.25rem; flex-wrap:wrap}
+.tabs button{border:1px solid var(--line); background:var(--bg); padding:.3rem .7rem; border-radius:999px; cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent); color:var(--on-accent); border-color:transparent}
+.tools{display:flex; gap:.5rem .9rem; align-items:center; flex-wrap:wrap; margin-left:auto}
+.tools label{display:inline-flex; gap:.35rem; align-items:center}
+.tools select{padding:.25rem .35rem; border:1px solid var(--line); border-radius:6px; background:var(--bg); max-width:11rem}
+.note{flex-basis:100%; font-size:.85rem; line-height:1.45}
+.note summary{cursor:pointer; font-weight:600}
+.note p{margin:.3rem 0 0; max-width:72rem}
+.btn{padding:.4rem .75rem; border:1px solid var(--line); background:var(--bg); border-radius:6px; cursor:pointer; font-size:.875rem; white-space:nowrap}
+
+/* ---------- the reader frame (desktop = fills the window, phone = 375 × 740 box) ---------- */
+.stage{flex:1; min-height:0; display:flex; flex-direction:column}
+.stage.phone{align-items:center; justify-content:center; background:var(--bg2); padding:1rem}
+.reader{position:relative; flex:1; min-height:0; display:flex; flex-direction:column; container:reader / size; contain:layout; overflow:clip; background:var(--bg)}
+.stage.phone .reader{flex:none; width:375px; height:min(740px, 100%); border:1px solid var(--line); border-radius:12px}
+.scroll{flex:1; min-height:0; overflow-y:auto; overflow-x:hidden}
+.backdrop{position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:19}
+
+/* ---------- document text (as built in ReadingView / Sentence / PageMarker) ---------- */
+.doc{position:relative; max-width:calc(40rem + 2 * var(--gutter)); margin:0 auto; padding:2rem 1rem 9rem; font-family:var(--serif); font-size:1.1875rem; line-height:1.7; overflow-wrap:anywhere}
+.block{position:relative; padding-inline:var(--gutter)}
+.h1{font-size:1.65rem; line-height:1.25; margin:2.5rem 0 1rem}
+.h2{font-size:1.25rem; margin:1.6em 0 .5em}
+.h3{font-size:1.1rem; margin:1.3em 0 .4em}
+.p{margin:0 0 1em}
+.s{cursor:pointer; border-radius:2px; padding:.05em 0; -webkit-box-decoration-break:clone; box-decoration-break:clone}
+.s:hover{text-decoration:underline dotted; text-underline-offset:.15em}
+.s.read{color:var(--fg2)}
+.s.active{background:var(--hl); color:var(--hl-fg)}
+.pm{font:.75rem/1.2 var(--sans); color:var(--fg2); user-select:none; white-space:nowrap; position:absolute; left:0; width:calc(var(--gutter) - .75rem); text-align:right; padding-top:.45em}
+.pm-ch{display:none}
+.reader[data-label="C"] .pm-ch{display:block; overflow:hidden; text-overflow:ellipsis}
+@container reader (max-width:720px){
+  .doc{--gutter:0rem}
+  .pm{position:static; display:inline-block; width:auto; margin-right:.35em; border:1px solid var(--line); border-radius:4px; padding:0 .3em}
+  .reader[data-label="C"] .pm-ch{display:inline}
+  .reader[data-label="C"] .pm-ch::before{content:" · "}
+}
+
+/* ---------- variant B: running head ---------- */
+.rhead{position:sticky; top:0; z-index:10; display:flex; align-items:center; width:100%; height:2rem; padding:0 1rem; border:0; border-bottom:1px solid var(--line); background:var(--bg); color:var(--fg2); font:.8125rem var(--sans); cursor:pointer; text-align:left}
+.reader:not([data-label="B"]) .rhead{display:none}
+.rh-ch{flex:0 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.rh-sep{flex:none; padding:0 .35em}
+.rh-sec{flex:1 1 0; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.rh-pg{flex:none; margin-left:auto; padding-left:.75rem; font-variant-numeric:tabular-nums}
+@container reader (max-width:420px){ .rh-sep,.rh-sec{display:none} .rh-ch{flex:1 1 auto} }
+
+/* ---------- the pill (MiniPlayer) ---------- */
+.pill{position:fixed; left:50%; transform:translateX(-50%); bottom:1rem; display:flex; align-items:center; gap:.3rem; padding:.3rem .4rem; border:1px solid var(--line); background:var(--bg2); border-radius:999px; font-size:.85rem; max-width:calc(100% - 2rem); z-index:10}
+.icon-btn{width:36px; height:36px; flex:none; display:inline-grid; place-items:center; padding:0; border:1px solid var(--line); border-radius:50%; background:var(--bg); cursor:pointer}
+.icon-btn.play{width:44px; height:44px; background:var(--accent); color:var(--on-accent); border-color:transparent}
+.icon-btn:disabled{opacity:.45; cursor:default}
+.status{color:var(--fg2); padding:0 .4rem; max-width:14rem; min-width:0; display:flex; align-items:baseline; white-space:nowrap}
+.reader[data-label="A"] .status{max-width:22rem}
+.status .fx,.status .sep{flex:none}
+.status .sep{padding:0 .3em}
+.status .nm{flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis}
+.reader[data-opt="2"] .status{cursor:pointer}
+.reader[data-opt="2"] [data-act="chapters"]{display:none}
+@container reader (max-width:720px){ .pill{left:1rem; right:1rem; transform:none; max-width:none; justify-content:center} }
+@container reader (max-width:420px){ .status{display:none} }
+
+/* ---------- the popover (PlayerPopover) ---------- */
+.pop{position:absolute; bottom:calc(100% + .5rem); right:0; width:min(21rem, calc(100cqw - 2rem)); max-height:calc(100cqh - 6rem); overflow-y:auto; background:var(--bg2); border:1px solid var(--line); border-radius:10px; font-size:.875rem; text-align:left; white-space:normal}
+.pop-body{padding:.85rem; display:grid; gap:.65rem}
+.prow{display:flex; align-items:center; gap:.5rem; flex-wrap:wrap}
+.pop input[type="range"]{flex:1 1 8rem; min-width:6rem; margin:0; accent-color:var(--accent)}
+.chline{display:grid; gap:.15rem}
+.chpath{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; text-align:left; background:none; border:0; padding:0; color:var(--fg); cursor:pointer; line-height:1.35}
+.chprog,.loc{color:var(--fg2); font-size:.8125rem}
+.loc-row{display:flex; align-items:center; justify-content:space-between; gap:.5rem; flex-wrap:wrap}
+.settings{display:grid; gap:.6rem}
+.settings label{display:grid; grid-template-columns:4rem 1fr; align-items:center; gap:.35rem}
+.settings select{padding:.3rem .4rem; border:1px solid var(--line); border-radius:6px; background:var(--bg); min-width:0}
+.settings .check{display:flex; gap:.5rem}
+.settings input[type="checkbox"]{margin:0}
+.poptabs{display:flex; border-bottom:1px solid var(--line); padding:0 .35rem; position:sticky; top:0; background:var(--bg2); z-index:1}
+.reader:not([data-opt="2"]) .poptabs{display:none}
+.poptabs button{background:none; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; padding:.55rem .6rem; color:var(--fg2); cursor:pointer}
+.poptabs button[aria-selected="true"]{color:var(--fg); border-bottom-color:var(--accent)}
+.pop .tree-nav{padding:.35rem .5rem .75rem 0}
+@container reader (max-width:720px){ .pop{left:0; right:0; width:auto} }
+
+/* ---------- tree rows (shared by drawer, popover tab and rail) ---------- */
+.tree-nav ul{list-style:none; margin:0; padding:0}
+.tree-nav ul ul{padding-left:1rem}
+.row{position:relative; display:grid; grid-template-columns:1.5rem minmax(0,1fr) auto; align-items:start; gap:0 .25rem; padding:.2rem .5rem .2rem .3rem; border-radius:4px}
+.row::before{content:""; position:absolute; left:0; top:.3rem; bottom:.3rem; width:3px; border-radius:2px}
+.row.current::before{background:var(--accent)}
+.row.current .ttl{font-weight:600}
+.row.read .ttl{color:var(--fg2)}
+.tree-nav.flat .row,.rail .row{grid-template-columns:minmax(0,1fr) auto}
+.disc{width:1.5rem; height:1.75rem; display:inline-grid; place-items:center; padding:0; border:0; background:none; color:var(--fg2); cursor:pointer; border-radius:4px}
+.disc svg{transition:transform .15s}
+.disc[aria-expanded="true"] svg{transform:rotate(90deg)}
+.ttl{display:block; min-width:0; text-align:left; background:none; border:0; padding:.3rem .25rem; color:var(--fg); cursor:pointer; border-radius:4px; line-height:1.3}
+.ttl:hover{background:var(--bg)}
+.drawer .ttl:hover{background:var(--bg2)}
+.ttl .t{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.ttl .sz{display:block; color:var(--fg2); font-size:.8rem; font-weight:400; margin-top:.1rem}
+.bar{display:block; height:3px; margin-top:.35rem; background:var(--line); border-radius:2px; overflow:hidden}
+.bar span{display:block; height:100%; background:var(--accent)}
+.meta{display:flex; align-items:center; gap:.3rem; padding:.4rem 0 0; color:var(--fg2); font-size:.8rem; font-variant-numeric:tabular-nums; white-space:nowrap}
+.meta svg{flex:none}
+.empty-msg{margin:0; padding:1rem; line-height:1.5}
+
+/* ---------- option 1: drawer / sheet (dialog) ---------- */
+.drawer{position:fixed; inset:0 0 0 auto; width:min(24rem, 100cqw); height:100%; max-height:none; max-width:none; margin:0; padding:0; border:0; border-left:1px solid var(--line); background:var(--bg); color:var(--fg); display:none; flex-direction:column; z-index:20}
+.drawer[open]{display:flex}
+.panel-head{display:flex; align-items:center; gap:.5rem; padding:.6rem .6rem .6rem 1rem; border-bottom:1px solid var(--line); flex:none}
+.panel-head h2{font-size:1rem; margin:0; flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.panel-head .btn{padding:.3rem .6rem; font-size:.8125rem}
+.drawer-body{flex:1; min-height:0; overflow-y:auto; padding:.5rem .75rem 2rem .5rem}
+@container reader (max-width:720px){
+  .drawer{inset:0; width:auto; border-left:0; animation:slide-up .22s ease-out}
+}
+@keyframes slide-up{from{transform:translateY(100%)}}
+
+/* ---------- option 3: bottom sheet ---------- */
+.sheet{position:fixed; left:0; right:0; margin-inline:auto; bottom:calc(1rem + 44px + 1.2rem); width:min(40rem, calc(100cqw - 2rem)); max-height:70cqh; display:flex; flex-direction:column; background:var(--bg2); border:1px solid var(--line); border-radius:14px 14px 10px 10px; z-index:9; animation:slide-up .22s ease-out}
+.sheet .back{background:none; border:0; padding:.3rem .4rem .3rem 0; color:var(--accent); cursor:pointer; white-space:nowrap; flex:none; max-width:12rem; overflow:hidden; text-overflow:ellipsis}
+.sheet-body{flex:1; min-height:0; overflow-y:auto; padding:.4rem .5rem .75rem 0}
+.sheet-body ul{list-style:none; margin:0; padding:0}
+.sheet .row{grid-template-columns:minmax(0,1fr) auto auto}
+.drill{display:inline-flex; align-items:center; gap:.25rem; min-height:2rem; padding:0 .25rem 0 .5rem; border:0; background:none; color:var(--fg2); font-size:.8rem; cursor:pointer; border-radius:4px; white-space:nowrap}
+.drill:hover{background:var(--bg)}
+@container reader (max-width:720px){
+  .sheet{width:auto; bottom:0; max-height:85cqh; border-radius:14px 14px 0 0; z-index:20}
+}
+@container reader (max-width:420px){ .drill .sz{display:none} }
+
+/* ---------- option 4: rail at ≥ 1200 px ---------- */
+.rail{position:fixed; left:0; top:0; bottom:0; width:15rem; padding:1.5rem .5rem 6rem .75rem; overflow-y:auto; font-size:.8125rem; color:var(--fg2); z-index:5; display:none}
+.rail .row{padding:.1rem .25rem .1rem .3rem}
+.rail .ttl{color:var(--fg2); padding:.2rem .25rem}
+.rail .ttl:hover{background:var(--bg2)}
+.rail .ttl .t{-webkit-line-clamp:1}
+.rail ul ul .ttl .t,.rail .row.current .ttl .t{-webkit-line-clamp:2}
+.rail .row.current .ttl{color:var(--fg)}
+.rail .meta{padding-top:.3rem}
+@container reader (min-width:1200px){
+  .reader[data-opt="4"]:not(.notoc) .rail{display:block}
+  .reader[data-opt="4"]:not(.notoc) .scroll{padding-left:15rem}
+  .reader[data-opt="4"]:not(.notoc) [data-act="chapters"]{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <span class="brand">Lectrice — chapter options</span>
+  <div class="tabs" role="tablist" aria-label="Chapters panel options">
+    <button type="button" role="tab" data-opt="1" aria-selected="true">1 · Drawer</button>
+    <button type="button" role="tab" data-opt="2" aria-selected="false">2 · Popover tab</button>
+    <button type="button" role="tab" data-opt="3" aria-selected="false">3 · Bottom sheet</button>
+    <button type="button" role="tab" data-opt="4" aria-selected="false">4 · Rail + drawer</button>
+  </div>
+  <div class="tools">
+    <label>Chapter label <select id="label"><option value="A">A · in the pill</option><option value="B">B · running head</option><option value="C">C · in the margin</option></select></label>
+    <label>Book <select id="book"></select></label>
+    <label>Theme <select id="theme"><option value="auto">auto</option><option value="light">light</option><option value="dark">dark</option></select></label>
+    <label><input type="checkbox" id="phone"> Phone 375</label>
+    <button type="button" class="btn" data-act="play" id="top-play">Play</button>
+  </div>
+  <details class="note" open>
+    <summary id="note-title"></summary>
+    <p id="note-good"></p>
+    <p id="note-trade"></p>
+    <p id="note-label"></p>
+    <p class="muted">Try: <b>C</b> opens the chapters · Space play/pause · ← → sentence · scroll the text to stop follow-scroll (a locate button appears) · in the panel: ↑ ↓ → ← Home End Enter Escape; its own scrolling never stops follow-scroll · all three label variants also add a chapter line to the ⋯ popover.</p>
+  </details>
+</header>
+
+<main class="stage" id="stage">
+  <div class="reader" id="reader" data-opt="1" data-label="A">
+
+    <nav class="rail tree-nav" id="rail" aria-label="Chapters" data-own-keys data-own-scroll></nav>
+
+    <div class="scroll" id="scroll">
+      <button type="button" class="rhead" id="rhead" aria-label="Current chapter; open the chapters panel">
+        <span class="rh-ch" id="rh-ch"></span><span class="rh-sep" id="rh-sep">›</span><span class="rh-sec" id="rh-sec"></span><span class="rh-pg" id="rh-pg"></span>
+      </button>
+      <article class="doc" id="doc"></article>
+    </div>
+
+    <div class="pill" id="pill">
+      <button type="button" class="icon-btn" data-act="prev" aria-label="Previous sentence"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button type="button" class="icon-btn play" data-act="play" id="pill-play" aria-label="Play"></button>
+      <button type="button" class="icon-btn" data-act="next" aria-label="Next sentence"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <span class="status" id="status" role="status"></span>
+      <button type="button" class="icon-btn" data-act="locate" id="locate" aria-label="Scroll to the current sentence" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path stroke="currentColor" stroke-width="2" d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></button>
+      <button type="button" class="icon-btn" data-act="chapters" id="chapters-btn" aria-label="Chapters" aria-expanded="false" aria-controls="drawer"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M4 6h2v2H4zm4 0h12v2H8zM4 11h2v2H4zm4 0h12v2H8zM4 16h2v2H4zm4 0h12v2H8z"/></svg></button>
+      <button type="button" class="icon-btn" data-act="more" id="more-btn" aria-label="More controls" aria-expanded="false" aria-controls="pop"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg></button>
+
+      <div class="pop" id="pop" hidden>
+        <div class="poptabs" role="tablist" aria-label="More controls" data-own-keys>
+          <button type="button" role="tab" id="tab-controls" data-tab="controls" aria-selected="true" aria-controls="pop-controls">Controls</button>
+          <button type="button" role="tab" id="tab-chapters" data-tab="chapters" aria-selected="false" aria-controls="pop-chapters">Chapters</button>
+        </div>
+        <div class="pop-body" id="pop-controls" role="tabpanel" aria-labelledby="tab-controls">
+          <div>
+            <div class="prow"><input type="range" id="seek" min="0" value="0" aria-label="Position in document"><span class="muted" id="left"></span></div>
+          </div>
+          <div class="chline" id="chline">
+            <button type="button" class="chpath" id="chpath" title="Open the chapters panel"></button>
+            <div class="chprog" id="chprog"></div>
+          </div>
+          <div class="loc-row"><span class="loc" id="loc"></span><button type="button" class="btn" data-act="chapters-pop">Chapters…</button></div>
+          <div class="settings">
+            <label><span>Speed</span><select id="speed"><option>0.75</option><option selected>1</option><option>1.25</option><option>1.5</option><option>1.75</option><option>2</option></select></label>
+            <label><span>Voice</span><select id="voice"><option>Heart (US, female)</option><option>Bella (US, female)</option><option>Emma (UK, female)</option></select></label>
+            <label class="check"><input type="checkbox"><span>Read code &amp; tables aloud</span></label>
+          </div>
+          <div class="prow"><button type="button" class="btn">Export MP3</button><button type="button" class="btn">Export M4B</button></div>
+          <div class="prow"><button type="button" class="btn">Open another PDF…</button></div>
+        </div>
+        <nav class="tree-nav" id="pop-chapters" role="tabpanel" aria-labelledby="tab-chapters" aria-label="Chapters" data-own-keys data-own-scroll hidden></nav>
+      </div>
+    </div>
+
+    <div class="backdrop" id="backdrop" hidden></div>
+
+    <dialog class="drawer" id="drawer" aria-labelledby="drawer-title" data-own-keys data-own-scroll>
+      <header class="panel-head">
+        <h2 id="drawer-title"></h2>
+        <button type="button" class="btn" data-act="expand-all" id="expand-all">Expand all</button>
+        <button type="button" class="icon-btn" data-act="close-panel" aria-label="Close chapters"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path stroke="currentColor" stroke-width="2" d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <nav class="tree-nav drawer-body" id="drawer-tree" aria-label="Chapters"></nav>
+    </dialog>
+
+    <div class="sheet" id="sheet" role="dialog" aria-labelledby="sheet-title" data-own-keys data-own-scroll hidden>
+      <header class="panel-head">
+        <button type="button" class="back" data-act="sheet-back" id="sheet-back"></button>
+        <h2 id="sheet-title"></h2>
+        <button type="button" class="icon-btn" data-act="close-panel" aria-label="Close chapters"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path stroke="currentColor" stroke-width="2" d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </header>
+      <nav class="sheet-body" id="sheet-list" aria-label="Chapters"></nav>
+    </div>
+
+  </div>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SECONDS_PER_CHAR = 0.065;
+
+/* ============================================================ invented books ============================================================ */
+const FILLER = [
+  'The simplest version of this idea fits in one sentence, but the details take a chapter.',
+  'Most teams discover it the hard way, usually on a Friday.',
+  'Start by writing down what the reader is trying to do before touching the screen.',
+  'A good default saves a hundred explanations.',
+  'Nothing on the page should move unless the reader asked for it.',
+  'When two things compete for attention, one of them is usually wrong.',
+  'The test is simple: hand the phone to someone who has never seen the app and say nothing.',
+  'If they find the control in three seconds, keep it; if not, the label is doing the wrong job.',
+  'Small screens are not small desktops, and the thumb is not a mouse.',
+  'A label that says what will happen beats an icon that has to be learned.',
+  'Measure before you change anything, and measure the same way afterwards.',
+  'The numbers rarely agree with the room’s intuition, which is the point.',
+  'Keep the list of signals short, and give each one a sentence that explains it.',
+  'What cannot be explained in a sentence is probably two things.',
+  'Error messages are read at the worst possible moment, so they should be the clearest text in the product.',
+  'Say what happened, say what to do, and stop.',
+  'A reader who loses their place will forgive almost anything except having to find it again.',
+  'Progress should be visible without being loud.',
+  'There is a difference between quiet and hidden, and the whole craft lives in it.',
+  'Settings that nobody changes are not settings; they are decisions you refused to make.',
+  'Treat the first second as sacred: something readable must be on the screen before anything else loads.',
+  'Caching ahead of the reader costs little and buys a feeling of speed that no spinner can match.',
+  'Everything in this book was tried on an old laptop and a mid-range phone.',
+  'If it felt slow there, it was cut or rewritten.',
+  'Reviews that only look at code miss half the product; read the copy too.',
+  'A sentence that is awkward to read aloud is usually awkward to read silently as well.',
+  'Dark mode is not the light theme with the colours flipped; it is a second design with its own contrast budget.',
+  'Check every pair of foreground and background with a tool, not with your eyes.',
+  'Motion should explain where something came from or where it went, and nothing more.',
+  'The keyboard is a first-class input, not an afterthought.',
+  'Every control that can be clicked can be reached with Tab, and every list can be walked with the arrows.',
+  'Focus never disappears; when a panel closes, it goes back to whatever opened it.',
+  'Long documents punish laziness: a table of contents that lies is worse than none.',
+  'Headings are promises about what follows, so keep them honest and keep them short.',
+  'The chapter you are in matters more than the page you are on, but readers still want both.',
+  'Pick one of these ideas and try it on a real screen this week.',
+  'Then write down what changed, in plain words, where the whole team can see it.',
+  'The rest of this section walks through a worked example.',
+  'None of this is new, and that is rather the point.',
+  'Calm is not the absence of information; it is information that knows its place.'
+];
+
+const LONG_CHAPTERS = [
+  ['Quiet Interfaces', ['Fewer, clearer signals', 'A small example', 'Measuring calm', 'When quiet becomes hidden']],
+  ['Reading on Small Screens', ['Line length and the thumb', 'Type that survives sunlight', 'Scrolling versus paging', 'One-handed controls', 'Night reading', 'Summary']],
+  ['Sound as an Interface', ['Voices people trust', 'Pace, pauses and breath', 'What not to read aloud']],
+  ['Designing for Interruptions: How People Really Read on Phones, on Trains and Late at Night in Bed', ['The three-second glance', 'Finding your place again', 'Bookmarks nobody sets', 'Resuming without asking', 'Progress that means something', 'Notifications that wait their turn', 'A field study in a commuter train', 'Summary']],
+  ['Navigation Without Menus', ['Where am I?', 'Where can I go?', 'Breadcrumbs, rails and drawers', 'Keyboard paths', 'Summary']],
+  ['Errors That Help', ['Say what happened', 'Say what to do next', 'Never blame the reader', 'Recovering a lost import: a worked example with a corrupted PDF', 'Summary']],
+  ['Long Documents', ['Rendering only what is visible', 'Search that respects structure', 'Tables of contents that tell the truth', 'Footnotes, figures and asides', 'Index pages and why we drop them', 'Very long titles and how to shorten them', 'Summary']],
+  ['Colour and Contrast', ['Measuring instead of guessing', 'Dark mode is not inverted light mode', 'Accents that carry meaning', 'Summary']],
+  ['Motion With a Purpose', ['Transitions that explain', 'Reduced motion', 'Summary']],
+  ['Settings People Actually Change', ['Speed', 'Voice', 'Read code and tables aloud', 'Defaults that respect the reader', 'Remembering choices per book', 'Summary']],
+  ['Offline First', ['Everything on one machine', 'Caching audio ahead of the listener', 'Exports that finish in the background', 'Summary']],
+  ['Accessibility Is the Baseline', ['Screen readers and live regions', 'Focus that never gets lost', 'Targets big enough for every hand', 'Testing with real assistive technology', 'Summary']],
+  ['Performance You Can Feel', ['The first sentence in under a second', 'Prefetching without waste', 'Memory on old laptops', 'Summary']],
+  ['Shipping Calm Software', ['Reviews that read the copy', 'Release notes in plain words', 'Listening after launch', 'Saying no to features', 'Summary']],
+  ['Afterword: What We Left Out on Purpose', ['Social features', 'Gamification', 'Thanks']]
+];
+const LONG_SUBS = ['Why it matters', 'In practice', 'Common mistakes', 'A short checklist', 'What the research says', 'Try it yourself'];
+
+const PARTS = [
+  ['PART I Foundations', [
+    ['What Is a Boundary?', ['The Goal', 'Two Kinds of Edges', 'A First Example', 'Summary']],
+    ['Contracts Between Strangers', ['Promises in Writing', 'What a Version Means', 'Breaking Gently']],
+    ['Change Is the Only Requirement', ['Why Systems Drift', 'Reading the Drift', 'Summary']]]],
+  ['PART II Shapes', [
+    ['The Pipeline', ['Stages and Buffers', 'When Stages Fall Behind', 'Back Pressure in Practice', 'Summary']],
+    ['The Ledger', ['Append Only', 'Reading Backwards', 'Compaction']],
+    ['The Cache That Lies', ['Staleness Budgets', 'Invalidation Without Tears', 'Summary']],
+    ['The Queue and the Clock', ['Ordering', 'Retries', 'Idempotency', 'Summary']]]],
+  ['PART III Edges', [
+    ['Talking to the Outside World', ['Adapters', 'Translating Errors', 'Summary']],
+    ['Files, Blobs and Other Slow Things', ['Streaming', 'Partial Writes', 'Summary']],
+    ['The User Is Also a System', ['Latency People Notice', 'Undo as an Architecture Decision', 'Summary']],
+    ['Time Zones, Calendars and Other Regrets', ['UTC Is Not Enough', 'Recurring Events', 'Summary']]]],
+  ['PART IV Keeping It Running', [
+    ['Logging What Matters', ['Events, Not Prose', 'Counting Instead of Quoting', 'Summary']],
+    ['Health, Readiness and Honesty', ['Three Different Questions', 'Checks That Lie', 'Summary']],
+    ['Configuration Without Surprises', ['Defaults', 'Overrides', 'The One-File Rule', 'Summary']],
+    ['Failing on Purpose: Why Every Dependency Deserves a Rehearsed Outage Before It Has a Real One', ['What to Break First', 'A Rehearsal Script', 'Reading the Results', 'Summary']],
+    ['Upgrades Nobody Notices', ['Two Versions at Once', 'Migrations That Can Stop', 'Summary']]]],
+  ['PART V Data', [
+    ['Schemas Are Promises', ['Naming', 'Nullability', 'Summary']],
+    ['Versioning Stored Things', ['Reading Old Records', 'Rewriting on Read', 'Summary']],
+    ['Deleting Is Hard', ['Soft Deletes', 'Hard Deletes', 'Proving Deletion', 'Summary']]]],
+  ['PART VI People', [
+    ['Reviews That Find Boundaries', ['Reading for Dependencies', 'Questions to Ask', 'Summary']],
+    ['Documents That Survive the Author', ['The Decision Record', 'Keeping It Short', 'Summary']],
+    ['On-Call Without Dread', ['Alerts You Can Act On', 'Hand-Offs', 'Summary']],
+    ['Teaching the System to New Hands', ['A Map, Not a Manual', 'The First Week', 'Summary']]]],
+  ['PART VII Scale', [
+    ['When One Machine Is Enough', ['The Case for Small', 'Knowing the Limit', 'Summary']],
+    ['Splitting Carefully', ['Seams', 'Cutting Along Them', 'Summary']],
+    ['Many Copies of the Truth', ['Replication', 'Reconciling', 'Summary']],
+    ['Measuring Scale Honestly', ['Percentiles, Not Averages', 'Load That Looks Like Users', 'Summary']]]],
+  ['PART VIII Endings', [
+    ['Deprecating With Grace', ['Announcing', 'Waiting', 'Removing', 'Summary']],
+    ['Rewrites and Other Temptations', ['The Second System', 'Strangling Instead', 'Summary']],
+    ['What Lasts', ['Boundaries', 'Contracts', 'Change']]]]
+];
+
+const POST_OPENERS = ['Comparing Five Ways to Handle', 'What I Learned Rewriting', 'A Field Guide to', 'Why We Stopped Using', 'The Hidden Cost of', 'Twelve Questions to Ask Before Adopting', 'Notes From a Week of Debugging', 'A Calmer Approach to', 'How Small Teams Get', 'Everything I Wish Someone Had Told Me About', 'The Case Against', 'A Gentle Introduction to', 'Lessons From Three Years of', 'When Not to Use', 'Measuring the Real Cost of', 'A Checklist for Reviewing', 'Thinking Clearly About', 'How We Simplified', 'Rethinking', 'Plain-Language Notes on'];
+const POST_SUBJECTS = ['Retries in a Message Queue', 'Local-First Desktop Apps', 'Dark Mode in Reading Software', 'Keyboard Navigation in Long Lists', 'Caching Generated Audio', 'Logging Without Leaking Content', 'Page Numbers in Extracted PDF Text', 'Background Exports on a Laptop', 'Health Checks That Tell the Truth', 'Sentence Splitting for Text-to-Speech'];
+const POST_TAILS = [': What Worked, What Broke and What We Would Do Differently', ' Without Adding a Single Dependency', ': A Practical Comparison With Numbers', ' on an Old Laptop and a Mid-Range Phone', ': The Short Version and the Long Version', ' Before It Costs You a Weekend', ': Three Patterns and One Anti-Pattern', ' — Notes, Diagrams and a Checklist', ': Questions From Readers, Answered', ' Across Five Open-Source Tools'];
+const POST_SHORT = ['On Naming', 'Two Small Fixes', 'A Reader Writes In', 'Weekend Notes', 'What Changed This Month', 'One Chart', 'Thanks'];
+
+const longBookNodes = () => {
+  const nodes = [{ level: 1, title: 'Preface', paras: 3, front: true }];
+  LONG_CHAPTERS.forEach(([title, sections], c) => {
+    nodes.push({ level: 1, title: `${c + 1}. ${title}`, paras: 1 });
+    sections.forEach((section, j) => {
+      nodes.push({ level: 2, title: `${c + 1}.${j + 1} ${section}`, paras: 2 });
+      for (let k = 0; k < 3; k++) nodes.push({ level: 3, title: LONG_SUBS[(j + k) % LONG_SUBS.length], paras: 1 });
+    });
+  });
+  return nodes;
+};
+const partsBookNodes = () => {
+  const nodes = ['Foreword', 'Preface', 'How to Read This Book'].map((title) => ({ level: 1, title, paras: 2, front: true }));
+  let n = 0;
+  PARTS.forEach(([part, chapters]) => {
+    nodes.push({ level: 1, title: part, paras: 1 });
+    chapters.forEach(([title, sections]) => {
+      nodes.push({ level: 2, title: `Chapter ${++n} ${title}`, paras: 1 });
+      sections.forEach((section) => nodes.push({ level: 3, title: section, paras: 2 }));
+    });
+  });
+  nodes.push({ level: 1, title: 'Appendix A A Checklist for Boundaries', paras: 3 });
+  nodes.push({ level: 1, title: 'Afterword', paras: 2 });
+  return nodes;
+};
+const flatBookNodes = () => Array.from({ length: 200 }, (_, i) => {
+  const subject = Math.floor(i / 20);
+  const title = i % 9 === 4 ? POST_SHORT[(i / 9) % POST_SHORT.length | 0] : `${POST_OPENERS[i % 20]} ${POST_SUBJECTS[subject]}${POST_TAILS[(i * 3 + subject) % 10]}`;
+  return { level: 1, title, paras: 2 };
+});
+
+const ROMAN = ['', 'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x', 'xi', 'xii', 'xiii', 'xiv', 'xv', 'xvi', 'xvii', 'xviii', 'xix', 'xx', 'xxi', 'xxii', 'xxiii', 'xxiv'];
+const rng = (seed) => () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+
+/** Flattens a plan of headings into sentences (with PDF pages), blocks and the `toc` as the API would return it. */
+const makeBook = (def) => {
+  const rand = rng(def.seed);
+  const sentences = [], blocks = [], toc = [];
+  let page = 1, onPage = 0, frontDone = false;
+  const label = (p) => (p < def.firstArabic ? ROMAN[p] : String(p - def.firstArabic + 1));
+  const newPage = () => { page += 1; onPage = 0; };
+  const add = (block, text) => {
+    if (onPage >= def.perPage) newPage();
+    const id = sentences.length;
+    sentences.push({ id, text, pageIndex: page });
+    block.ids.push(id);
+    onPage += 1;
+  };
+  const paragraph = () => {
+    const block = { kind: 'p', ids: [] };
+    let k = Math.floor(rand() * FILLER.length);
+    for (let n = 3 + Math.floor(rand() * 4); n > 0; n--) { add(block, FILLER[k]); k = (k + 1 + Math.floor(rand() * 5)) % FILLER.length; }
+    blocks.push(block);
+  };
+  const titlePage = { kind: 'p', ids: [] };
+  add(titlePage, def.title + '.'); add(titlePage, def.subtitle);
+  blocks.push(titlePage);
+  def.nodes.forEach((node) => {
+    if (node.front && page < def.frontStart) { page = def.frontStart; onPage = 0; }
+    if (!node.front && !frontDone) { frontDone = true; page = def.firstArabic; onPage = 0; }
+    if (node.level === 1 && onPage > 0) newPage();
+    const block = { kind: 'h', level: node.level, ids: [] };
+    add(block, node.title);
+    blocks.push(block);
+    toc.push({ id: toc.length + 1, title: node.title, level: node.level, sentenceId: block.ids[0], pageIndex: page });
+    for (let n = node.paras; n > 0; n--) paragraph();
+  });
+  if (!def.nodes.length) for (let n = 6; n > 0; n--) paragraph();
+  const charsBefore = [0];
+  sentences.forEach((s) => charsBefore.push(charsBefore[charsBefore.length - 1] + s.text.length));
+  const ends = toc.map((e, k) => { for (let j = k + 1; j < toc.length; j++) if (toc[j].level <= e.level) return toc[j].sentenceId; return sentences.length; });
+  const start = def.startAt ? toc.find((e) => e.title.startsWith(def.startAt[0])).sentenceId + def.startAt[1] : def.startSentence;
+  return { id: def.id, title: def.title, sentences, blocks, toc, ends, charsBefore, pageCount: page, lastPrinted: label(page), pageLabel: (p) => label(p), start };
+};
+
+const BOOKS = [
+  makeBook({ id: 'long', title: 'The Long Book', subtitle: 'Fifteen chapters on calm software, with a preface and far too many sections.', nodes: longBookNodes(), seed: 7, perPage: 4, frontStart: 12, firstArabic: 14, startAt: ['7.3 ', 5] }),
+  makeBook({ id: 'parts', title: 'Systems That Last: Boundaries, Contracts and Change', subtitle: 'Eight parts, thirty chapters, one argument.', nodes: partsBookNodes(), seed: 11, perPage: 4, frontStart: 7, firstArabic: 21, startAt: ['A Rehearsal Script', 3] }),
+  makeBook({ id: 'flat', title: 'Workshop Notes 2024', subtitle: 'Two hundred posts, collected in the order they were written.', nodes: flatBookNodes(), seed: 3, perPage: 5, frontStart: 1, firstArabic: 1, startAt: [POST_OPENERS[97 % 20] + ' ' + POST_SUBJECTS[4], 3] }),
+  makeBook({ id: 'empty', title: 'Meeting Notes (no chapters)', subtitle: 'Exported from a shared document; six paragraphs, no headings.', nodes: [], seed: 5, perPage: 5, frontStart: 1, firstArabic: 1, startSentence: 8 })
+];
+const BOOK_NAMES = { long: 'Long Book (15 chapters, 3 levels)', parts: 'Parts › chapters › sections (8 parts, 30 chapters)', flat: 'Flat (200 long titles)', empty: 'Empty (no chapters)' };
+
+/* ============================================================ toc helpers (mirror of utils/toc.ts) ============================================================ */
+const CHAPTER_RE = /^(?:chapter|ch\.)\s+(\d+|[ivxlc]+)\b[.:]?\s*(.*)$/i;
+const NUMBERED_RE = /^(\d+)[.:]\s+(.*)$/;
+const chapterLabel = (title) => {
+  const m = CHAPTER_RE.exec(title) || NUMBERED_RE.exec(title);
+  return m ? { number: m[1], name: m[2] } : { number: null, name: title };
+};
+const isChapterLike = (title) => chapterLabel(title).number !== null;
+
+const buildTree = (toc) => {
+  const roots = [], stack = [], byId = new Map();
+  toc.forEach((entry) => {
+    const node = { entry, children: [], parent: null };
+    while (stack.length && stack[stack.length - 1].entry.level >= entry.level) stack.pop();
+    if (stack.length) { node.parent = stack[stack.length - 1]; node.parent.children.push(node); } else roots.push(node);
+    stack.push(node);
+    byId.set(entry.id, node);
+  });
+  return { roots, byId };
+};
+
+/** Index of the last entry whose sentenceId ≤ sid, or -1 before the first entry. */
+const currentEntryIndex = (toc, sid) => {
+  let lo = 0, hi = toc.length - 1, found = -1;
+  while (lo <= hi) { const mid = (lo + hi) >> 1; if (toc[mid].sentenceId <= sid) { found = mid; lo = mid + 1; } else hi = mid - 1; }
+  return found;
+};
+const tocPath = (toc, index) => {
+  const path = [];
+  let level = Infinity;
+  for (let k = index; k >= 0; k--) if (toc[k].level < level) { path.unshift(toc[k]); level = toc[k].level; }
+  return path;
+};
+const currentChapter = (book, sid) => {
+  const index = currentEntryIndex(book.toc, sid);
+  if (index < 0) return null;
+  const path = tocPath(book.toc, index);
+  const at = Math.max(0, path.findIndex((e) => isChapterLike(e.title)));
+  return { chapter: path[at], section: path[at + 1] || null, path };
+};
+const entryEnd = (book, entry) => book.ends[entry.id - 1];
+const entryProgress = (book, entry, sid) => (sid >= entryEnd(book, entry) ? 'read' : sid >= entry.sentenceId ? 'current' : 'unread');
+const percentThrough = (book, entry, sid) => Math.round((sid - entry.sentenceId) / (entryEnd(book, entry) - entry.sentenceId) * 100);
+const secondsBetween = (book, from, to, speed) => (book.charsBefore[to] - book.charsBefore[from]) * SECONDS_PER_CHAR / speed;
+const minutesText = (seconds) => (seconds < 60 ? 'under a minute' : `${Math.ceil(seconds / 60)} min`);
+const shortLabel = (title) => { const l = chapterLabel(title); return l.number ? `Ch. ${l.number}` : title; };
+
+/* ============================================================ state ============================================================ */
+const S = { book: BOOKS[0], tree: null, i: 0, playing: false, ended: false, speed: 1, follow: true, opt: '1', label: 'A', popOpen: false, popTab: 'controls', panel: null, opener: null, expanded: new Set(), sheetParent: null };
+let timer = null;
+
+const ICON = {
+  play: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M7 4v16l14-8z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" d="M9 6l6 6-6 6"/></svg>',
+  check: '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" d="M5 12l5 5 9-10"/></svg>'
+};
+const EMPTY_MSG = '<p class="empty-msg">No chapters found. This PDF has no bookmarks or headings Lectrice could detect. Use the progress slider in ⋯ to move around.</p>';
+
+const NOTES = {
+  1: { title: '1 · Drawer / sheet (modal, from a new pill button)',
+    good: 'Good for: big books. The tree gets 24rem and the full height, so three levels and long titles fit; modal focus keeps keyboard use clean; on phones the same component becomes a full-screen sheet sliding up.',
+    trade: 'Trade-off: a new pill button and a new surface. While it is open the page is inert, so play/pause waits until you close it (Escape, ×, or a jump).' },
+  2: { title: '2 · The ⋯ popover grows a Chapters tab (no new surface)',
+    good: 'Good for: staying true to D. No new chrome: the chapter line and the tree live where the progress slider already is, and on phones this is where the chapter is read anyway. Clicking the pill status (label A) or the chapter line opens it on Chapters.',
+    trade: 'Trade-off: 21rem wide, so long titles wrap to two lines and the three-level Long Book feels cramped; it is a non-modal disclosure that closes on any outside click, and controls and chapters share one small scrolling box.' },
+  3: { title: '3 · Bottom sheet from the pill, one level at a time',
+    good: 'Good for: thumbs and browsing while listening. On desktop the pill stays visible below the sheet so play/pause still works; each list is short and titles get the full width. Pairs well with label B (the running head opens it).',
+    trade: 'Trade-off: drilling costs taps and loses the overview (you never see two chapters’ sections at once); three-level books need two drills; on phones it is modal and covers the pill.' },
+  4: { title: '4 · Slim rail on wide screens, option 1’s drawer below 1200 px',
+    good: 'Good for: desktop reading. An always-on answer to “where am I” and one-click jumps without opening anything; the current chapter’s sections double as a progress map. Pairs well with label C, which keeps the text column quiet.',
+    trade: 'Trade-off: departs from D’s “nothing but text” and takes ~15rem on the left (the article shifts right). Below 1200 px it falls back to the drawer, so there are two behaviours to build and test. C focuses the rail here; Escape returns.' }
+};
+const LABEL_NOTES = {
+  A: 'Label A (pill): “Ch. 7 · Long Documents · p. 412”, “Paused · …”, “… · 1.5×”; only the name truncates, the status may grow to 22rem. Hidden at ≤ 420 px, where the popover shows the chapter.',
+  B: 'Label B (running head): a 2rem sticky line at the top, “chapter › section” left and “p. 412” right; the section truncates first, below 420 px only the chapter shows. Works at 375 px; clicking it opens the chapters panel. The pill keeps today’s page text.',
+  C: 'Label C (margin): the first page marker after a chapter starts gets a second line (“Ch. 7”, or the name cut to the gutter); on phones that chip reads “p. 37 · Ch. 7”. Quiet, but only visible near chapter starts, so the popover carries “where am I now”.'
+};
+
+/* ============================================================ document rendering ============================================================ */
+const pageLabel = (pageIndex) => S.book.pageLabel(pageIndex);
+const sentenceAt = (i) => S.book.sentences[i];
+const lastId = () => S.book.sentences.length - 1;
+
+/** Which sentences get a page marker, and which marker carries the chapter label (variant C). */
+const planMarkers = () => {
+  const book = S.book, markers = new Map();
+  const starts = book.toc.filter((e) => e.level === 1 || isChapterLike(e.title));
+  let previousPage = null, nextStart = 0, pending = null;
+  book.sentences.forEach((s) => {
+    while (nextStart < starts.length && starts[nextStart].sentenceId <= s.id) pending = starts[nextStart++];
+    if (s.pageIndex === previousPage) return;
+    previousPage = s.pageIndex;
+    markers.set(s.id, { pageIndex: s.pageIndex, chapter: pending });
+    pending = null;
+  });
+  return markers;
+};
+
+const renderDoc = () => {
+  const book = S.book, markers = planMarkers();
+  const marker = (id) => {
+    const m = markers.get(id);
+    if (!m) return '';
+    const ch = m.chapter ? `<span class="pm-ch" title="${esc(m.chapter.title)}">${esc(shortLabel(m.chapter.title))}</span>` : '';
+    return `<span class="pm" title="PDF page ${m.pageIndex}">p. ${esc(pageLabel(m.pageIndex))}${ch}</span>`;
+  };
+  const span = (id) => `${marker(id)}<span class="s" data-i="${id}">${esc(book.sentences[id].text)}</span>`;
+  $('#doc').innerHTML = book.blocks.map((b) => (b.kind === 'h'
+    ? `<h${b.level} class="block h${b.level}">${span(b.ids[0])}</h${b.level}>`
+    : `<p class="block p">${b.ids.map(span).join(' ')}</p>`)).join('');
+  $('#seek').max = lastId();
+};
+
+let markedActive = null;
+const markSentences = (full) => {
+  if (full) $$('#doc .s').forEach((el) => { const k = +el.dataset.i; el.classList.toggle('read', k < S.i); el.classList.toggle('active', k === S.i); });
+  else if (markedActive !== null) { const prev = $(`#doc .s[data-i="${markedActive}"]`); if (prev) { prev.classList.remove('active'); prev.classList.toggle('read', markedActive < S.i); } }
+  const el = $(`#doc .s[data-i="${S.i}"]`);
+  if (el) { el.classList.add('active'); el.classList.remove('read'); }
+  markedActive = S.i;
+};
+
+/* ============================================================ pill, running head, popover ============================================================ */
+const statusHTML = () => {
+  if (S.ended) return '<span class="nm">Finished</span>';
+  const pg = `p. ${pageLabel(sentenceAt(S.i).pageIndex)}`;
+  const speed = S.speed !== 1 ? `${S.speed}×` : null;
+  const cc = S.label === 'A' ? currentChapter(S.book, S.i) : null;
+  if (!cc) return `<span class="nm">${esc([S.playing ? null : 'Paused', `${pg} of ${S.book.lastPrinted}`, speed].filter(Boolean).join(' · '))}</span>`;
+  const lab = chapterLabel(cc.chapter.title);
+  const parts = [];
+  if (!S.playing) parts.push(['fx', 'Paused']);
+  if (lab.number) parts.push(['fx', `Ch. ${lab.number}`]);
+  parts.push(['nm', lab.name], ['fx', pg]);
+  if (speed) parts.push(['fx', speed]);
+  return parts.map(([cls, text]) => `<span class="${cls}">${esc(text)}</span>`).join('<span class="sep">·</span>');
+};
+
+const renderChrome = () => {
+  const book = S.book, s = sentenceAt(S.i), cc = currentChapter(book, S.i);
+  $('#status').innerHTML = statusHTML();
+  $('#pill-play').innerHTML = S.playing ? ICON.pause : ICON.play;
+  $('#pill-play').setAttribute('aria-label', S.playing ? 'Pause' : 'Play');
+  $('#top-play').textContent = S.playing ? 'Pause' : 'Play';
+  $('[data-act="prev"]').disabled = S.i === 0;
+  $('[data-act="next"]').disabled = S.i >= lastId();
+  $('#locate').hidden = S.follow;
+
+  const head = $('#rhead');
+  head.hidden = !book.toc.length;
+  $('#rh-ch').textContent = cc ? cc.chapter.title : '';
+  $('#rh-sep').hidden = !(cc && cc.section);
+  $('#rh-sec').textContent = cc && cc.section ? cc.section.title : '';
+  $('#rh-pg').textContent = `p. ${pageLabel(s.pageIndex)}`;
+
+  $('#seek').value = S.i;
+  $('#seek').setAttribute('aria-valuetext', `Sentence ${S.i + 1} of ${book.sentences.length}, page ${pageLabel(s.pageIndex)}`);
+  $('#left').textContent = `${minutesText(secondsBetween(book, S.i, book.sentences.length, S.speed))} left`;
+  $('#chline').hidden = !cc;
+  if (cc) {
+    $('#chpath').textContent = cc.section ? `${cc.chapter.title} › ${cc.section.title}` : cc.chapter.title;
+    $('#chprog').textContent = `${percentThrough(book, cc.chapter, S.i)}% of this chapter · ${minutesText(secondsBetween(book, S.i, entryEnd(book, cc.chapter), S.speed))} left in it`;
+  }
+  $('#loc').textContent = `Page ${pageLabel(s.pageIndex)} · PDF page ${s.pageIndex} of ${book.pageCount}`;
+};
+
+/* ============================================================ the tree (drawer, popover tab, rail) ============================================================ */
+const rowState = (entry) => {
+  const prog = entryProgress(S.book, entry, S.i);
+  const cc = currentChapter(S.book, S.i);
+  const isChapter = prog === 'current' && cc && cc.chapter === entry;
+  return { prog, here: cc && cc.path[cc.path.length - 1] === entry, pct: isChapter ? percentThrough(S.book, entry, S.i) : null };
+};
+const stateText = (st) => (st.prog === 'current' ? ', current' : st.prog === 'read' ? ', read' : '');
+const metaHTML = (entry, st) => `${st.pct !== null ? `<span class="pct">${st.pct}%</span>` : ''}${st.prog === 'read' ? ICON.check : ''}<span class="pg">p. ${esc(pageLabel(entry.pageIndex))}</span>`;
+const childWord = (node) => { const kind = isChapterLike(node.children[0].entry.title) ? 'chapter' : 'section'; return node.children.length === 1 ? kind : `${kind}s`; };
+const titleHTML = (entry, st, extra) => `<button type="button" class="ttl" data-jump="${entry.sentenceId}" data-row="${entry.id}"${st.here ? ' aria-current="location"' : ''}><span class="t" title="${esc(entry.title)}">${esc(entry.title)}</span>${extra}${st.pct !== null ? `<span class="bar"><span style="width:${st.pct}%"></span></span>` : ''}<span class="sr">, page ${esc(pageLabel(entry.pageIndex))}${stateText(st)}</span></button>`;
+
+const itemsHTML = (nodes, prefix, rail, flat) => nodes.map((node) => {
+  const e = node.entry, st = rowState(e), has = node.children.length > 0;
+  const expanded = rail ? st.prog === 'current' : S.expanded.has(e.id);
+  const kidsId = `${prefix}-k${e.id}`;
+  const disc = flat || rail ? '' : has
+    ? `<button type="button" class="disc" data-disc="${e.id}" aria-expanded="${expanded}" aria-controls="${kidsId}" aria-label="${expanded ? 'Hide' : 'Show'} ${childWord(node)} of ${esc(e.title)}">${ICON.chevron}</button>`
+    : '<span></span>';
+  const size = has && !rail ? `<span class="sz"${expanded ? ' hidden' : ''}>${node.children.length} ${childWord(node)}</span>` : '';
+  return `<li><div class="row ${st.prog}" data-id="${e.id}">${disc}${titleHTML(e, st, size)}<span class="meta">${metaHTML(e, st)}</span></div>${has ? `<ul id="${kidsId}"${expanded ? '' : ' hidden'}>${itemsHTML(node.children, prefix, rail, flat)}</ul>` : ''}</li>`;
+}).join('');
+
+const renderTree = (nav, rail) => {
+  const book = S.book;
+  nav.classList.toggle('flat', book.toc.every((e) => e.level === 1));
+  nav.innerHTML = book.toc.length ? `<ul>${itemsHTML(S.tree.roots, nav.id, rail, nav.classList.contains('flat'))}</ul>` : EMPTY_MSG;
+};
+
+/** Live update of progress classes and meta without rebuilding the DOM (keeps focus and scroll). */
+const refreshRows = (nav) => {
+  $$('.row[data-id]', nav).forEach((row) => {
+    const entry = S.book.toc[+row.dataset.id - 1], st = rowState(entry);
+    row.className = `row ${st.prog}`;
+    const ttl = $('.ttl', row);
+    if (st.here) ttl.setAttribute('aria-current', 'location'); else ttl.removeAttribute('aria-current');
+    $('.sr', ttl).textContent = `, page ${pageLabel(entry.pageIndex)}${stateText(st)}`;
+    const bar = $('.bar', ttl);
+    if (st.pct !== null) { if (bar) $('span', bar).style.width = `${st.pct}%`; else ttl.insertAdjacentHTML('beforeend', `<span class="bar"><span style="width:${st.pct}%"></span></span>`); }
+    else if (bar) bar.remove();
+    $('.meta', row).innerHTML = metaHTML(entry, st);
+  });
+};
+
+const setExpanded = (nav, id, on) => {
+  const row = $(`.row[data-id="${id}"]`, nav), disc = row && $('.disc', row);
+  if (!disc) return false;
+  const node = S.tree.byId.get(id);
+  row.nextElementSibling.hidden = !on;
+  disc.setAttribute('aria-expanded', String(on));
+  disc.setAttribute('aria-label', `${on ? 'Hide' : 'Show'} ${childWord(node)} of ${node.entry.title}`);
+  $('.sz', row).hidden = on;
+  if (on) S.expanded.add(id); else S.expanded.delete(id);
+  return true;
+};
+
+const centreIn = (container, el) => {
+  if (!el) return;
+  const c = container.getBoundingClientRect(), r = el.getBoundingClientRect();
+  container.scrollTop += r.top - c.top - (c.height - r.height) / 2;
+};
+const keepInView = (container, el) => {
+  if (!el) return;
+  const c = container.getBoundingClientRect(), r = el.getBoundingClientRect();
+  if (r.top < c.top || r.bottom > c.bottom) centreIn(container, el);
+};
+const currentRow = (nav) => $('.ttl[aria-current]', nav) || $('.row.current .ttl', nav) || $('.ttl', nav);
+
+const visibleTitles = (nav) => $$('.ttl', nav).filter((b) => !b.closest('[hidden]'));
+const focusedTitle = (nav) => { const a = document.activeElement; return a && nav.contains(a) ? (a.classList.contains('ttl') ? a : $('.ttl', a.closest('.row') || nav)) : null; };
+
+/* ============================================================ panels: open / close ============================================================ */
+const reader = $('#reader'), drawer = $('#drawer'), sheet = $('#sheet'), pop = $('#pop'), rail = $('#rail');
+const isNarrow = () => reader.clientWidth <= 720;
+const railVisible = () => S.opt === '4' && reader.clientWidth >= 1200 && S.book.toc.length > 0;
+const setInert = (on) => { ['#scroll', '#pill', '#rail'].forEach((sel) => { $(sel).inert = on; }); $('#backdrop').hidden = !on; };
+const setChaptersExpanded = (on) => $('#chapters-btn').setAttribute('aria-expanded', String(on));
+const pathIds = () => { const cc = currentChapter(S.book, S.i); return new Set(cc ? cc.path.map((e) => e.id) : []); };
+
+const returnFocus = () => {
+  const target = S.opener;
+  S.opener = null;
+  if (target && target.isConnected && target.offsetParent !== null && !target.hidden) target.focus();
+  else if (document.activeElement) document.activeElement.blur();
+};
+
+const openDrawer = () => {
+  S.expanded = pathIds();
+  $('#drawer-title').textContent = S.book.title;
+  $('#expand-all').hidden = !S.book.toc.some((e) => e.level > 1);
+  renderTree($('#drawer-tree'), false);
+  drawer.show();
+  setInert(true);
+  setChaptersExpanded(true);
+  S.panel = 'drawer';
+  const row = currentRow(drawer);
+  centreIn($('#drawer-tree'), row);
+  (row || $('[data-act="close-panel"]', drawer)).focus();
+};
+
+const sheetLevel = () => {
+  const cc = currentChapter(S.book, S.i);
+  if (!cc) return null;
+  const node = S.tree.byId.get(cc.chapter.id);
+  return node.children.length ? node.entry.id : (node.parent ? node.parent.entry.id : null);
+};
+const renderSheet = (focusId) => {
+  const book = S.book, parent = S.sheetParent === null ? null : S.tree.byId.get(S.sheetParent);
+  const nodes = parent ? parent.children : S.tree.roots;
+  $('#sheet-title').textContent = parent ? parent.entry.title : book.title;
+  const back = $('#sheet-back');
+  back.hidden = !parent;
+  if (parent) back.textContent = `‹ ${parent.parent ? parent.parent.entry.title : 'All chapters'}`;
+  $('#sheet-list').innerHTML = !book.toc.length ? EMPTY_MSG : `<ul>${nodes.map((node) => {
+    const e = node.entry, st = rowState(e), has = node.children.length > 0;
+    const drill = has ? `<button type="button" class="drill" data-drill="${e.id}" aria-label="Show ${node.children.length} ${childWord(node)} of ${esc(e.title)}"><span class="sz">${node.children.length} ${childWord(node)}</span>${ICON.chevron}</button>` : '';
+    return `<li><div class="row ${st.prog}" data-id="${e.id}">${titleHTML(e, st, '')}<span class="meta">${metaHTML(e, st)}</span>${drill}</div></li>`;
+  }).join('')}</ul>`;
+  const row = focusId !== undefined ? $(`.ttl[data-row="${focusId}"]`, sheet) : currentRow(sheet);
+  centreIn($('#sheet-list'), row);
+  (row || $('[data-act="close-panel"]', sheet)).focus();
+};
+const openSheet = () => {
+  S.sheetParent = sheetLevel();
+  sheet.hidden = false;
+  if (isNarrow()) setInert(true);
+  setChaptersExpanded(true);
+  S.panel = 'sheet';
+  renderSheet();
+};
+
+const focusRail = () => {
+  S.panel = 'rail';
+  const row = currentRow(rail);
+  if (row) { keepInView(rail, row); row.focus(); }
+};
+
+const openPanel = (opener) => {
+  S.opener = opener || (document.activeElement !== document.body ? document.activeElement : null);
+  if (S.popOpen && S.opt !== '2') closePop(false);
+  if (S.opt === '2') { openPop('chapters'); return; }
+  if (S.opt === '3') { openSheet(); return; }
+  if (railVisible()) { focusRail(); return; }
+  openDrawer();
+};
+
+const closePanel = (focusBack = true) => {
+  if (S.panel === 'drawer') { drawer.close(); setInert(false); }
+  else if (S.panel === 'sheet') { sheet.hidden = true; setInert(false); }
+  else if (S.panel === 'pop') { closePop(false); }
+  S.panel = null;
+  setChaptersExpanded(false);
+  if (focusBack) returnFocus();
+};
+const anyPanelOpen = () => S.panel !== null && S.panel !== 'rail';
+const togglePanel = () => {
+  if (anyPanelOpen()) { closePanel(); return; }
+  if (S.panel === 'rail' && rail.contains(document.activeElement)) { S.panel = null; returnFocus(); return; }
+  openPanel(null);
+};
+
+/* ---------- popover ---------- */
+const setPopTab = (tab, focusRow) => {
+  S.popTab = tab;
+  $$('.poptabs [role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+  $('#pop-controls').hidden = tab !== 'controls';
+  $('#pop-chapters').hidden = tab !== 'chapters';
+  if (tab === 'chapters') {
+    S.expanded = pathIds();
+    renderTree($('#pop-chapters'), false);
+    const row = currentRow($('#pop-chapters'));
+    centreIn(pop, row);
+    if (focusRow) (row || $('#tab-chapters')).focus();
+  }
+};
+const openPop = (tab) => {
+  S.popOpen = true;
+  pop.hidden = false;
+  $('#more-btn').setAttribute('aria-expanded', 'true');
+  if (S.opt === '2') { setPopTab(tab || 'controls', tab === 'chapters'); if (tab === 'chapters') S.panel = 'pop'; }
+  else setPopTab('controls', false);
+  renderChrome();
+};
+const closePop = (focusMore) => {
+  S.popOpen = false;
+  pop.hidden = true;
+  $('#more-btn').setAttribute('aria-expanded', 'false');
+  if (S.panel === 'pop') S.panel = null;
+  if (focusMore) $('#more-btn').focus();
+};
+
+/* ============================================================ playback simulation ============================================================ */
+const durationMs = (i) => Math.max(900, sentenceAt(i).text.length * SECONDS_PER_CHAR / S.speed * 1000);
+const scheduleNext = () => {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    if (!S.playing) return;
+    if (S.i >= lastId()) { S.playing = false; S.ended = true; render(false, false); return; }
+    S.i += 1;
+    render(true, false);
+    scheduleNext();
+  }, durationMs(S.i));
+};
+const togglePlay = () => {
+  S.playing = !S.playing;
+  if (S.playing) { if (S.ended) { S.ended = false; S.i = 0; S.follow = true; render(true, true); } scheduleNext(); }
+  else clearTimeout(timer);
+  render(false, false);
+};
+/** playback.jumpTo wrapped in andFollow: any sentence id, keeps play/pause, resumes follow-scroll. */
+const jumpTo = (sid) => {
+  S.i = clamp(sid, 0, lastId());
+  S.ended = false;
+  S.follow = true;
+  if (S.playing) scheduleNext();
+  render(true, true);
+};
+const stopFollow = () => { if (S.follow) { S.follow = false; $('#locate').hidden = false; } };
+
+const scrollToCurrent = (instant) => {
+  const el = $(`#doc .s[data-i="${S.i}"]`);
+  if (el) el.scrollIntoView({ block: 'center', behavior: instant || reduced ? 'auto' : 'smooth' });
+};
+
+let lastChapterId = null;
+const render = (moved, full) => {
+  markSentences(full);
+  renderChrome();
+  if (S.panel === 'drawer') refreshRows(drawer);
+  if (S.popOpen && S.popTab === 'chapters') refreshRows($('#pop-chapters'));
+  if (!sheet.hidden) refreshRows(sheet);
+  if (railVisible()) {
+    const cc = currentChapter(S.book, S.i), chapterId = cc ? cc.path.map((e) => e.id).join('/') : '';
+    const focused = focusedTitle(rail);
+    if (chapterId !== lastChapterId) { renderTree(rail, true); lastChapterId = chapterId; if (focused) { const again = $(`.ttl[data-row="${focused.dataset.row}"]`, rail); if (again) again.focus(); } }
+    else refreshRows(rail);
+    if (!focused) keepInView(rail, currentRow(rail));
+  }
+  if (moved && S.follow) scrollToCurrent(full);
+};
+
+/* ============================================================ prototype switches ============================================================ */
+const setBook = (id) => {
+  if (anyPanelOpen()) closePanel(false);
+  closePop(false);
+  S.playing = false; clearTimeout(timer);
+  if (rail.contains(document.activeElement)) document.activeElement.blur();
+  S.book = BOOKS.find((b) => b.id === id);
+  S.tree = buildTree(S.book.toc);
+  S.i = S.book.start; S.ended = false; S.follow = true;
+  markedActive = null; lastChapterId = null;
+  reader.classList.toggle('notoc', !S.book.toc.length);
+  renderDoc();
+  render(true, true);
+  scrollToCurrent(true);
+};
+const setOpt = (opt) => {
+  if (anyPanelOpen()) closePanel(false);
+  closePop(false);
+  S.opt = opt;
+  S.panel = null;
+  reader.dataset.opt = opt;
+  $$('[data-opt]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.opt === opt)));
+  $('#chapters-btn').setAttribute('aria-controls', opt === '3' ? 'sheet' : 'drawer');
+  $('#note-title').textContent = NOTES[opt].title;
+  $('#note-good').textContent = NOTES[opt].good;
+  $('#note-trade').textContent = NOTES[opt].trade;
+  lastChapterId = null;
+  render(false, false);
+};
+const setLabel = (label) => {
+  S.label = label;
+  reader.dataset.label = label;
+  $('#note-label').textContent = LABEL_NOTES[label];
+  renderChrome();
+};
+
+/* ============================================================ events ============================================================ */
+const handleAct = (act, btn) => {
+  if (act === 'play') togglePlay();
+  else if (act === 'prev') jumpTo(S.i - 1);
+  else if (act === 'next') jumpTo(S.i + 1);
+  else if (act === 'locate') { S.follow = true; render(true, false); }
+  else if (act === 'more') { if (S.popOpen) closePop(false); else openPop('controls'); }
+  else if (act === 'chapters') { if (anyPanelOpen()) closePanel(); else openPanel(btn); }
+  else if (act === 'chapters-pop') { if (S.opt === '2') { setPopTab('chapters', true); S.panel = 'pop'; } else { closePop(false); openPanel($('#more-btn')); } }
+  else if (act === 'close-panel') closePanel();
+  else if (act === 'expand-all') { S.book.toc.forEach((e) => S.expanded.add(e.id)); renderTree($('#drawer-tree'), false); btn.focus(); }
+  else if (act === 'sheet-back') { const node = S.tree.byId.get(S.sheetParent); S.sheetParent = node.parent ? node.parent.entry.id : null; renderSheet(node.entry.id); }
+};
+
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  const act = t.closest('[data-act]'); if (act) { handleAct(act.dataset.act, act); return; }
+  const s = t.closest('#doc .s'); if (s) { jumpTo(+s.dataset.i); return; }
+  const disc = t.closest('[data-disc]'); if (disc) { setExpanded(disc.closest('.tree-nav'), +disc.dataset.disc, disc.getAttribute('aria-expanded') !== 'true'); return; }
+  const drill = t.closest('[data-drill]'); if (drill) { S.sheetParent = +drill.dataset.drill; renderSheet(); return; }
+  const jump = t.closest('[data-jump]');
+  if (jump) { const inRail = rail.contains(jump); if (!inRail) closePanel(false); jumpTo(+jump.dataset.jump); if (!inRail) returnFocus(); return; }
+  const tab = t.closest('.poptabs [role="tab"]'); if (tab) { setPopTab(tab.dataset.tab, false); S.panel = tab.dataset.tab === 'chapters' ? 'pop' : null; return; }
+  if (t.closest('#chpath')) { if (S.opt === '2') { setPopTab('chapters', true); S.panel = 'pop'; } else { closePop(false); openPanel($('#more-btn')); } return; }
+  if (t.closest('#status') && S.opt === '2') { openPop('chapters'); return; }
+  if (t.closest('#rhead')) { openPanel($('#rhead')); return; }
+  const opt = t.closest('[data-opt]'); if (opt) setOpt(opt.dataset.opt);
+});
+
+document.addEventListener('pointerdown', (e) => {
+  const t = e.target;
+  if (S.popOpen && !$('#pill').contains(t)) closePop(false);
+  if (S.panel === 'sheet' && !isNarrow() && !sheet.contains(t) && !t.closest('[data-act="chapters"],#rhead')) closePanel(false);
+});
+
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.id === 'speed') { S.speed = +t.value; if (S.playing) scheduleNext(); render(false, false); }
+  else if (t.id === 'theme') { if (t.value === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = t.value; }
+  else if (t.id === 'phone') { if (anyPanelOpen()) closePanel(false); $('#stage').classList.toggle('phone', t.checked); lastChapterId = null; render(true, true); }
+  else if (t.id === 'book') setBook(t.value);
+  else if (t.id === 'label') setLabel(t.value);
+});
+$('#seek').addEventListener('input', (e) => jumpTo(+e.target.value));
+
+/* The reader's shortcuts. Trap 1: anything typed inside a panel ([data-own-keys]) never reaches them. */
+document.addEventListener('keydown', (e) => {
+  const t = e.target instanceof Element ? e.target : document.body;
+  if (t.closest('[data-own-keys]')) return;
+  if (t.matches('input,select,textarea') || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === 'c' || e.key === 'C') { e.preventDefault(); togglePanel(); }
+  else if (e.key === ' ' && !t.matches('button,summary,a')) { e.preventDefault(); togglePlay(); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); jumpTo(S.i + 1); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); jumpTo(S.i - 1); }
+  else if (e.key === 'Escape') { if (anyPanelOpen()) closePanel(); else if (S.popOpen) closePop(true); }
+  else if (['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'].includes(e.key)) stopFollow();
+});
+
+/* Trap 2: wheel / touch / scroll keys inside a panel ([data-own-scroll]) do not stop follow-scroll. */
+const onUserScroll = (e) => { if (e.target instanceof Element && !e.target.closest('[data-own-scroll]') && e.target.closest('#scroll')) stopFollow(); };
+document.addEventListener('wheel', onUserScroll, { passive: true });
+document.addEventListener('touchmove', onUserScroll, { passive: true });
+
+/* Keys inside a tree (drawer, popover tab, rail). */
+const onTreeKeys = (e, nav, isRail) => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === 'Escape') { e.preventDefault(); if (isRail) { S.panel = null; returnFocus(); } else if (S.panel === 'pop') { closePop(true); S.panel = null; } else closePanel(); return; }
+  if (isRail && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); S.panel = null; returnFocus(); return; }
+  const rows = visibleTitles(nav), focused = focusedTitle(nav);
+  if (!focused) return;
+  const idx = rows.indexOf(focused), row = focused.closest('.row'), id = +row.dataset.id, node = S.tree.byId.get(id);
+  const expanded = !row.nextElementSibling || !row.nextElementSibling.hidden;
+  const focusAt = (k) => { if (rows[k]) rows[k].focus(); };
+  switch (e.key) {
+    case 'ArrowDown': focusAt(idx + 1); break;
+    case 'ArrowUp': focusAt(idx - 1); break;
+    case 'Home': focusAt(0); break;
+    case 'End': focusAt(rows.length - 1); break;
+    case 'ArrowRight':
+      if (!node.children.length) break;
+      if (!expanded) setExpanded(nav, id, true); else focusAt(idx + 1);
+      break;
+    case 'ArrowLeft': {
+      if (node.children.length && expanded && !isRail && setExpanded(nav, id, false)) break;
+      const parentLi = row.closest('li').parentElement.closest('li');
+      if (parentLi) $('.ttl', parentLi).focus();
+      break;
+    }
+    case 'Enter': case ' ': {
+      if (document.activeElement !== focused) return;
+      const sid = +focused.dataset.jump;
+      if (!isRail) closePanel(false);
+      jumpTo(sid);
+      if (!isRail) returnFocus();
+      break;
+    }
+    default: return;
+  }
+  e.preventDefault();
+};
+drawer.addEventListener('keydown', (e) => onTreeKeys(e, $('#drawer-tree'), false));
+$('#pop-chapters').addEventListener('keydown', (e) => onTreeKeys(e, $('#pop-chapters'), false));
+rail.addEventListener('keydown', (e) => onTreeKeys(e, rail, true));
+$('.poptabs').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const next = S.popTab === 'controls' ? 'chapters' : 'controls'; setPopTab(next, false); S.panel = next === 'chapters' ? 'pop' : null; $(`#tab-${next}`).focus(); }
+  else if (e.key === 'Escape') { e.preventDefault(); closePop(true); S.panel = null; }
+});
+
+/* Keys inside the bottom sheet: one level at a time, → drills in, ← goes back. */
+sheet.addEventListener('keydown', (e) => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === 'Escape') { e.preventDefault(); closePanel(); return; }
+  const rows = visibleTitles(sheet), focused = focusedTitle(sheet);
+  if (!focused) return;
+  const idx = rows.indexOf(focused), id = +focused.dataset.row, node = S.tree.byId.get(id);
+  switch (e.key) {
+    case 'ArrowDown': if (rows[idx + 1]) rows[idx + 1].focus(); break;
+    case 'ArrowUp': if (rows[idx - 1]) rows[idx - 1].focus(); break;
+    case 'Home': rows[0].focus(); break;
+    case 'End': rows[rows.length - 1].focus(); break;
+    case 'ArrowRight': if (node.children.length) { S.sheetParent = id; renderSheet(); } break;
+    case 'ArrowLeft': if (S.sheetParent !== null) handleAct('sheet-back'); break;
+    case 'Enter': case ' ': if (document.activeElement !== focused) return; closePanel(false); jumpTo(+focused.dataset.jump); returnFocus(); break;
+    default: return;
+  }
+  e.preventDefault();
+});
+
+/* ============================================================ init ============================================================ */
+if (matchMedia('(max-width: 720px)').matches) $('.note').removeAttribute('open');
+$('#book').innerHTML = BOOKS.map((b) => `<option value="${b.id}">${BOOK_NAMES[b.id]}</option>`).join('');
+setLabel('A');
+setOpt('1');
+setBook('long');
+})();
+</script>
+</body>
+</html>

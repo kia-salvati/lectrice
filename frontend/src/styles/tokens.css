@@ -7,6 +7,7 @@
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif;
   --mono: ui-monospace, "SF Mono", "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
   --gutter: 4.5rem;          /* page-marker margin; 0 on phones */
+  --rail-width: 17rem;       /* the chapters rail on wide screens */
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {

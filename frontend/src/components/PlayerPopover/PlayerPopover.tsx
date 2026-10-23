@@ -14,8 +14,11 @@ interface PlayerPopoverProps {
   playableCount: number;
   /** aria-valuetext: 'Sentence 120 of 7,939, page 37' */
   positionText: string;
+  /** The <ChapterLine/> above the location line; null before the first chapter or in a book without any. */
+  chapterSection: React.ReactNode;
   /** 'Page 37 · PDF page 61 of 429' */
   locationText: string;
+  onOpenChapters: () => void;
   timeLeftText: string;
   onSeek: (position: number) => void;
   speed: PlaybackSpeed;
@@ -30,14 +33,18 @@ interface PlayerPopoverProps {
   onOpenAnother: () => void;
 }
 
-export const PlayerPopover = ({ id, position, playableCount, positionText, locationText, timeLeftText, onSeek, speed, onSpeedChange, voiceGroups, voiceId, voicesAvailable, onVoiceChange, readSkipped, onReadSkippedChange, exportPanel, onOpenAnother }: PlayerPopoverProps) => (
+export const PlayerPopover = ({ id, position, playableCount, positionText, chapterSection, locationText, onOpenChapters, timeLeftText, onSeek, speed, onSpeedChange, voiceGroups, voiceId, voicesAvailable, onVoiceChange, readSkipped, onReadSkippedChange, exportPanel, onOpenAnother }: PlayerPopoverProps) => (
   <div id={id} className={styles.popover}>
-    <div>
+    <div className={styles.position}>
       <div className={styles.row}>
         <ProgressSlider position={position} max={playableCount - 1} valueText={positionText} onSeek={onSeek} />
         <span className={styles.muted}>{timeLeftText}</span>
       </div>
-      <div className={styles.location}>{locationText}</div>
+      {chapterSection}
+      <div className={styles.locationRow}>
+        <span className={styles.location}>{locationText}</span>
+        <button type="button" className={controls.button} onClick={onOpenChapters}>Chapters…</button>
+      </div>
     </div>
     <div className={styles.settings}>
       <SpeedPicker value={speed} onChange={onSpeedChange} />

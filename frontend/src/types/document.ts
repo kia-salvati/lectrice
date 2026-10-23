@@ -29,6 +29,16 @@ export interface SkippedBlock extends BlockBase { kind: 'code' | 'table' | 'capt
 export type SpokenBlock = HeadingBlock | ParagraphBlock | ListItemBlock | NoteBlock;
 export type Block = SpokenBlock | SkippedBlock;
 
+/** 1 = the book's top level (a part or a chapter), 2 = sub-chapter, 3 = below that. Never deeper. */
+export type TocLevel = 1 | 2 | 3;
+
+/**
+ * One table-of-contents line (spec §5). The list is flat and in reading order: `sentenceId` strictly increases,
+ * and a level is at most one deeper than the entry before. `sentenceId` is the part's first sentence (jump target);
+ * `pageIndex` is that sentence's PDF page (show its printed label from `pages`).
+ */
+export interface TocEntry { id: number; title: string; level: TocLevel; sentenceId: number; pageIndex: number; }
+
 /** The saved, cleaned document (spec §5). Named CleanDocument so it never shadows the DOM's global `Document` type. */
 export interface CleanDocument {
   id: DocumentId;
@@ -37,6 +47,8 @@ export interface CleanDocument {
   pageCount: number;
   cleanerVersion: number;
   pages: PageLabel[];
+  /** Empty when the PDF has neither bookmarks nor detected headings. */
+  toc: TocEntry[];
   blocks: Block[];
 }
 

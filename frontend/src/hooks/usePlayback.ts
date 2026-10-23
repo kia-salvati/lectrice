@@ -6,6 +6,7 @@ import { DEFAULT_SPEED, POSITION_SAVE_DELAY_MS, PREFETCH_AHEAD, SECONDS_PER_CHAR
 import type { PlaybackSpeed } from '../config/constants';
 import type { OpenedDocument } from '../types/document';
 import { buildPlaybackOrder, firstPlayableFromBlock, prefetchWindow, secondsLeft, startingSentenceId, stepFrom } from '../utils/playbackOrder';
+import type { PlaybackOrder } from '../utils/playbackOrder';
 import type { PlaybackStatus } from '../utils/playerStatus';
 import { createSentenceAudioBuffer } from './sentenceAudioBuffer';
 import type { SentenceAudioBuffer } from './sentenceAudioBuffer';
@@ -35,6 +36,8 @@ export interface Playback {
   /** "Read code & tables aloud". */
   readSkipped: boolean;
   secondsLeft: number;
+  /** What is read, in order: for time estimates between two sentences (the chapter's "min left"). */
+  order: PlaybackOrder;
   /** Audio for the current sentence could not be made or played. Engine failures go to onEngineUnavailable instead. */
   audioError: AppError | null;
   togglePlay: () => void;
@@ -276,6 +279,7 @@ export const usePlayback = ({ document, voiceId, canPlay, onEngineUnavailable }:
     speed,
     readSkipped,
     secondsLeft: currentSentenceId === null ? 0 : secondsLeft(order, currentSentenceId, speed, SECONDS_PER_CHAR),
+    order,
     audioError,
     togglePlay,
     next,

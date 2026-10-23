@@ -1,4 +1,5 @@
 import type { HeadingLevel } from '../../types/document';
+import type { ChapterPlan } from './buildDocument';
 
 /**
  * Compact source for mock documents. `page` is the PDF page (1-based). `nextPageFrom: k` puts sentences k.. on page + 1.
@@ -105,4 +106,26 @@ export const CHAPTER: SourceBlock[] = [
     'Then show the crossed-out list to a colleague and ask which of them they would miss.',
     'You may be surprised by how short their answer is.',
   ] },
+];
+
+/** Level-3 headings inside the Long Book's sections. */
+export const LONG_BOOK_SUBSECTIONS = ['Why it matters', 'In practice', 'Common mistakes', 'A short checklist', 'What the research says', 'Try it yourself'];
+
+/** The Long Book's outline: 15 chapters of 3–8 sections, some with long titles, to exercise the chapters panel. */
+export const LONG_BOOK_CHAPTERS: ChapterPlan[] = [
+  { title: 'Quiet Interfaces', sections: ['Fewer, clearer signals', 'A small example', 'Measuring calm', 'When quiet becomes hidden'] },
+  { title: 'Reading on Small Screens', sections: ['Line length and the thumb', 'Type that survives sunlight', 'Scrolling versus paging', 'One-handed controls', 'Night reading', 'Summary'] },
+  { title: 'Sound as an Interface', sections: ['Voices people trust', 'Pace, pauses and breath', 'What not to read aloud'] },
+  { title: 'Designing for Interruptions: How People Really Read on Phones, on Trains and Late at Night in Bed', sections: ['The three-second glance', 'Finding your place again', 'Bookmarks nobody sets', 'Resuming without asking', 'Progress that means something', 'Notifications that wait their turn', 'A field study in a commuter train', 'Summary'] },
+  { title: 'Navigation Without Menus', sections: ['Where am I?', 'Where can I go?', 'Breadcrumbs, rails and drawers', 'Keyboard paths', 'Summary'] },
+  { title: 'Errors That Help', sections: ['Say what happened', 'Say what to do next', 'Never blame the reader', 'Recovering a lost import: a worked example with a corrupted PDF', 'Summary'] },
+  { title: 'Long Documents', sections: ['Rendering only what is visible', 'Search that respects structure', 'Tables of contents that tell the truth', 'Footnotes, figures and asides', 'Index pages and why we drop them', 'Very long titles and how to shorten them', 'Summary'] },
+  { title: 'Colour and Contrast', sections: ['Measuring instead of guessing', 'Dark mode is not inverted light mode', 'Accents that carry meaning', 'Summary'] },
+  { title: 'Motion With a Purpose', sections: ['Transitions that explain', 'Reduced motion', 'Summary'] },
+  { title: 'Settings People Actually Change', sections: ['Speed', 'Voice', 'Read code and tables aloud', 'Defaults that respect the reader', 'Remembering choices per book', 'Summary'] },
+  { title: 'Offline First', sections: ['Everything on one machine', 'Caching audio ahead of the listener', 'Exports that finish in the background', 'Summary'] },
+  { title: 'Accessibility Is the Baseline', sections: ['Screen readers and live regions', 'Focus that never gets lost', 'Targets big enough for every hand', 'Testing with real assistive technology', 'Summary'] },
+  { title: 'Performance You Can Feel', sections: ['The first sentence in under a second', 'Prefetching without waste', 'Memory on old laptops', 'Summary'] },
+  { title: 'Shipping Calm Software', sections: ['Reviews that read the copy', 'Release notes in plain words', 'Listening after launch', 'Saying no to features', 'Summary'] },
+  { title: 'Afterword: What We Left Out on Purpose', sections: ['Social features', 'Gamification', 'Thanks'] },
 ];

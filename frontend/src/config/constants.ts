@@ -30,3 +30,11 @@ export const EXPORT_FORMAT_LABEL: Record<ExportFormat, string> = { mp3: 'MP3', m
 export const EXPORT_FORMAT_EXTENSION: Record<ExportFormat, string> = { mp3: 'mp3', m4b: 'm4b' };
 
 export const EXPORT_POLL_INTERVAL_MS = 1000;
+
+/** The chapters rail needs this much width beside the text column; below it the bottom sheet is used. */
+export const WIDE_SCREEN_QUERY = '(min-width: 1200px)';
+/** Phone layout: the chapters sheet becomes a full-width modal. */
+export const NARROW_SCREEN_QUERY = '(max-width: 720px)';
+
+/** Whether the reader closed the chapters rail; remembered across books. */
+export const RAIL_OPEN_STORAGE_KEY = 'lectrice.chaptersRailOpen';

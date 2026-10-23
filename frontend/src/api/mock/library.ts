@@ -1,9 +1,10 @@
 import type { DocumentSummary, OpenedDocument, Sentence } from '../../types/document';
-import { buildDocument, repeatChapter } from './buildDocument';
-import { CHAPTER, FIRST_ARABIC_PAGE, PREFACE } from './sampleText';
+import { buildChapteredBody, buildDocument, lastPage } from './buildDocument';
+import { CHAPTER, FIRST_ARABIC_PAGE, LONG_BOOK_CHAPTERS, LONG_BOOK_SUBSECTIONS, PREFACE } from './sampleText';
 
-const CHAPTER_PAGES = 4;
-const BIG_REPEATS = 180;
+const LONG_BOOK_BODY_REPEATS = 2;
+const LONG_BOOK_RESUME_SECTION = '7.3 ';
+const LONG_BOOK_RESUME_OFFSET = 4;
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 
@@ -27,14 +28,22 @@ const summarize = (document: OpenedDocument, addedAt: string, lastOpenedAt: stri
 
 const calm = buildDocument({ id: 'mock-calm', title: 'Designing Calm Software', sourceFileName: 'designing-calm-software.pdf', pageCount: 18, firstArabicPage: FIRST_ARABIC_PAGE, lastSentenceId: 23 }, [...PREFACE, ...CHAPTER]);
 
-const big = buildDocument({ id: 'mock-big', title: 'The Long Book (about 8,000 sentences)', sourceFileName: 'the-long-book.pdf', pageCount: FIRST_ARABIC_PAGE + BIG_REPEATS * CHAPTER_PAGES, firstArabicPage: FIRST_ARABIC_PAGE, lastSentenceId: null }, [...PREFACE, ...repeatChapter(CHAPTER, BIG_REPEATS, CHAPTER_PAGES)]);
+const longBookBlocks = [...PREFACE, ...buildChapteredBody(CHAPTER.slice(1), LONG_BOOK_CHAPTERS, LONG_BOOK_SUBSECTIONS, FIRST_ARABIC_PAGE, LONG_BOOK_BODY_REPEATS)];
+const longBook = buildDocument({ id: 'mock-big', title: 'The Long Book (15 chapters, about 7,000 sentences)', sourceFileName: 'the-long-book.pdf', pageCount: lastPage(longBookBlocks), firstArabicPage: FIRST_ARABIC_PAGE, lastSentenceId: null }, longBookBlocks);
+/** "Continue" lands mid-book, a few sentences into chapter 7, section 3. */
+const longBookResume = longBook.toc.find((entry) => entry.title.startsWith(LONG_BOOK_RESUME_SECTION));
+const big: OpenedDocument = { ...longBook, lastSentenceId: longBookResume ? longBookResume.sentenceId + LONG_BOOK_RESUME_OFFSET : null };
+
+/** No headings at all, so its `toc` is empty: the chapters panel's empty state. */
+const flat = buildDocument({ id: 'mock-flat', title: 'Meeting Notes (no chapters)', sourceFileName: 'meeting-notes.pdf', pageCount: 18, firstArabicPage: FIRST_ARABIC_PAGE, lastSentenceId: null }, CHAPTER.filter((item) => item.kind !== 'heading'));
 
 /** In-memory library. Lost on reload, which is fine for a mock. */
-export const documents = new Map<string, OpenedDocument>([[calm.id, calm], [big.id, big]]);
+export const documents = new Map<string, OpenedDocument>([[calm.id, calm], [big.id, big], [flat.id, flat]]);
 
 export const summaries: DocumentSummary[] = [
   summarize(calm, new Date(Date.now() - 12 * DAY_MS).toISOString(), hoursAgo(2)),
   summarize(big, new Date(Date.now() - 3 * DAY_MS).toISOString(), hoursAgo(26)),
+  summarize(flat, new Date(Date.now() - 5 * DAY_MS).toISOString(), hoursAgo(50)),
   // Listed but not stored: opening it exercises the DocumentNotFound path.
   { id: 'mock-missing', title: 'Quarterly Notes', sourceFileName: 'quarterly-notes.pdf', pageCount: 42, sentenceCount: 900, addedAt: new Date(Date.now() - 40 * DAY_MS).toISOString(), lastOpenedAt: new Date(Date.now() - 9 * DAY_MS).toISOString(), lastSentenceId: 310 },
 ];

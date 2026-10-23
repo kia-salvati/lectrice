@@ -19,12 +19,15 @@
 .status {
   color: var(--fg2);
   padding: 0 .4rem;
-  max-width: 14rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 22rem;
   min-width: 0;
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
 }
+.fixed, .separator { flex: none; }
+.separator { padding: 0 .3em; }
+.shrinks { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .prep { color: var(--fg); font-weight: 600; }
 @media (max-width: 720px) {
   .pill { left: 1rem; right: 1rem; transform: none; max-width: none; justify-content: center; }

@@ -104,3 +104,16 @@ export const secondsLeft = (order: PlaybackOrder, sentenceId: number, speed: num
   const position = order.positionOf.get(sentenceId) ?? 0;
   return (order.charsFrom[position] * secondsPerChar) / speed;
 };
+
+/** Position of any sentence id in the order (resolving non-playable ones), or the end for null / nothing playable. */
+const positionOfAny = (order: PlaybackOrder, sentenceId: number | null): number => {
+  const resolved = sentenceId === null ? null : resolvePlayable(order, sentenceId);
+  return resolved === null ? order.sentenceIds.length : (order.positionOf.get(resolved) ?? order.sentenceIds.length);
+};
+
+/** Listening time from one sentence to another (null = the end of the book); 0 when `to` is not after `from`. */
+export const secondsBetween = (order: PlaybackOrder, fromSentenceId: number, toSentenceId: number | null, speed: number, secondsPerChar: number): number => {
+  const from = positionOfAny(order, fromSentenceId);
+  const to = positionOfAny(order, toSentenceId);
+  return (Math.max(0, order.charsFrom[from] - order.charsFrom[to]) * secondsPerChar) / speed;
+};

@@ -23,3 +23,12 @@ export const MoreIcon = () => (
 );
 
 export const LocateIcon = () => <Icon size={20}><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm9 3h-2.07A7 7 0 0 0 13 5.07V3h-2v2.07A7 7 0 0 0 5.07 11H3v2h2.07A7 7 0 0 0 11 18.93V21h2v-2.07A7 7 0 0 0 18.93 13H21v-2zm-9 6a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" /></Icon>;
+
+/** Three lines with bullets: the chapters list. */
+export const ListIcon = () => <Icon size={20}><path fill="currentColor" d="M4 6h2v2H4zm4 0h12v2H8zM4 11h2v2H4zm4 0h12v2H8zM4 16h2v2H4zm4 0h12v2H8z" /></Icon>;
+
+export const ChevronIcon = () => <Icon size={16}><path fill="none" stroke="currentColor" strokeWidth="2" d="M9 6l6 6-6 6" /></Icon>;
+
+export const CheckIcon = () => <Icon size={14}><path fill="none" stroke="currentColor" strokeWidth="2.2" d="M5 12l5 5 9-10" /></Icon>;
+
+export const CloseIcon = () => <Icon size={18}><path stroke="currentColor" strokeWidth="2" d="M6 6l12 12M18 6L6 18" /></Icon>;
