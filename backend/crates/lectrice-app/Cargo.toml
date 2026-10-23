@@ -1,0 +1,15 @@
+[package]
+name = "lectrice-app"
+description = "Use cases (services) and the speech worker. Adapters arrive as Arc<dyn Trait>."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+lectrice-domain.workspace = true
+tracing.workspace = true
+
+[lints]
+workspace = true

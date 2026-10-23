@@ -1,0 +1,31 @@
+[package]
+name = "lectrice-api"
+description = "The HTTP server: routes, controllers, DTOs, presenters, config, logging and wiring."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+lectrice-domain.workspace = true
+lectrice-infra.workspace = true
+lectrice-app.workspace = true
+axum.workspace = true
+tower-http.workspace = true
+tokio.workspace = true
+futures-core.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+tower.workspace = true
+http-body-util.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true

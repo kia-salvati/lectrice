@@ -1,0 +1,32 @@
+# Every key can be overridden with LECTRICE_<SECTION>_<KEY>, e.g. LECTRICE_SERVER_PORT=9000.
+# Relative paths are taken from this file's directory; ~ is the home directory.
+
+[server]
+port = 7878
+allowed_origin = "http://localhost:5173"
+
+[storage]
+data_dir = "~/.local/share/lectrice"
+
+[audio]
+read_ahead_minutes = 10
+keep_minutes_per_document = 60
+cache_max_mb = 2048
+
+[upload]
+max_mb = 200
+
+[pdf]
+pdfium_library = "vendor/pdfium/lib/libpdfium.so"
+
+[export]
+# The ffmpeg program: a name looked up on PATH, or a path. Without it, export reports ExporterUnavailable.
+ffmpeg = "ffmpeg"
+# 0 exports the whole book. A smaller number exports only the first sentences (for quick tests).
+max_sentences = 0
+
+[speech]
+engine = "kokoro"
+model_dir = "../models/kokoro-multi-lang-v1_0"
+default_voice = "af_heart"
+num_threads = 4

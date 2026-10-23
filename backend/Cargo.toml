@@ -1,0 +1,53 @@
+[workspace]
+resolver = "3"
+members = ["crates/lectrice-domain", "crates/lectrice-infra", "crates/lectrice-app", "crates/lectrice-api"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+lectrice-domain = { path = "crates/lectrice-domain" }
+lectrice-infra = { path = "crates/lectrice-infra" }
+lectrice-app = { path = "crates/lectrice-app" }
+
+# domain
+thiserror = "=2.0.21"
+serde = { version = "=1.0.229", features = ["derive"] }
+chrono = { version = "=0.4.45", default-features = false, features = ["std", "clock", "serde"] }
+regex = "=1.13.1"
+unicode-normalization = "=0.1.26"
+
+# infra
+sha2 = "=0.11.1"
+sherpa-onnx = { version = "=1.13.8", default-features = false, features = ["static"] }
+pdfium-render = { version = "=0.9.4", default-features = false, features = ["pdfium_7881", "thread_safe"] }
+sentencex = "=0.1.32"
+hound = "=3.5.1"
+serde_json = "=1.0.154"
+tempfile = "=3.27.0"
+
+# app
+tracing = "=0.1.44"
+
+# api
+axum = { version = "=0.8.9", features = ["multipart"] }
+tower-http = { version = "=0.7.1", features = ["cors", "trace", "request-id"] }
+tokio = { version = "=1.53.3", features = ["macros", "rt-multi-thread", "signal", "net", "fs"] }
+# Streams an export file into the download response (already in the tree through axum).
+futures-core = "=0.3.34"
+tracing-subscriber = { version = "=0.3.23", features = ["json", "env-filter"] }
+toml = "=1.1.8"
+
+# api tests
+tower = { version = "=0.5.3", features = ["util"] }
+http-body-util = "=0.1.5"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

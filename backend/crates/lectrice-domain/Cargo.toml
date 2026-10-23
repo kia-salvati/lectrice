@@ -1,0 +1,20 @@
+[package]
+name = "lectrice-domain"
+description = "Entities, ports (traits), the error registry and the pure cleaning rules."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+chrono.workspace = true
+regex.workspace = true
+unicode-normalization.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true
