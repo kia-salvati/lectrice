@@ -1,0 +1,143 @@
+# Lectrice
+
+A free, fully local Speechify-like app. You load a PDF, it cleans the text into a "reading view"
+(no headers, footers, page numbers, footnotes, citation markers or references) and reads it aloud
+in a **realistic woman's voice**. The voice must be downloadable and usable by anyone.
+
+## Machine
+This laptop does everything: code, model downloads and running the app.
+RTX 3080 Ti Laptop (16 GB VRAM), ~100 GB free disk, Linux. Project started on another machine
+on 2026-10-05 and moved here.
+
+## Layout
+- `research/`: findings. **Read `research/2026-10-05-findings.md` first.**
+- `research/2026-10-06-rust-stack.md`: Rust crates, versions and risks.
+- `design/`: UI mockups (local HTML).
+- `models/`: Kokoro model bundle.
+- `voices/`: empty; only for clips if a cloning model is added later.
+- `rules/`: coding and workflow rules (see "Coding rules").
+- `app/`: empty placeholder; code will go in separate `backend/` and `frontend/` projects.
+
+## Coding rules
+Follow `rules/` (copied from the user's shared rules on 2026-10-06):
+- `rules/BACKEND_RULES.md` for the core and server, `rules/CLAUDE_FRONTEND_RULES.md` for the web
+  page, `rules/HOW_WE_WORK.md` for the workflow.
+- **Ignore the FSG-project parts:** BACKEND §9 and the DB/SQL/auth/password rules (no database
+  here); FRONTEND's FSG names, antd specifics and §9 codebase-memory; HOW_WE_WORK's project
+  boundaries, FSG repo names, codebase-memory MCP and the `fsg_internal_frontend` harness paths.
+- Apply the universal parts in the core's language: layered clean architecture (dependencies
+  point inward), SOLID, DI, one error registry, structured logging at call boundaries, no magic
+  values, self-review of the diff.
+
+## Decisions so far
+- **Backend and frontend are separate projects** (`backend/`, `frontend/`), each built on its own.
+- **Voice model: Kokoro 82M** (Apache 2.0, ONNX:
+  https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX). The user tested it on Hugging Face
+  and liked it (2026-10-06). It has preset voices (`af_heart`, `af_bella`…), no cloning. It runs on
+  CPU and phones (sherpa-onnx has Android/iOS support).
+- **The voice model is a swappable plug-in.** The app only knows a `SpeechEngine` interface
+  (text + voice id + speed → PCM samples + sample rate; list voices). Kokoro is one adapter in
+  `infrastructure/`; a factory picks the adapter from config. Nothing outside the adapter
+  mentions Kokoro, sherpa-onnx, phonemes or model files. Audio encoding (WAV/MP3) is a separate
+  concern, not part of the engine. A remote adapter (calls a TTS server over HTTP) is a possible
+  later addition so models in any language can be plugged in.
+- Non-commercial models (Breeze TTS 2, Fish S2 Pro, Voxtral, Higgs) are out: their licenses
+  clash with "usable by anyone".
+- **Process each PDF once (user request 2026-10-06).** On first open: extract + clean, then save
+  the cleaned document (headings, paragraphs, sentences with ids) plus a copy of the original
+  PDF in a library on disk, keyed by the SHA-256 of the PDF bytes (same file renamed = cache
+  hit). Re-opening loads the saved version and doesn't re-process. Store a `cleaner_version`;
+  bumping it lets old documents be re-processed when the rules improve. Behind a
+  `DocumentRepository` trait. **Confirmed 2026-10-21:** the cleaned doc is saved as JSON in the
+  app's own format, not a new PDF. Generated sentence audio is cached too, keyed by doc +
+  sentence + voice + engine, made at 1× speed with the speed change applied in the player.
+- **Keep location aids (user 2026-10-21):** page numbers and other things that help the reader
+  find their place in the original PDF stay in the cleaned document as metadata (each block knows
+  its PDF page and printed page label) and are shown in the reading view, but are **not spoken**.
+  Chapter/section headings stay too.
+- Default voice: **`af_heart`** (confirmed 2026-10-21).
+- **Logging (user 2026-10-21): log only the important parts.** Never log book content (PDF
+  bytes, text, sentences, documents, audio); log ids, counts, durations, writes and errors.
+- **Reading position save: approved.** Recent documents show progress + "continue".
+- **Audio (user 2026-10-21):** generate ahead of the listener (default 10 min), keep ~1 hour per
+  book in the cache, and **export the whole book as one audio file** in the background. Measured:
+  Kokoro on CPU (8 threads) ≈ 4.4× real time; 1 h of speech ≈ 14 min; an 8 h book ≈ 1 h 50 min.
+  Sample: `research/2026-10-21-af_heart-sample.wav`.
+  **Read-ahead and the cache window are in listening time, so they scale with playback speed**
+  (10 min at 2× = 20 min of 1× audio). Export formats: **MP3 and M4B** (via system `ffmpeg`).
+- **Skipped content (user 2026-10-21):** code is shown, not read; the cue "Code example." is
+  spoken instead. Captions are shown, not read. Tables are shown with the cue "Table." (my
+  default; user didn't object). GoF missing spaces left as is (my default). A "Read code & tables
+  aloud" switch is in v1 since detection is needed anyway; better detection is phase 2.
+- PDF survey done: `research/2026-10-21-pdf-survey.md` (20-rule pipeline, 35 fixtures, open
+  questions in §6).
+- Open-PDF screen shows **recent documents** (yes). **No "show what was removed" toggle** for now.
+- Test PDFs: the user's real books in `~/Desktop/*.pdf` (Clean Architecture, Designing
+  Distributed Systems, GoF Design Patterns, LinkedIn Posts 2024, The Kubernetes Book). All have a
+  text layer. They are technical books: expect code listings, figures, tables, TOC and index.
+- Cloning models (Qwen3-TTS Base, Chatterbox Turbo ONNX, both permissive) are a possible later
+  add-on if the user wants custom voices. Don't build for them yet.
+- **Architecture: two parts.** A UI-free **core** (PDF → clean text → sentences → TTS → audio)
+  behind interfaces, and thin shells on top: a localhost HTTP server + web page now, mobile
+  bindings later. The core must not depend on the web layer.
+- **Languages (decided 2026-10-06):** backend/core in **Rust** (the official `sherpa-onnx`
+  crate; `sherpa-rs` was archived 2026-06-06; `axum` for HTTP, later `uniffi` for mobile); frontend in **TypeScript + React + Vite**, no antd.
+- Model files: `models/kokoro-multi-lang-v1_0/` (sherpa-onnx bundle: `model.onnx`, `voices.bin`
+  with 54 voices, `tokens.txt`, `espeak-ng-data/`, lexicons). Default voice `af_heart`
+  (confirmed).
+- Machine state 2026-10-21: g++ 16.2, Node 22.23 and npm 10.9 installed; Rust 1.99.1 stable via
+  rustup (`~/.cargo/env` is sourced from `~/.zshenv`). The NVIDIA driver now
+  works (615.71, RTX 3080 Ti Laptop, 16 GB). Still build CPU first; GPU is an optional later step.
+- Stack details and risks: `research/2026-10-06-rust-stack.md`.
+
+## Agents
+The user wants work dispatched to agents and orchestrated: **Opus for everything except visual
+design; Fable only for designs (UI mockups, CSS/layout). No other models.**
+For UI work (2026-10-21): **Opus first does the research and writes the instructions and options
+(a build brief), then passes it down to Fable, who builds it.** Fable doesn't research. Design options are
+local `.html` files under `design/`, never published Artifacts.
+
+## Where we are (2026-10-21)
+Process: brainstorm, then a written design spec, then an implementation plan, then build.
+**Backend code waits for the user's approval of the spec.** The user OK'd writing the spec and the
+plan, and said **Fable may start designing and building the frontend now against mock data**
+("we later wire things up").
+
+2026-10-21:
+- Design spec `docs/2026-10-21-design-spec.md`: **decisions approved by the user** ("i'm good
+  with the decisions").
+- Implementation plan: `docs/2026-10-21-implementation-plan.md` (steps B0–B6, F, W, T).
+- Frontend build brief (Opus) done: `docs/2026-10-21-frontend-brief.md` (~37 verified files for
+  Fable to copy; hash router, no extra deps, `content-visibility`, Oxlint, node --test).
+- Fable is building `frontend/` from the brief against the mock API (started 2026-10-21);
+  screenshots go to `design/screens/`.
+- **2026-10-21: the user approved building the entire project** (B0 → T) and asked the main
+  session to only orchestrate agents (no hands-on work, to keep the session context small), then
+  report back when finished. Each step's agent writes `docs/progress/<step>.md`.
+- **2026-10-23: v1 is built end to end** (B0–B6, F, review + fixes, W, Fable review, T). Reports:
+  `docs/progress/*.md`; remaining problems in `T.md`. Cleaner version 2. Nothing committed.
+  Waiting on the user: test the app, read the regenerated `docs/progress/B2-samples/`, listen to
+  `T-k8s-chapter.m4b`, and decide on reading short domain names aloud (T changed it to "read").
+  Earlier: **B1 voice approved by the user** ("it sounds awesome").
+  The user often works remotely via RustDesk; remote audio works, so just give `xdg-open` paths.
+
+Done earlier:
+- Rust stack research: `research/2026-10-06-rust-stack.md` (sherpa-onnx 1.13.8, pdfium-render
+  0.9.4, sentencex, axum 0.8, thiserror + tracing, workspace crates domain/infra/app/api).
+- UI design options (Fable): `design/2026-10-06-reader-options.html`. **The user chose option D**
+  (large text filling the screen + a small floating pill player: prev/play/next + short status;
+  "more" opens a popover with progress, time left, speed, voice, export, open). The user called
+  it "perfect".
+- All earlier open questions answered on 2026-10-21 (see Decisions). All toolchains installed.
+
+## How the user likes to work
+- The user is a backend developer learning frontend. Give short, right-sized explanations of
+  frontend concepts when they're used; don't repeat them.
+- Minimal comments: comment only non-obvious intent and prefer self-explanatory code.
+- Make code changes as explicit edits the user can review, not sed/python rewrite scripts.
+- Don't run `git commit` until asked. When asked for commits, propose groups and messages first.
+  No "Co-Authored-By: Claude" trailer.
+- No published Artifacts. Deliver reports as local HTML/Markdown files.
+- Keep the user's language simple and clear; they write informally, so confirm intent if
+  something is ambiguous.
+- Before finishing, re-read the diff and remove unused or speculative code.

@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lectrice — reader design options</title>
+<style>
+:root{
+  --bg:#ffffff; --bg2:#f3f3ef; --fg:#1c1f24; --fg2:#5b636d; --line:#d3d3cd;
+  --accent:#1d5fae; --on-accent:#ffffff;
+  --hl:#ffe58f; --hl-fg:#1c1f24;
+  --warn-bg:#fff4d1; --warn-fg:#5e4300;
+  --err-bg:#fbe7e5; --err-fg:#8b1a12;
+  --serif: Charter, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121417; --bg2:#1c1f24; --fg:#e8e6e1; --fg2:#a8adb5; --line:#363a41;
+    --accent:#8ab8ff; --on-accent:#0b1a33;
+    --hl:#4d4214; --hl-fg:#fff6d8;
+    --warn-bg:#3a2f0c; --warn-fg:#f3d98a;
+    --err-bg:#44181a; --err-fg:#f4b1ad;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121417; --bg2:#1c1f24; --fg:#e8e6e1; --fg2:#a8adb5; --line:#363a41;
+  --accent:#8ab8ff; --on-accent:#0b1a33;
+  --hl:#4d4214; --hl-fg:#fff6d8;
+  --warn-bg:#3a2f0c; --warn-fg:#f3d98a;
+  --err-bg:#44181a; --err-fg:#f4b1ad;
+  color-scheme: dark;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0; background:var(--bg); color:var(--fg); font-family:var(--sans); display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden}
+[hidden]{display:none !important}
+button,select{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.muted{color:var(--fg2)}
+.small{font-size:.85rem}
+
+/* ---------- prototype chrome: switcher + notes ---------- */
+.top{border-bottom:1px solid var(--line); background:var(--bg2); padding:.5rem 1rem; display:flex; flex-wrap:wrap; gap:.5rem 1rem; align-items:center; font-size:.875rem}
+.top .brand{font-weight:600}
+.tabs{display:flex; gap:.25rem; flex-wrap:wrap}
+.tabs button{border:1px solid var(--line); background:var(--bg); padding:.3rem .7rem; border-radius:999px; cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent); color:var(--on-accent); border-color:transparent}
+.tools{display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; margin-left:auto}
+.tools label{display:inline-flex; gap:.35rem; align-items:center}
+.note{flex-basis:100%; font-size:.85rem}
+.note summary{cursor:pointer; color:var(--fg2)}
+.note p{margin:.3rem 0 0; max-width:70rem}
+
+/* ---------- shared pieces ---------- */
+main{position:relative; flex:1; min-height:0; display:flex; flex-direction:column}
+.panel{display:none; flex:1; min-height:0; flex-direction:column; position:relative}
+.panel.active{display:flex}
+.scroll{flex:1; min-height:0; overflow-y:auto; overflow-x:hidden}
+.bar{display:flex; align-items:center; gap:.5rem .75rem; flex-wrap:wrap; padding:.45rem 1rem; border-bottom:1px solid var(--line); background:var(--bg2); font-size:.875rem}
+.btn{padding:.4rem .75rem; border:1px solid var(--line); background:var(--bg); border-radius:6px; cursor:pointer; font-size:.875rem; white-space:nowrap}
+.btn.primary{background:var(--accent); color:var(--on-accent); border-color:transparent}
+.btn:disabled{opacity:.45; cursor:default}
+.link{background:none; border:0; padding:0; color:var(--accent); text-decoration:underline; cursor:pointer}
+.transport{display:flex; align-items:center; gap:.25rem}
+.icon-btn{width:40px; height:40px; display:inline-grid; place-items:center; padding:0; border:1px solid var(--line); border-radius:50%; background:var(--bg); cursor:pointer}
+.icon-btn.play{width:48px; height:48px; background:var(--accent); color:var(--on-accent); border-color:transparent}
+.icon-btn:disabled{opacity:.45; cursor:default}
+.icon-btn[aria-busy="true"]{background:var(--bg2); color:var(--fg2); border-color:var(--line)}
+.field{display:inline-flex; align-items:center; gap:.35rem; min-width:0}
+.field select{max-width:100%; min-width:0; padding:.3rem .4rem; border:1px solid var(--line); border-radius:6px; background:var(--bg)}
+.field.voice{flex:1 1 11rem}
+.field.voice select{flex:1; width:100%}
+.status{color:var(--fg2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0}
+.status.prep{color:var(--fg); font-weight:600}
+.prog{height:22px; display:flex; align-items:center; cursor:pointer; flex:1 1 8rem; min-width:6rem}
+.prog .track{position:relative; height:6px; width:100%; background:var(--line); border-radius:3px; overflow:hidden}
+.prog .buf,.prog .done{position:absolute; top:0; bottom:0; left:0}
+.prog .buf{background:var(--fg2); opacity:.4}
+.prog .done{background:var(--accent)}
+
+.engine-banner{display:flex; gap:.5rem 1rem; align-items:center; justify-content:space-between; flex-wrap:wrap; background:var(--err-bg); color:var(--err-fg); padding:.5rem 1rem; font-size:.875rem}
+.engine-banner .btn{color:var(--err-fg); border-color:currentColor; background:transparent}
+.notice{font-family:var(--sans); font-size:.9rem; line-height:1.45; padding:.6rem .8rem; border-radius:6px; margin:1.25rem 0}
+.notice.warn{background:var(--warn-bg); color:var(--warn-fg)}
+
+/* ---------- document text ---------- */
+.doc{max-width:42rem; margin:0 auto; padding:1.5rem 1rem 6rem; font-family:var(--serif); font-size:1.125rem; line-height:1.65}
+.doc h1{font-size:1.65rem; line-height:1.25; margin:0 0 1rem}
+.doc h2{font-size:1.25rem; margin:1.6em 0 .5em}
+.doc h3{font-size:1.1rem; margin:1.3em 0 .4em}
+.doc p{margin:0 0 1em}
+.s{cursor:pointer; border-radius:2px; padding:.05em 0; -webkit-box-decoration-break:clone; box-decoration-break:clone}
+.s:hover{text-decoration:underline; text-decoration-style:dotted; text-underline-offset:.15em}
+.s.read{color:var(--fg2)}
+.s.active{background:var(--hl); color:var(--hl-fg)}
+.s.active.prep{border-bottom:2px dotted var(--fg2)}
+
+/* ---------- Option A: focused + bottom bar ---------- */
+#pa .a-top{justify-content:space-between; flex-wrap:nowrap; border-bottom:1px solid var(--line)}
+#pa .a-file{min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#pa .a-bar{border-top:1px solid var(--line); border-bottom:0; display:block; padding:.25rem 1rem .75rem}
+#pa .a-row{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:.5rem 1rem}
+#pa .a-row .transport{justify-content:center}
+#pa .a-right{display:flex; gap:.5rem; justify-content:flex-end; align-items:center; min-width:0}
+@media (max-width:720px){
+  #pa .a-row{grid-template-columns:1fr; justify-items:stretch}
+  #pa .a-row .status{text-align:center}
+  #pa .a-right{justify-content:space-between}
+}
+
+/* ---------- Option B: outline sidebar ---------- */
+#pb .b-top{gap:.5rem 1rem}
+#pb .b-title{font-weight:600; flex:1 1 12rem; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+#pb .b-body{flex:1; min-height:0; display:flex}
+#pb .b-side{width:17rem; flex:none; border-right:1px solid var(--line); overflow-y:auto; font-size:.875rem; padding:.75rem; display:flex; flex-direction:column; gap:1rem}
+#pb .b-side summary{cursor:pointer; font-weight:600; padding:.25rem 0}
+.ol{list-style:none; margin:.25rem 0 0; padding:0}
+.ol button{display:grid; grid-template-columns:1fr auto; gap:.2rem .5rem; width:100%; text-align:left; background:none; border:0; border-left:3px solid transparent; padding:.35rem .5rem; border-radius:0 4px 4px 0; cursor:pointer; color:var(--fg2)}
+.ol button:hover{background:var(--bg)}
+.ol .h1 button{font-weight:600}
+.ol .h3 button{padding-left:1.25rem}
+.ol .n{font-variant-numeric:tabular-nums; font-size:.8rem}
+.ol .bar{grid-column:1 / -1; height:3px; background:var(--line); border-radius:2px; overflow:hidden}
+.ol .bar span{display:block; height:100%; background:var(--accent)}
+.ol li.cur button{border-left-color:var(--accent); color:var(--fg); font-weight:600}
+.ol li.done button{color:var(--fg)}
+.settings{display:grid; gap:.6rem}
+.settings .field{display:grid; grid-template-columns:4rem 1fr}
+@media (max-width:720px){
+  #pb .b-body{flex-direction:column}
+  #pb .b-side{width:auto; border-right:0; border-bottom:1px solid var(--line); max-height:45vh; flex:none}
+}
+
+/* ---------- Option C: page view with removed content ---------- */
+.pages{max-width:46rem; margin:0 auto; padding:1.25rem 1rem 6rem; font-family:var(--serif); font-size:1.0625rem; line-height:1.6}
+.page{border:1px solid var(--line); border-radius:4px; padding:1.5rem 1.75rem 1.25rem; margin-bottom:1.5rem; position:relative; background:var(--bg)}
+.page h1{font-size:1.5rem; line-height:1.25; margin:0 0 1rem}
+.page h2{font-size:1.2rem; margin:1.4em 0 .5em}
+.page h3{font-size:1.05rem; margin:1.2em 0 .4em}
+.page p{margin:0 0 1em}
+.page-label{position:absolute; top:-.75em; right:1rem; background:var(--bg); padding:0 .4rem; font:.75rem var(--sans); color:var(--fg2)}
+.cut{color:var(--fg2); text-decoration:line-through; text-decoration-thickness:1px}
+.s.active .cut{color:inherit}
+.cut-line{display:block; font:.8rem var(--sans); color:var(--fg2); text-decoration:line-through; margin-bottom:.75rem}
+.cut-line.foot{margin:.75rem 0 0; text-align:center}
+.cut-box{font-family:var(--sans); font-size:.85rem; line-height:1.4; color:var(--fg2); border-top:1px dashed var(--line); margin-top:1rem; padding-top:.5rem}
+.cut-box summary{cursor:pointer}
+.cut-box s{display:block; margin:.35rem 0 0}
+.page.skipped{border-style:dashed; padding:1rem 1.25rem}
+.page.skipped .notice{margin:0}
+.pages.hidecut .cut,.pages.hidecut .cut-line,.pages.hidecut .cut-box{display:none}
+#pc .c-top label.check{display:inline-flex; gap:.35rem; align-items:center}
+@media (max-width:720px){ .page{padding:1.1rem 1rem 1rem} }
+
+/* ---------- Option D: floating mini-player ---------- */
+#pd .d-doc{max-width:40rem; padding:2rem 1rem 9rem; font-size:1.1875rem; line-height:1.7}
+.pill{position:absolute; left:50%; transform:translateX(-50%); bottom:1rem; display:flex; align-items:center; gap:.3rem; padding:.3rem .4rem .3rem .4rem; border:1px solid var(--line); background:var(--bg2); border-radius:999px; font-size:.85rem; max-width:calc(100% - 2rem)}
+.pill .status{padding:0 .4rem; max-width:11rem}
+.pill .icon-btn{width:36px; height:36px}
+.pill .icon-btn.play{width:44px; height:44px}
+.pop{position:absolute; bottom:calc(100% + .5rem); right:0; width:min(21rem, calc(100vw - 2rem)); background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:.85rem; display:grid; gap:.65rem; font-size:.875rem}
+.pop .row{display:flex; align-items:center; gap:.5rem}
+.pop .settings .field{grid-template-columns:4rem 1fr}
+#pd .engine-banner{position:absolute; top:0; left:0; right:0}
+@media (max-width:720px){
+  .pill{left:1rem; right:1rem; transform:none; max-width:none; justify-content:center}
+  .pop{left:0; right:0; width:auto}
+}
+@media (max-width:420px){ .pill .status{display:none} }
+
+/* ---------- empty / loading / error overlay ---------- */
+.empty{position:absolute; inset:0; background:var(--bg); display:flex; flex-direction:column; z-index:5}
+.empty-top{padding:.6rem 1rem; border-bottom:1px solid var(--line); display:flex; gap:.75rem; align-items:baseline; font-size:.875rem}
+.empty-top b{font-size:1rem}
+.drop{margin:auto; width:min(28rem, calc(100% - 2rem)); border:2px dashed var(--line); border-radius:12px; padding:2rem 1.5rem; text-align:center; display:grid; gap:.75rem; justify-items:center; line-height:1.5}
+.drop h2{margin:0; font-size:1.25rem}
+.drop p{margin:0}
+.drop.err{border-style:solid; border-color:var(--err-fg); background:var(--err-bg); color:var(--err-fg)}
+.drop progress{width:60%}
+.demo-hint{text-align:center; padding:.75rem 1rem 1.25rem; font-size:.8rem; color:var(--fg2)}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <span class="brand">Lectrice — reader options</span>
+  <div class="tabs" role="tablist" aria-label="Design options">
+    <button type="button" role="tab" data-opt="a" aria-selected="true">A · Focused + bottom bar</button>
+    <button type="button" role="tab" data-opt="b" aria-selected="false">B · Outline sidebar</button>
+    <button type="button" role="tab" data-opt="c" aria-selected="false">C · Pages, cleaned parts visible</button>
+    <button type="button" role="tab" data-opt="d" aria-selected="false">D · Floating mini-player</button>
+  </div>
+  <div class="tools">
+    <label>Theme <select id="theme"><option value="auto">auto</option><option value="light">light</option><option value="dark">dark</option></select></label>
+    <label><input type="checkbox" id="engine"> Simulate speech-engine failure</label>
+  </div>
+  <details class="note" open>
+    <summary id="note-title">About option A</summary>
+    <p id="note-good"></p>
+    <p id="note-trade"></p>
+    <p class="muted">Try: click a sentence · Space = play/pause · ←/→ = previous/next sentence · click far ahead in the text or progress bar to see “preparing audio”.</p>
+  </details>
+</header>
+
+<main>
+
+  <!-- ===== A ===== -->
+  <section class="panel active" id="pa" role="tabpanel" aria-label="Option A">
+    <div class="bar a-top">
+      <span class="a-file"><b>sleep-memory-review.pdf</b> <span class="muted">· <span data-count></span> · 8 pages</span></span>
+      <button type="button" class="btn" data-act="close">Close file</button>
+    </div>
+    <div class="scroll"><article class="doc" data-doc="clean"></article></div>
+    <div class="engine-banner" hidden role="alert"><span>Speech engine failed to load. Playback is unavailable until it is restarted.</span><button type="button" class="btn" data-act="retry">Retry</button></div>
+    <div class="bar a-bar">
+      <div class="prog" data-prog role="slider" aria-label="Position in document" aria-valuemin="0" aria-valuemax="100" tabindex="0"><div class="track"><div class="buf"></div><div class="done"></div></div></div>
+      <div class="a-row">
+        <span class="status" data-status></span>
+        <div data-slot="transport"></div>
+        <div class="a-right">
+          <span data-slot="speed"></span>
+          <span data-slot="voice"></span>
+          <button type="button" class="btn" disabled title="Coming later">Export MP3</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== B ===== -->
+  <section class="panel" id="pb" role="tabpanel" aria-label="Option B">
+    <div class="bar b-top">
+      <span class="b-title">Sleep and the Consolidation of Memory</span>
+      <div data-slot="transport"></div>
+      <span class="status" data-status></span>
+      <span class="status" data-left></span>
+    </div>
+    <div class="engine-banner" hidden role="alert"><span>Speech engine failed to load. Playback is unavailable until it is restarted.</span><button type="button" class="btn" data-act="retry">Retry</button></div>
+    <div class="b-body">
+      <aside class="b-side">
+        <details open id="b-outline">
+          <summary>Contents <span class="muted" data-pct></span></summary>
+          <ol class="ol" data-outline></ol>
+        </details>
+        <details open class="b-settings">
+          <summary>Voice and speed</summary>
+          <div class="settings">
+            <span data-slot="speed"></span>
+            <span data-slot="voice"></span>
+            <button type="button" class="btn" disabled title="Coming later">Export MP3</button>
+            <button type="button" class="btn" data-act="close">Open another PDF…</button>
+          </div>
+        </details>
+      </aside>
+      <div class="scroll"><article class="doc" data-doc="clean"></article></div>
+    </div>
+  </section>
+
+  <!-- ===== C ===== -->
+  <section class="panel" id="pc" role="tabpanel" aria-label="Option C">
+    <div class="bar c-top">
+      <div data-slot="transport"></div>
+      <span class="status" data-status></span>
+      <label class="check"><input type="checkbox" data-showcut checked> Show removed content</label>
+      <span data-slot="speed"></span>
+      <span data-slot="voice"></span>
+      <button type="button" class="btn" data-act="close">Open…</button>
+    </div>
+    <div class="engine-banner" hidden role="alert"><span>Speech engine failed to load. Playback is unavailable until it is restarted.</span><button type="button" class="btn" data-act="retry">Retry</button></div>
+    <div class="scroll"><div class="pages" data-doc="pages"></div></div>
+  </section>
+
+  <!-- ===== D ===== -->
+  <section class="panel" id="pd" role="tabpanel" aria-label="Option D">
+    <div class="engine-banner" hidden role="alert"><span>Speech engine failed to load. Playback is unavailable until it is restarted.</span><button type="button" class="btn" data-act="retry">Retry</button></div>
+    <div class="scroll"><article class="doc d-doc" data-doc="clean"></article></div>
+    <div class="pill">
+      <div data-slot="transport"></div>
+      <span class="status" data-status></span>
+      <button type="button" class="icon-btn" data-act="more" aria-expanded="false" aria-label="More controls">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/></svg>
+      </button>
+      <div class="pop" id="d-pop" hidden>
+        <div class="row">
+          <div class="prog" data-prog role="slider" aria-label="Position in document" aria-valuemin="0" aria-valuemax="100" tabindex="0"><div class="track"><div class="buf"></div><div class="done"></div></div></div>
+          <span class="status" data-left></span>
+        </div>
+        <div class="settings">
+          <span data-slot="speed"></span>
+          <span data-slot="voice"></span>
+        </div>
+        <div class="row">
+          <button type="button" class="btn" disabled title="Coming later">Export MP3</button>
+          <button type="button" class="btn" data-act="close">Open another PDF…</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== empty / loading / error state (shared) ===== -->
+  <div class="empty" id="empty" hidden>
+    <div class="empty-top"><b>Lectrice</b><span class="muted">Reads PDFs aloud, locally</span></div>
+    <div class="drop" data-empty="idle">
+      <h2>Open a PDF to start listening</h2>
+      <p>Lectrice extracts the text, removes running headers, page numbers, footnotes, citation markers and reference lists, and reads what is left aloud with a local voice. Nothing leaves this computer.</p>
+      <button type="button" class="btn primary" data-act="open">Open PDF…</button>
+      <p class="muted small">or drop a file anywhere in this window</p>
+    </div>
+    <div class="drop" data-empty="loading" hidden aria-live="polite">
+      <h2>Reading sleep-memory-review.pdf…</h2>
+      <p>Extracting text and cleaning out headers, page numbers, footnotes and references.</p>
+      <progress aria-label="Preparing document"></progress>
+    </div>
+    <div class="drop err" data-empty="notext" hidden role="alert">
+      <h2>This PDF has no selectable text</h2>
+      <p><b>scan-ch3.pdf</b> looks like a scanned document. There is no text layer for Lectrice to read, so it cannot be read aloud.</p>
+      <button type="button" class="btn" data-act="choose-another">Choose another PDF</button>
+    </div>
+    <p class="demo-hint">Prototype only: <button type="button" class="link" data-act="demo-notext">show the “no selectable text” error</button></p>
+  </div>
+
+</main>
+
+<script>
+(function(){
+'use strict';
+var $ = function(sel, root){ return (root||document).querySelector(sel); };
+var $$ = function(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); };
+
+/* ---------- content ---------- */
+/* [[n]] marks an inline citation that the cleaner removes. */
+var BLOCKS = [
+  {t:'page', n:1, header:'Annual Review of Cognitive Science · Vol. 12 · 2024', footer:'211'},
+  {t:'h1', s:'Sleep and the Consolidation of Memory'},
+  {t:'h2', s:'1. Introduction'},
+  {t:'p', s:[
+    'For most of the twentieth century, sleep was treated as a period in which the brain simply switched off.',
+    'The idea that something useful might happen to memories while we sleep was considered speculative at best. [[1]]',
+    'That view has changed almost completely in the past three decades.',
+    'A large body of behavioural, electrophysiological and imaging work now indicates that sleep plays an active role in stabilising, reorganising and sometimes transforming what was learned during the day. [[2]] [[3]]',
+    'This review summarises the main lines of evidence and the theoretical accounts built on them.'
+  ]},
+  {t:'p', s:[
+    'The central claim is deceptively simple.',
+    'Memories are not fixed at the moment of encoding; they remain fragile for hours and are gradually strengthened by processes that continue long after the learning episode has ended.',
+    'Sleep provides conditions under which these processes can run with little interference from new input.',
+    'The brain is largely disconnected from the environment, neuromodulatory tone shifts markedly, and characteristic patterns of oscillatory activity appear that are rarely seen during waking.'
+  ]},
+  {t:'p', s:[
+    'Two questions organise most of the literature.',
+    'First, which stages of sleep matter for which kinds of memory?',
+    'Second, what is the mechanism by which an experience encoded in the hippocampus becomes a durable cortical memory?',
+    'We take these in turn, before considering what happens when sleep is lost and where the field remains unsettled.'
+  ]},
+  {t:'fn', s:['¹ Earlier reviews of the pre-2000 literature include Smith (1995) and Maquet (2001).']},
+
+  {t:'page', n:2, header:'Annual Review of Cognitive Science · Vol. 12 · 2024', footer:'212'},
+  {t:'h2', s:'2. A Two-Stage Model of Memory Formation'},
+  {t:'p', s:[
+    'Most current theories descend from the standard consolidation model proposed in the early 1990s. [[4]]',
+    'In this account, a new episode is first encoded rapidly by the hippocampus, which binds together the cortical regions that were active during the experience.',
+    'The hippocampal trace is quick to form but limited in capacity and prone to interference.',
+    'Over subsequent days and weeks the connections among the cortical regions themselves are gradually strengthened, until the memory can be retrieved without hippocampal involvement.'
+  ]},
+  {t:'p', s:[
+    'The two-stage architecture solves a computational problem that any learning system faces.',
+    'A network that learns quickly tends to overwrite what it already knows, a phenomenon known as catastrophic interference.',
+    'A network that learns slowly preserves old knowledge but cannot capture a single new event.',
+    'Splitting the task between a fast hippocampal learner and a slow cortical one allows the brain to have both. [[5]]',
+    'The price is that the slow learner must be taught offline, through repeated replay of what the fast learner has stored.'
+  ]},
+  {t:'h3', s:'2.1 Hippocampal replay'},
+  {t:'p', s:[
+    'The notion of offline teaching found direct support when recordings from the rat hippocampus showed that place cells which had fired in sequence during a run through a maze fired again in the same order during subsequent slow-wave sleep. [[6]]',
+    'This replay occurs at a compressed timescale, roughly ten to twenty times faster than the original behaviour.',
+    'It coincides with sharp-wave ripples, brief high-frequency bursts that propagate from the hippocampus to the neocortex.',
+    'Disrupting ripples selectively after learning impairs later memory, while prolonging them improves it. [[7]]'
+  ]},
+  {t:'fn', s:['² Replay has since been observed in the human hippocampus with intracranial recordings and by decoding magnetoencephalography data.']},
+
+  {t:'page', n:3, header:'Annual Review of Cognitive Science · Vol. 12 · 2024', footer:'213'},
+  {t:'h2', s:'3. Slow-Wave Sleep and Declarative Memory'},
+  {t:'p', s:[
+    'Slow-wave sleep is dominated by large, slow oscillations of less than one hertz, during which cortical neurons alternate between periods of silence and periods of intense firing.',
+    'Nested within the active phases are thalamocortical spindles at roughly twelve to fifteen hertz, and nested within spindles are hippocampal ripples.',
+    'The active systems consolidation hypothesis proposes that this three-way coupling is the physical channel through which replayed hippocampal content is delivered to the cortex at exactly the moment when cortical synapses are most ready to change. [[8]]'
+  ]},
+  {t:'p', s:[
+    'Behavioural studies are consistent with this picture.',
+    'Memory for word pairs, spatial layouts and facts benefits more from early-night sleep, which is rich in slow waves, than from late-night sleep, which is rich in rapid eye movement sleep.',
+    'Participants who learn a list of words in the evening and are tested the next morning typically retain several more items than participants who learn in the morning and are tested the same evening after an equal interval awake. [[9]]',
+    'The effect is modest in absolute terms but remarkably reliable.'
+  ]},
+  {t:'p', s:[
+    'More direct evidence comes from manipulations of the slow oscillation itself.',
+    'Applying weak oscillating currents to the scalp at the slow-wave frequency during early sleep increases both slow-wave power and next-day recall of word pairs.',
+    'Playing brief sounds in phase with the rising slope of each slow wave has a similar effect, and crucially the effect disappears when the same sounds are played out of phase. [[10]]',
+    'Targeted memory reactivation, in which an odour or sound present during learning is quietly re-presented during slow-wave sleep, selectively improves memory for the associated material. [[11]]'
+  ]},
+  {t:'fn', s:['³ A recent meta-analysis estimates the overall effect of targeted reactivation at d = 0.38.']},
+
+  {t:'page', n:4, header:'Annual Review of Cognitive Science · Vol. 12 · 2024', footer:'214'},
+  {t:'h2', s:'4. REM Sleep and Procedural Memory'},
+  {t:'p', s:[
+    'Rapid eye movement sleep presents a different profile.',
+    'Cortical activity resembles waking, the hippocampus is dominated by theta rhythm, and acetylcholine levels are high while noradrenaline and serotonin are nearly absent.',
+    'Early theories attributed a general consolidation role to REM sleep, but the evidence for declarative memory has been inconsistent. [[12]]',
+    'Patients taking antidepressants that strongly suppress REM sleep do not show the gross memory impairments that such a role would predict.'
+  ]},
+  {t:'p', s:[
+    'The picture is clearer for procedural and emotional learning.',
+    'Performance on a finger-tapping sequence task improves overnight without further practice, and the size of the gain correlates with the amount of stage two sleep and spindle density in the final hours of the night. [[13]]',
+    'Perceptual learning on a visual texture task depends on both slow-wave and REM sleep in sequence.',
+    'Emotional memories appear to be preserved while their affective charge is reduced, a pattern that has been linked to the unusual neurochemistry of REM sleep. [[14]]'
+  ]},
+
+  {t:'warn', n:5, s:'Page 5 contains no selectable text and was skipped. It is probably a scanned figure or table page.'},
+
+  {t:'page', n:6, header:'Annual Review of Cognitive Science · Vol. 12 · 2024', footer:'216'},
+  {t:'h2', s:'5. The Cost of Sleep Loss'},
+  {t:'p', s:[
+    'If sleep consolidates memory, losing sleep should impair it, and it does.',
+    'A single night of total sleep deprivation after learning reduces recall of declarative material by about forty percent, and the deficit persists even after two nights of recovery sleep. [[15]]',
+    'The effect cannot be explained by fatigue at the time of testing, since recovery sleep restores alertness but not the lost memories.'
+  ]},
+  {t:'p', s:[
+    'Sleep loss before learning is also harmful, for a different reason.',
+    'Encoding depends on the hippocampus being able to take on new information, and that capacity appears to be restored by sleep.',
+    'Participants kept awake for thirty-six hours before studying a set of pictures show markedly reduced hippocampal activation during encoding and remember far fewer pictures two days later. [[16]]',
+    'One interpretation is that synaptic strength accumulates across waking and must be renormalised during sleep to free capacity for the next day. [[17]]'
+  ]},
+  {t:'p', s:[
+    'Chronic partial restriction, which is far more common than total deprivation, produces cumulative deficits.',
+    'Restricting sleep to six hours per night for two weeks impairs attention and working memory to a degree comparable with two full nights without sleep, yet participants rate themselves as only mildly impaired. [[18]]',
+    'The subjective insensitivity to chronic restriction is one of the more worrying findings in the field.'
+  ]},
+  {t:'fn', s:['⁴ Data and analysis scripts for the studies reviewed in this section are available at https://osf.io/sleepmem-review']},
+
+  {t:'page', n:7, header:'Annual Review of Cognitive Science · Vol. 12 · 2024', footer:'217'},
+  {t:'h2', s:'6. Open Questions'},
+  {t:'p', s:[
+    'Despite the convergence of evidence, several issues remain unresolved.',
+    'The synaptic homeostasis hypothesis holds that the main function of sleep is global downscaling of synapses, with memory benefits arising as a side effect of improved signal-to-noise ratio. [[17]]',
+    'The active systems account holds that specific memories are selectively strengthened.',
+    'Both predict a correlation between slow-wave activity and next-day performance, so distinguishing them requires measures at the level of individual synapses, which are only now becoming available in animals.'
+  ]},
+  {t:'p', s:[
+    'A second question concerns selection.',
+    'Not everything experienced during a day is consolidated, and sleep seems to favour material that was tagged as relevant at encoding, whether by reward, emotion or an explicit instruction that it will be tested later. [[19]]',
+    'How such tags are read out during sleep, and whether they can be manipulated deliberately, is an area of active investigation.',
+    'Finally, almost all of the human evidence comes from young adults in laboratory settings, and the extent to which it generalises to children, older adults and people with sleep disorders is not yet clear.'
+  ]},
+  {t:'fn', s:['⁵ The two accounts are not mutually exclusive; several hybrid models have been proposed.']},
+
+  {t:'page', n:8, header:'Annual Review of Cognitive Science · Vol. 12 · 2024', footer:'218'},
+  {t:'h2', s:'7. Conclusion'},
+  {t:'p', s:[
+    'Sleep is not a pause in cognition but one of its working phases.',
+    'During slow-wave sleep, hippocampal replay coordinated with cortical slow oscillations and spindles appears to transfer and strengthen declarative memories.',
+    'During REM sleep, procedural and emotional memories are refined under a distinct neurochemical regime.',
+    'The practical implication is straightforward: anyone who wants to remember what they have learned should protect the night that follows learning.',
+    'The theoretical implication is broader, and suggests that any adequate account of memory must explain not only how experiences are stored but when and how the brain chooses to revisit them.'
+  ]},
+  {t:'refs', n:21, s:[
+    '1. Jenkins, J. G., & Dallenbach, K. M. (1924). Obliviscence during sleep and waking. American Journal of Psychology, 35, 605–612.',
+    '2. Rasch, B., & Born, J. (2013). About sleep’s role in memory. Physiological Reviews, 93(2), 681–766.',
+    '3. Stickgold, R. (2005). Sleep-dependent memory consolidation. Nature, 437, 1272–1278.'
+  ]}
+];
+var TOTAL_PAGES = 8;
+
+var VOICES = [
+  ['American English', [['af_heart','Heart (US, female)'],['af_bella','Bella (US, female)'],['af_nicole','Nicole (US, female)'],['af_sarah','Sarah (US, female)'],['am_michael','Michael (US, male)'],['am_adam','Adam (US, male)']]],
+  ['British English', [['bf_emma','Emma (UK, female)'],['bf_isabella','Isabella (UK, female)'],['bm_george','George (UK, male)'],['bm_lewis','Lewis (UK, male)']]],
+  ['Spanish', [['ef_dora','Dora (ES, female)'],['em_alex','Alex (ES, male)']]],
+  ['French', [['ff_siwis','Siwis (FR, female)']]],
+  ['Japanese', [['jf_alpha','Alpha (JA, female)']]],
+  ['Mandarin Chinese', [['zf_xiaobei','Xiaobei (ZH, female)']]]
+];
+
+var NOTES = {
+  a:{title:'A · Focused reader with a bottom player bar',
+     good:'Good for: the default “just listen” case. One column, nothing competes with the text, and the player is always under the thumb; progress, status and settings share one bar.',
+     trade:'Trade-off: no sense of document structure beyond a thin progress bar. Moving to another section means scrolling or scrubbing blind.'},
+  b:{title:'B · Outline sidebar with per-section progress',
+     good:'Good for: long papers you move around in. The outline doubles as a progress map (read / total per heading), and jumping to a section is one click. Settings live in the sidebar, so the top bar stays slim.',
+     trade:'Trade-off: costs about 17rem of width and relies on the PDF having real headings. On phones it collapses into a “Contents” disclosure and loses the at-a-glance quality.'},
+  c:{title:'C · Page-like view with the cleaned-out parts visible',
+     good:'Good for: trust and checking. Faint page boundaries stay, and running headers, page numbers, footnotes, inline citation markers, URLs and the reference list are shown struck through or collapsed, so you can see what the cleaner removed and where a page was skipped.',
+     trade:'Trade-off: more visual noise and longer pages; most of the time you do not want to see the struck content, so the toggle matters. Page boxes waste width on phones.'},
+  d:{title:'D · Minimal floating mini-player',
+     good:'Good for: immersion and small screens. Text uses the whole viewport in a larger size; the only chrome is a pill with prev / play / next, and everything else is one tap deeper.',
+     trade:'Trade-off: speed, voice and progress are hidden behind the “more” button, and the pill covers the last lines unless the document gets extra bottom padding (it does here).'}
+};
+
+/* ---------- flatten ---------- */
+var SENT = [], SECTIONS = [];
+function clean(raw){ return raw.replace(/\s*\[\[\d+\]\]/g, ''); }
+function push(raw, bi){ SENT.push({i:SENT.length, raw:raw, text:clean(raw), block:bi}); }
+BLOCKS.forEach(function(b, bi){
+  if (b.t==='h1' || b.t==='h2' || b.t==='h3'){ SECTIONS.push({title:clean(b.s), level:b.t, start:SENT.length}); push(b.s, bi); }
+  else if (b.t==='p'){ b.s.forEach(function(r){ push(r, bi); }); }
+});
+SECTIONS.forEach(function(sec, k){ sec.end = (k+1 < SECTIONS.length) ? SECTIONS[k+1].start : SENT.length; });
+var LAST = SENT.length - 1;
+
+/* ---------- state ---------- */
+var S = { i:20, playing:false, speed:1, voice:'af_heart', buffered:26, preparing:false, engineError:false, loaded:true, emptyMode:'idle' };
+var timer = null, prepTimer = null;
+var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function esc(t){ return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function wordsOf(t){ return t.split(/\s+/).filter(Boolean).length; }
+function durationMs(i){ return Math.max(900, wordsOf(SENT[i].text) / (2.5 * S.speed) * 1000); }
+function timeLeft(){
+  var w = 0; for (var k = S.i; k < SENT.length; k++) w += wordsOf(SENT[k].text);
+  var min = Math.ceil(w / (2.5 * S.speed) / 60);
+  return min <= 1 ? 'under a minute left' : min + ' min left';
+}
+function voiceName(){
+  for (var g = 0; g < VOICES.length; g++) for (var v = 0; v < VOICES[g][1].length; v++) if (VOICES[g][1][v][0] === S.voice) return VOICES[g][1][v][1].replace(/ \(.*\)$/, '');
+  return S.voice;
+}
+
+/* ---------- builders ---------- */
+var ICON = {
+  prev:'<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>',
+  next:'<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>',
+  play:'<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M7 4v16l14-8z"/></svg>',
+  pause:'<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+  wait:'<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="14 8"/></svg>'
+};
+function transportHTML(){
+  return '<div class="transport">' +
+    '<button type="button" class="icon-btn" data-act="prev" aria-label="Previous sentence">' + ICON.prev + '</button>' +
+    '<button type="button" class="icon-btn play" data-act="play" aria-label="Play">' + ICON.play + '</button>' +
+    '<button type="button" class="icon-btn" data-act="next" aria-label="Next sentence">' + ICON.next + '</button></div>';
+}
+function speedHTML(){
+  return '<label class="field"><span>Speed</span><select data-speed>' +
+    [0.75,1,1.25,1.5,1.75,2].map(function(v){ return '<option value="' + v + '">' + v + '×</option>'; }).join('') + '</select></label>';
+}
+function voiceHTML(){
+  var h = '<label class="field voice"><span>Voice</span><select data-voice title="15 of 54 voices shown in this prototype">';
+  VOICES.forEach(function(g){
+    h += '<optgroup label="' + g[0] + '">' + g[1].map(function(v){ return '<option value="' + v[0] + '">' + v[1] + '</option>'; }).join('') + '</optgroup>';
+  });
+  h += '<optgroup label="Hindi, Italian, Portuguese… (39 more)"></optgroup></select></label>';
+  return h;
+}
+function sentHTML(i, cut){
+  var st = SENT[i], html;
+  if (cut) html = esc(st.raw).replace(/\s*\[\[(\d+)\]\]/g, ' <s class="cut">[$1]</s>');
+  else html = esc(st.text);
+  return '<span class="s" data-i="' + i + '">' + html + '</span>';
+}
+function blockHTML(b, bi, cut){
+  var ss = SENT.filter(function(s){ return s.block === bi; });
+  if (b.t==='h1' || b.t==='h2' || b.t==='h3') return '<' + b.t + '>' + sentHTML(ss[0].i, cut) + '</' + b.t + '>';
+  if (b.t==='p') return '<p>' + ss.map(function(s){ return sentHTML(s.i, cut); }).join(' ') + '</p>';
+  if (b.t==='warn' && !cut) return '<div class="notice warn" role="status">' + esc(b.s) + '</div>';
+  return '';
+}
+function buildDoc(el){
+  el.innerHTML = BLOCKS.map(function(b, bi){ return blockHTML(b, bi, false); }).join('');
+}
+function buildPages(el){
+  var groups = [], g = null;
+  BLOCKS.forEach(function(b, bi){
+    if (b.t==='page'){ g = {page:b, blocks:[], fn:[], refs:null}; groups.push(g); }
+    else if (b.t==='warn'){ groups.push({skipped:b}); }
+    else if (b.t==='fn'){ g.fn = g.fn.concat(b.s); }
+    else if (b.t==='refs'){ g.refs = b; }
+    else g.blocks.push(bi);
+  });
+  el.innerHTML = groups.map(function(gr){
+    if (gr.skipped){
+      return '<section class="page skipped"><span class="page-label">Page ' + gr.skipped.n + ' of ' + TOTAL_PAGES + '</span>' +
+        '<div class="notice warn" role="status">' + esc(gr.skipped.s) + '</div></section>';
+    }
+    var h = '<section class="page"><span class="page-label">Page ' + gr.page.n + ' of ' + TOTAL_PAGES + '</span>';
+    h += '<s class="cut-line" title="Running header, removed">' + esc(gr.page.header) + '</s>';
+    h += gr.blocks.map(function(bi){ return blockHTML(BLOCKS[bi], bi, true); }).join('');
+    if (gr.fn.length){
+      h += '<details class="cut-box"><summary>' + gr.fn.length + (gr.fn.length===1 ? ' footnote' : ' footnotes') + ' removed</summary>' +
+        gr.fn.map(function(f){ return '<s>' + esc(f) + '</s>'; }).join('') + '</details>';
+    }
+    if (gr.refs){
+      h += '<details class="cut-box"><summary>Reference list removed (' + gr.refs.n + ' entries)</summary>' +
+        gr.refs.s.map(function(f){ return '<s>' + esc(f) + '</s>'; }).join('') + '<s>… ' + (gr.refs.n - gr.refs.s.length) + ' more</s></details>';
+    }
+    h += '<s class="cut-line foot" title="Page number, removed">' + esc(gr.page.footer) + '</s></section>';
+    return h;
+  }).join('');
+}
+function buildOutline(ol){
+  ol.innerHTML = SECTIONS.map(function(s, k){
+    return '<li class="' + s.level + '"><button type="button" data-jump="' + s.start + '">' +
+      '<span class="t">' + esc(s.title) + '</span><span class="n" data-secn="' + k + '"></span>' +
+      '<span class="bar"><span data-secbar="' + k + '"></span></span></button></li>';
+  }).join('');
+}
+
+/* ---------- playback simulation ---------- */
+function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+function goTo(i){
+  i = clamp(i, 0, LAST);
+  S.i = i;
+  clearTimeout(timer); timer = null;
+  var far = i > S.buffered || i < S.buffered - 14;
+  if (far) startPreparing(1400);
+  else if (S.playing) scheduleNext();
+  render(true);
+}
+function startPreparing(ms){
+  S.preparing = true; clearTimeout(prepTimer);
+  prepTimer = setTimeout(function(){
+    S.preparing = false;
+    S.buffered = clamp(S.i + 6, 0, LAST);
+    if (S.playing) scheduleNext();
+    render(false);
+  }, ms);
+}
+function scheduleNext(){
+  clearTimeout(timer);
+  timer = setTimeout(function(){
+    if (!S.playing) return;
+    if (S.i >= LAST){ S.playing = false; render(false); return; }
+    S.buffered = clamp(Math.max(S.buffered, S.i + 8), 0, LAST);
+    goTo(S.i + 1);
+  }, durationMs(S.i));
+}
+function togglePlay(){
+  if (S.engineError || !S.loaded) return;
+  S.playing = !S.playing;
+  if (S.playing){ if (!S.preparing) scheduleNext(); }
+  else { clearTimeout(timer); timer = null; }
+  render(false);
+}
+function stop(){ S.playing = false; clearTimeout(timer); timer = null; }
+
+/* ---------- render ---------- */
+function statusText(){
+  if (!S.loaded) return 'No document';
+  if (S.engineError) return 'Speech engine unavailable';
+  if (S.preparing) return 'Preparing audio…';
+  if (S.playing) return 'Playing · ' + voiceName() + ' · ' + S.speed + '×';
+  return 'Paused · ' + (S.i + 1) + ' / ' + SENT.length;
+}
+function render(scroll){
+  $$('.s').forEach(function(el){
+    var k = +el.getAttribute('data-i');
+    el.classList.toggle('read', k < S.i);
+    el.classList.toggle('active', k === S.i);
+    el.classList.toggle('prep', k === S.i && S.preparing);
+  });
+  var busy = S.preparing && S.loaded && !S.engineError;
+  $$('[data-act="play"]').forEach(function(b){
+    b.innerHTML = busy ? ICON.wait : (S.playing ? ICON.pause : ICON.play);
+    b.setAttribute('aria-label', busy ? 'Preparing audio' : (S.playing ? 'Pause' : 'Play'));
+    b.setAttribute('aria-busy', busy ? 'true' : 'false');
+    b.disabled = S.engineError || !S.loaded;
+  });
+  $$('[data-act="prev"]').forEach(function(b){ b.disabled = S.i === 0 || !S.loaded; });
+  $$('[data-act="next"]').forEach(function(b){ b.disabled = S.i >= LAST || !S.loaded; });
+
+  var st = statusText();
+  $$('[data-status]').forEach(function(el){ el.textContent = st; el.classList.toggle('prep', S.preparing); });
+  $$('[data-left]').forEach(function(el){ el.textContent = timeLeft(); });
+  $$('[data-count]').forEach(function(el){ el.textContent = SENT.length + ' sentences'; });
+
+  var pct = S.i / LAST * 100, bpct = clamp(S.buffered, 0, LAST) / LAST * 100;
+  $$('[data-prog]').forEach(function(p){
+    $('.done', p).style.width = pct + '%';
+    $('.buf', p).style.width = Math.max(pct, bpct) + '%';
+    p.setAttribute('aria-valuenow', Math.round(pct));
+    p.setAttribute('aria-valuetext', 'Sentence ' + (S.i + 1) + ' of ' + SENT.length);
+  });
+  $$('[data-pct]').forEach(function(el){ el.textContent = Math.round(pct) + '% read'; });
+
+  $$('[data-speed]').forEach(function(s){ s.value = String(S.speed); });
+  $$('[data-voice]').forEach(function(s){ s.value = S.voice; });
+
+  SECTIONS.forEach(function(sec, k){
+    var len = sec.end - sec.start, done = clamp(S.i - sec.start, 0, len);
+    var li = $('[data-secn="' + k + '"]').closest('li');
+    $('[data-secn="' + k + '"]').textContent = done + '/' + len;
+    $('[data-secbar="' + k + '"]').style.width = (done / len * 100) + '%';
+    li.classList.toggle('cur', S.i >= sec.start && S.i < sec.end);
+    li.classList.toggle('done', done === len);
+  });
+
+  $$('.engine-banner').forEach(function(el){ el.hidden = !S.engineError; });
+
+  var empty = $('#empty');
+  empty.hidden = S.loaded;
+  $$('[data-empty]', empty).forEach(function(el){ el.hidden = el.getAttribute('data-empty') !== S.emptyMode; });
+
+  if (scroll){
+    var panel = $('.panel.active'), el = panel && $('.s.active', panel);
+    if (el) el.scrollIntoView({block:'center', behavior: (reduced || scroll === 'instant') ? 'auto' : 'smooth'});
+  }
+}
+
+function setOpt(opt){
+  $$('.panel').forEach(function(p){ p.classList.toggle('active', p.id === 'p' + opt); });
+  $$('[data-opt]').forEach(function(b){ b.setAttribute('aria-selected', b.getAttribute('data-opt') === opt ? 'true' : 'false'); });
+  $('#note-title').textContent = NOTES[opt].title;
+  $('#note-good').textContent = NOTES[opt].good;
+  $('#note-trade').textContent = NOTES[opt].trade;
+  $('#d-pop').hidden = true; $('[data-act="more"]').setAttribute('aria-expanded', 'false');
+  render('instant');
+}
+
+/* ---------- actions ---------- */
+function handleAct(act, btn){
+  if (act === 'play') togglePlay();
+  else if (act === 'prev') goTo(S.i - 1);
+  else if (act === 'next') goTo(S.i + 1);
+  else if (act === 'more'){ var pop = $('#d-pop'); pop.hidden = !pop.hidden; btn.setAttribute('aria-expanded', String(!pop.hidden)); }
+  else if (act === 'retry'){ S.engineError = false; $('#engine').checked = false; render(false); }
+  else if (act === 'close'){ stop(); clearTimeout(prepTimer); S.preparing = false; S.loaded = false; S.emptyMode = 'idle'; render(false); }
+  else if (act === 'open'){
+    S.emptyMode = 'loading'; render(false);
+    setTimeout(function(){ S.loaded = true; S.i = 0; S.buffered = -1; startPreparing(1400); render('instant'); }, 1300);
+  }
+  else if (act === 'demo-notext'){ S.emptyMode = 'notext'; render(false); }
+  else if (act === 'choose-another'){ S.emptyMode = 'idle'; render(false); }
+}
+
+document.addEventListener('click', function(e){
+  var t = e.target;
+  var act = t.closest('[data-act]'); if (act){ handleAct(act.getAttribute('data-act'), act); return; }
+  var s = t.closest('.s'); if (s){ goTo(+s.getAttribute('data-i')); return; }
+  var j = t.closest('[data-jump]'); if (j){ goTo(+j.getAttribute('data-jump')); return; }
+  var tab = t.closest('[data-opt]'); if (tab){ setOpt(tab.getAttribute('data-opt')); return; }
+  var prog = t.closest('[data-prog]');
+  if (prog){ var r = prog.getBoundingClientRect(); goTo(Math.round((e.clientX - r.left) / r.width * LAST)); }
+});
+
+document.addEventListener('change', function(e){
+  var t = e.target;
+  if (t.matches('[data-speed]')){ S.speed = +t.value; if (S.playing && !S.preparing) scheduleNext(); render(false); }
+  else if (t.matches('[data-voice]')){ S.voice = t.value; S.buffered = S.i - 1; clearTimeout(timer); startPreparing(1400); render(false); }
+  else if (t.id === 'theme'){ if (t.value === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t.value); }
+  else if (t.id === 'engine'){ S.engineError = t.checked; if (S.engineError) stop(); render(false); }
+  else if (t.matches('[data-showcut]')){ $('.pages').classList.toggle('hidecut', !t.checked); }
+});
+
+document.addEventListener('keydown', function(e){
+  var t = e.target instanceof Element ? e.target : document.body;
+  if (t.matches('input,select,textarea')) return;
+  if (e.key === ' ' && !t.matches('button,summary,a')){ e.preventDefault(); togglePlay(); }
+  else if (e.key === 'ArrowRight'){ e.preventDefault(); goTo(S.i + 1); }
+  else if (e.key === 'ArrowLeft'){ e.preventDefault(); goTo(S.i - 1); }
+  else if (e.key === 'Escape'){ $('#d-pop').hidden = true; $('[data-act="more"]').setAttribute('aria-expanded', 'false'); }
+});
+
+/* ---------- init ---------- */
+$$('[data-slot="transport"]').forEach(function(el){ el.outerHTML = transportHTML(); });
+$$('[data-slot="speed"]').forEach(function(el){ el.outerHTML = speedHTML(); });
+$$('[data-slot="voice"]').forEach(function(el){ el.outerHTML = voiceHTML(); });
+$$('[data-doc="clean"]').forEach(buildDoc);
+buildPages($('[data-doc="pages"]'));
+buildOutline($('[data-outline]'));
+if (window.matchMedia('(max-width: 720px)').matches){
+  ['#b-outline', '.b-settings', '.note'].forEach(function(sel){ $(sel).removeAttribute('open'); });
+}
+startPreparing(3000);   /* the demo starts as if the file was just reopened at a saved position */
+setOpt('a');
+})();
+</script>
+</body>
+</html>

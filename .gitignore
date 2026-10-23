@@ -1,0 +1,19 @@
+# Model weights: download again (see CLAUDE.md)
+/models
+
+# Build output and dependencies
+/backend/target/
+node_modules/
+/frontend/dist/
+
+# PDFium binary: download again (see backend/README.md); licenses stay tracked
+/backend/vendor/pdfium/lib
+
+# Large audio samples
+*.wav
+*.m4b
+*.mp3
+
+# Text from the user's books (copyrighted): regenerate locally, never commit
+/backend/test-data/
+/docs/progress/B2-samples/
