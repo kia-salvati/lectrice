@@ -1,5 +1,8 @@
 # Lectrice
 
+> **New session? Read `docs/HANDOFF.md` first** (current state, rules that are easy to break,
+> next steps). This file is the full decision log.
+
 A free, fully local Speechify-like app. You load a PDF, it cleans the text into a "reading view"
 (no headers, footers, page numbers, footnotes, citation markers or references) and reads it aloud
 in a **realistic woman's voice**. The voice must be downloadable and usable by anyone.
@@ -118,7 +121,12 @@ plan, and said **Fable may start designing and building the frontend now against
   `docs/progress/*.md`; remaining problems in `T.md`. Cleaner version 2.
 - **Git (2026-10-23):** repo at `lectrice/`, author `kia <limsclaude@gmail.com>` (repo-local
   config). v1 committed in 4 commits on `release/v1`, tagged `v1.0.0`. New work goes on
-  `feature/<name>` branches; now on `feature/chapters`. **Remote:** `origin` =
+  `feature/<name>` branches merged into **`main`** (the development line, created 2026-10-23 from
+  `release/v1`; `release/v1` stays as released). Chapters merged and pushed to `main` on 2026-10-23.
+  **Public repo shows only `main` and version tags (user 2026-10-23):** GitHub's default branch is
+  `main`; feature and release branches stay **local only** (never push them); merge into `main`
+  locally, push `main`, and mark versions with tags (`git push origin main vX.Y.Z`) + a GitHub
+  Release. Same rule for `lectrice-android`. **Remote:** `origin` =
   `personal:kia-salvati/lectrice.git` (public; SSH alias `personal` in `~/.ssh/config`, key
   `~/.ssh/github`). `release/v1` + tag `v1.0.0` pushed 2026-10-23 (history rebuilt without book
   text first). License: **MIT OR Apache-2.0**, with a README note that binaries built with
