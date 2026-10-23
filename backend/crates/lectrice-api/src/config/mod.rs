@@ -77,6 +77,8 @@ pub struct SpeechConfig {
     pub model_dir: PathBuf,
     pub default_voice: String,
     pub num_threads: u32,
+    /// The onnxruntime execution provider, e.g. "cpu".
+    pub provider: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -137,7 +139,8 @@ fn validate(config: &Config) -> Result<(), ConfigError> {
     require(config.upload.max_mb > 0, "upload.max_mb", "must be at least 1")?;
     require(!config.export.ffmpeg.trim().is_empty(), "export.ffmpeg", "must not be empty")?;
     require(!config.speech.default_voice.trim().is_empty(), "speech.default_voice", "must not be empty")?;
-    require(config.speech.num_threads > 0, "speech.num_threads", "must be at least 1")
+    require(config.speech.num_threads > 0, "speech.num_threads", "must be at least 1")?;
+    require(!config.speech.provider.trim().is_empty(), "speech.provider", "must not be empty")
 }
 
 fn require(holds: bool, key: &'static str, reason: &'static str) -> Result<(), ConfigError> {
@@ -174,6 +177,7 @@ mod tests {
         assert!(config.speech.model_dir.ends_with("../models/kokoro-multi-lang-v1_0"));
         assert_eq!(config.speech.default_voice, "af_heart");
         assert_eq!(config.speech.num_threads, 4);
+        assert_eq!(config.speech.provider, "cpu");
         assert_eq!((config.export.ffmpeg.as_str(), config.export.max_sentences), ("ffmpeg", 0));
     }
 

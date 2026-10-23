@@ -18,7 +18,9 @@ pub struct PdfiumTextSource {
 }
 
 impl PdfiumTextSource {
-    /// Binds `libpdfium.so` at `library_path`. Fails with `Internal` when the library can't be loaded.
+    /// Binds the pdfium library at `library_path`. A bare file name (`libpdfium.so`, no directory) lets the system
+    /// linker search for it, e.g. in an Android app's native library directory. Fails with `Internal` when the library
+    /// can't be loaded.
     pub fn new(library_path: &Path) -> AppResult<Self> {
         let bindings = Pdfium::bind_to_library(library_path).map_err(|error| {
             AppError::new(ErrorName::Internal).with_detail(format!("cannot load pdfium from {}", library_path.display())).with_source(error)

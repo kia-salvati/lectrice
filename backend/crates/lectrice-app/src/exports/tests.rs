@@ -1,4 +1,5 @@
-//! The export job state machine with fakes: queued → running → done, cancel, failure, restart, reuse of cached clips.
+//! The export job state machine with fakes: queued → running → done, pause and resume by parts, cancel, failure,
+//! restart, reuse of cached clips.
 
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
@@ -33,11 +34,18 @@ struct Setup {
     start: StartAudioExport,
 }
 
+/// Every sentence is a part of its own: the fake book becomes four parts, the first opened by the "Intro" mark.
+const ONE_SENTENCE_PARTS: ExportSettings = ExportSettings { max_sentences: None, part_minutes: 0 };
+
 fn setup() -> Setup {
     setup_with(GatedEngine::open(), Arc::default())
 }
 
 fn setup_with(engine: GatedEngine, store: Arc<MemoryRecordStore>) -> Setup {
+    setup_with_settings(engine, store, ExportSettings::default())
+}
+
+fn setup_with_settings(engine: GatedEngine, store: Arc<MemoryRecordStore>, settings: ExportSettings) -> Setup {
     let library = Library::new(1);
     let engine = Arc::new(engine);
     let cache = Arc::new(MemoryCache::default());
@@ -53,7 +61,6 @@ fn setup_with(engine: GatedEngine, store: Arc<MemoryRecordStore>) -> Setup {
         store: store.clone(),
         clock: library.clock(),
     };
-    let settings = ExportSettings::default();
     let jobs = Arc::new(ExportJobs::start(deps, settings).unwrap());
     let start = StartAudioExport::new(jobs.clone(), engine.clone(), library.reader(), exporter.clone(), settings);
     Setup { library, engine, cache, exporter, store, worker, jobs, start }
@@ -96,18 +103,22 @@ fn a_job_goes_from_queued_to_done_and_streams_every_sentence_with_its_chapter() 
 
     let queued = start(&setup, &id, ExportFormat::M4b).unwrap();
     assert_eq!((queued.status, queued.sentences_done, queued.sentences_total, queued.estimated_seconds_left), (ExportStatus::Queued, 0, 4, None));
+    assert_eq!((queued.parts_done, queued.parts_total), (0, 1));
 
     let done = wait_for_status(&setup, &queued.id, ExportStatus::Done);
-    assert_eq!((done.sentences_done, done.estimated_seconds_left), (4, Some(0)));
-    let mut expected = vec![Event::Begin { title: "Fake Book".into(), artist: "Heart".into(), sample_rate: SAMPLE_RATE }, Event::Chapter("Intro".into())];
+    assert_eq!((done.sentences_done, done.estimated_seconds_left, done.parts_done), (4, Some(0), 1));
+    let mut expected = vec![Event::BeginPart { index: 0, sample_rate: SAMPLE_RATE }];
     expected.extend(appended_for(&SPOKEN));
-    expected.push(Event::Finish);
+    expected.push(Event::FinishPart(0));
+    expected.push(Event::Assemble { title: "Fake Book".into(), artist: "Heart".into(), parts: vec![0], chapters: vec![("Intro".into(), 0)] });
+    expected.push(Event::Discard);
     assert_eq!(setup.exporter.events(), expected);
     assert_eq!(setup.engine.spoken(), SPOKEN);
     assert_eq!(setup.cache.puts(), 0, "export audio goes to the encoder, not the cache");
 
     let saved = setup.store.get(&queued.id).unwrap();
     assert_eq!(saved.export, done);
+    assert!(saved.parts.is_empty() && saved.chapters.is_empty(), "the parts are deleted once the file is made");
     assert!(saved.file.unwrap().ends_with("af_heart.m4b"));
     let download = GetAudioExportFile::new(setup.jobs.clone(), setup.library.reader(), setup.engine.clone()).run(&ctx(), queued.id).unwrap();
     assert_eq!((download.title.as_str(), download.voice_name.as_str(), download.format), ("Fake Book", "Heart", ExportFormat::M4b));
@@ -168,7 +179,8 @@ fn cancelling_a_running_job_stops_it_without_waiting_for_the_engine() {
 
     assert_eq!(CancelAudioExport::new(setup.jobs.clone()).run(&ctx(), export.id.clone()).unwrap(), ExportStatus::Cancelled);
 
-    wait_for("the writer to be abandoned", || setup.exporter.events().contains(&Event::Abandoned));
+    wait_for("the parts to be deleted", || setup.exporter.events().contains(&Event::Discard));
+    assert!(setup.exporter.events().contains(&Event::Abandoned(0)));
     let cancelled = setup.jobs.get(&export.id).unwrap();
     assert_eq!((cancelled.status, cancelled.estimated_seconds_left), (ExportStatus::Cancelled, None));
     assert_eq!(setup.store.get(&export.id).unwrap().export.status, ExportStatus::Cancelled);
@@ -176,7 +188,85 @@ fn cancelling_a_running_job_stops_it_without_waiting_for_the_engine() {
     let ticket = setup.worker.submit(SpeechJob { key: key_of(&id, 99), request: speech("after"), priority: SpeechPriority::Now });
     ticket.wait().unwrap();
     assert!(!setup.engine.spoken().contains(&"Code example.".to_string()), "queued export sentences were withdrawn");
-    assert!(!setup.exporter.events().contains(&Event::Finish));
+    assert!(!setup.exporter.events().iter().any(|event| matches!(event, Event::Assemble { .. })));
+}
+
+/// Gated on "Two.", the third of four one-sentence parts: parts 0 and 1 are finished when the engine blocks.
+fn paused_after_two_parts() -> (Setup, AudioExport) {
+    let setup = setup_with_settings(GatedEngine::new("Two."), Arc::default(), ONE_SENTENCE_PARTS);
+    let id = setup.library.add_book();
+    let export = start(&setup, &id, ExportFormat::M4b).unwrap();
+    assert_eq!(export.parts_total, 4);
+    setup.engine.wait_until_blocked();
+
+    let paused = PauseAudioExport::new(setup.jobs.clone()).run(&ctx(), export.id.clone()).unwrap();
+
+    assert_eq!(paused.status, ExportStatus::Paused);
+    wait_for("the open part to be abandoned", || setup.exporter.events().contains(&Event::Abandoned(2)));
+    let saved = setup.store.get(&export.id).unwrap();
+    assert_eq!((saved.export.status, saved.export.parts_done), (ExportStatus::Paused, 2));
+    assert_eq!(saved.parts.iter().map(|part| part.index).collect::<Vec<_>>(), [0, 1]);
+    assert_eq!(saved.chapters.iter().map(|chapter| chapter.title.as_str()).collect::<Vec<_>>(), ["Intro"]);
+    assert!(!setup.exporter.events().contains(&Event::Discard), "pausing keeps the parts");
+    setup.engine.release();
+    setup.exporter.clear();
+    (setup, export)
+}
+
+#[test]
+fn a_resumed_export_continues_at_the_first_unfinished_part() {
+    let (setup, export) = paused_after_two_parts();
+
+    let active = ResumeAudioExports::new(setup.jobs.clone()).run(&ctx(), ()).unwrap();
+
+    assert_eq!((active.len(), &active[0].id), (1, &export.id));
+    let done = wait_for_status(&setup, &export.id, ExportStatus::Done);
+    assert_eq!((done.sentences_done, done.parts_done), (4, 4));
+    let events = setup.exporter.events();
+    assert_eq!(events[0], Event::BeginPart { index: 2, sample_rate: SAMPLE_RATE }, "{events:?}");
+    let assembled = Event::Assemble { title: "Fake Book".into(), artist: "Heart".into(), parts: vec![0, 1, 2, 3], chapters: vec![("Intro".into(), 0)] };
+    assert!(events.contains(&assembled), "{events:?}");
+    assert_eq!(setup.engine.spoken().iter().filter(|text| text.as_str() == "One.").count(), 1, "finished parts are not made again");
+}
+
+#[test]
+fn starting_a_paused_export_again_continues_the_same_job() {
+    let (setup, export) = paused_after_two_parts();
+
+    let again = start(&setup, &export.document_id, ExportFormat::M4b).unwrap();
+
+    assert_eq!((again.id.clone(), again.status), (export.id.clone(), ExportStatus::Queued));
+    assert_eq!(wait_for_status(&setup, &export.id, ExportStatus::Done).parts_done, 4);
+    assert_eq!(setup.exporter.events()[0], Event::BeginPart { index: 2, sample_rate: SAMPLE_RATE });
+}
+
+#[test]
+fn cancelling_a_paused_export_deletes_its_parts() {
+    let (setup, export) = paused_after_two_parts();
+
+    assert_eq!(CancelAudioExport::new(setup.jobs.clone()).run(&ctx(), export.id.clone()).unwrap(), ExportStatus::Cancelled);
+
+    assert_eq!(setup.exporter.events(), [Event::Discard]);
+    let saved = setup.store.get(&export.id).unwrap();
+    assert_eq!(saved.export.status, ExportStatus::Cancelled);
+    assert!(saved.parts.is_empty());
+    assert!(ResumeAudioExports::new(setup.jobs.clone()).run(&ctx(), ()).unwrap().is_empty());
+}
+
+#[test]
+fn a_shutdown_pauses_the_running_export_and_keeps_its_parts() {
+    let setup = setup_with_settings(GatedEngine::new("Two."), Arc::default(), ONE_SENTENCE_PARTS);
+    let id = setup.library.add_book();
+    let export = start(&setup, &id, ExportFormat::Mp3).unwrap();
+    setup.engine.wait_until_blocked();
+    let Setup { jobs, start, store, engine, .. } = setup;
+
+    drop(start);
+    drop(jobs);
+
+    let saved = store.get(&export.id).unwrap();
+    assert_eq!((saved.export.status, saved.parts.len()), (ExportStatus::Paused, 2));
+    engine.release();
 }
 
 #[test]
@@ -207,7 +297,7 @@ fn an_encoder_failure_fails_the_job() {
 
     let failed = wait_for_status(&setup, &export.id, ExportStatus::Failed);
     assert_eq!(failed.estimated_seconds_left, None);
-    assert!(setup.exporter.events().contains(&Event::Abandoned));
+    assert!(setup.exporter.events().contains(&Event::Abandoned(0)));
     let file = GetAudioExportFile::new(setup.jobs.clone(), setup.library.reader(), setup.engine.clone()).run(&ctx(), export.id);
     assert_eq!(file.unwrap_err().primary(), ErrorName::ExportNotReady);
 }
@@ -222,16 +312,20 @@ fn saved(id: &str, status: ExportStatus) -> ExportRecord {
             status,
             sentences_done: 2,
             sentences_total: 4,
+            parts_done: 0,
+            parts_total: 1,
             estimated_seconds_left: Some(9),
         },
         read_skipped: false,
         created_at: at(50),
         file: None,
+        parts: Vec::new(),
+        chapters: Vec::new(),
     }
 }
 
 #[test]
-fn after_a_restart_interrupted_jobs_are_failed_and_finished_ones_are_still_listed() {
+fn after_a_restart_interrupted_jobs_are_paused_and_finished_ones_are_still_listed() {
     let store = Arc::new(MemoryRecordStore::default());
     for (id, status) in [("a", ExportStatus::Done), ("b", ExportStatus::Running), ("c", ExportStatus::Queued), ("d", ExportStatus::Cancelled)] {
         store.save(&saved(id, status)).unwrap();
@@ -242,10 +336,10 @@ fn after_a_restart_interrupted_jobs_are_failed_and_finished_ones_are_still_liste
 
     let listed = ListAudioExports::new(setup.jobs.clone(), setup.library.reader()).run(&ctx(), id_for(1)).unwrap();
     let statuses: Vec<(&str, ExportStatus)> = listed.iter().map(|export| (export.id.as_str(), export.status)).collect();
-    assert_eq!(statuses, [("d", ExportStatus::Cancelled), ("c", ExportStatus::Failed), ("b", ExportStatus::Failed), ("a", ExportStatus::Done)]);
+    assert_eq!(statuses, [("d", ExportStatus::Cancelled), ("c", ExportStatus::Paused), ("b", ExportStatus::Paused), ("a", ExportStatus::Done)]);
     assert_eq!(setup.store.get(&ExportId::new("b")).unwrap().export.estimated_seconds_left, None);
-    assert_eq!(setup.store.get(&ExportId::new("c")).unwrap().export.status, ExportStatus::Failed);
-    assert_eq!(setup.exporter.begins(), 0, "interrupted jobs are not resumed");
+    assert_eq!(setup.store.get(&ExportId::new("c")).unwrap().export.status, ExportStatus::Paused);
+    assert_eq!(setup.exporter.begins(), 0, "interrupted jobs wait for a resume");
 }
 
 #[test]

@@ -11,9 +11,11 @@ use axum::body::{Body, Bytes};
 use axum::http::{HeaderMap, HeaderValue, Request, StatusCode, header};
 use http_body_util::BodyExt;
 use lectrice_app::exports::ExportSettings;
+use lectrice_app::services::{Adapters, Settings, assemble};
 use lectrice_domain::{
-    AppError, AppResult, Audio, AudioExporter, BlockKind, CleanedBlock, CleanedDocument, DocumentCleaner, ErrorName, ExportTarget, ExportWriter, ExportedFile,
-    OutlineItem, PdfContent, PdfTextSource, SentenceSplitter, SpeechEngine, SpeechRequest, TextSpan, Voice, VoiceGender, VoiceId, VoiceLanguage,
+    AppError, AppResult, Audio, AudioExporter, BlockKind, ChapterMark, CleanedBlock, CleanedDocument, DocumentCleaner, ErrorName, ExportId, ExportPart,
+    ExportTarget, ExportWriter, ExportedFile, OutlineItem, PdfContent, PdfTextSource, SentenceSplitter, SpeechEngine, SpeechRequest, TextSpan, Voice,
+    VoiceGender, VoiceId, VoiceLanguage,
 };
 use lectrice_infra::{FsAudioCache, FsDocumentRepository, FsExportRecordStore, Sha256ContentHasher, SystemClock, WavDecoder, WavEncoder};
 use serde_json::Value;
@@ -21,7 +23,7 @@ use tempfile::TempDir;
 use tower::ServiceExt;
 
 use crate::app::build_app;
-use crate::composition::{Adapters, Settings, assemble};
+use crate::state::AppState;
 use lectrice_app::speech::ReadAheadSettings;
 
 pub const UPLOAD_MAX_BYTES: usize = 4096;
@@ -186,39 +188,46 @@ impl AudioExporter for TestExporter {
         if self.unavailable { Err(AppError::new(ErrorName::ExporterUnavailable)) } else { Ok(()) }
     }
 
-    fn begin(&self, target: &ExportTarget, _sample_rate: u32) -> AppResult<Box<dyn ExportWriter>> {
+    fn begin_part(&self, target: &ExportTarget, part_index: u32, sample_rate: u32) -> AppResult<Box<dyn ExportWriter>> {
         self.check_available()?;
         let mut held = self.held.lock().unwrap();
         while *held {
             held = self.changed.wait(held).unwrap();
         }
+        let path = self.data_dir.join("exports").join("parts").join(target.export_id.as_str()).join(format!("{part_index}.wav"));
+        Ok(Box::new(TestPartWriter { index: part_index, path, sample_rate, samples: 0 }))
+    }
+
+    fn assemble(&self, target: &ExportTarget, parts: &[ExportPart], _chapters: &[ChapterMark]) -> AppResult<ExportedFile> {
         let path = self.data_dir.join("exports").join(target.document_id.as_str()).join(format!("{}.{}", target.voice_id, target.format.extension()));
-        Ok(Box::new(TestExportWriter { path, samples: 0, written: self.written.clone() }))
-    }
-}
-
-struct TestExportWriter {
-    path: PathBuf,
-    samples: usize,
-    written: Arc<Mutex<Vec<u8>>>,
-}
-
-impl ExportWriter for TestExportWriter {
-    fn start_chapter(&mut self, _title: &str) -> AppResult<()> {
-        Ok(())
-    }
-
-    fn append(&mut self, audio: &Audio) -> AppResult<()> {
-        self.samples += audio.samples.len();
-        Ok(())
-    }
-
-    fn finish(self: Box<Self>) -> AppResult<ExportedFile> {
-        let bytes = format!("FAKE:{}", self.samples).into_bytes();
-        std::fs::create_dir_all(self.path.parent().unwrap()).unwrap();
-        std::fs::write(&self.path, &bytes).unwrap();
+        let bytes = format!("FAKE:{}", parts.iter().map(|part| part.samples).sum::<u64>()).into_bytes();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, &bytes).unwrap();
         *self.written.lock().unwrap() = bytes.clone();
-        Ok(ExportedFile { path: self.path.clone(), size_bytes: bytes.len() as u64 })
+        Ok(ExportedFile { path, size_bytes: bytes.len() as u64 })
+    }
+
+    fn discard_parts(&self, _export_id: &ExportId) -> AppResult<()> {
+        Ok(())
+    }
+}
+
+/// Counts samples; the parts are never read, so nothing is written.
+struct TestPartWriter {
+    index: u32,
+    path: PathBuf,
+    sample_rate: u32,
+    samples: u64,
+}
+
+impl ExportWriter for TestPartWriter {
+    fn append(&mut self, audio: &Audio) -> AppResult<()> {
+        self.samples += audio.samples.len() as u64;
+        Ok(())
+    }
+
+    fn finish(self: Box<Self>) -> AppResult<ExportPart> {
+        Ok(ExportPart { index: self.index, path: self.path, samples: self.samples, sample_rate: self.sample_rate })
     }
 }
 
@@ -314,9 +323,9 @@ fn router_with(data_dir: &Path, engine: Option<Arc<dyn SpeechEngine>>, read_ahea
         exporter,
         export_records: Arc::new(FsExportRecordStore::new(data_dir)),
     };
-    let settings = Settings { upload_max_bytes: UPLOAD_MAX_BYTES, default_voice: VoiceId::new(DEFAULT_VOICE), read_ahead, export: ExportSettings::default() };
-    let state = assemble(adapters, settings).unwrap();
-    build_app(state, HeaderValue::from_static(TEST_ORIGIN))
+    let settings = Settings { import_max_bytes: UPLOAD_MAX_BYTES, default_voice: VoiceId::new(DEFAULT_VOICE), read_ahead, export: ExportSettings::default() };
+    let services = assemble(adapters, settings).unwrap();
+    build_app(AppState { services, upload_max_bytes: UPLOAD_MAX_BYTES }, HeaderValue::from_static(TEST_ORIGIN))
 }
 
 pub fn get(path: &str) -> Request<Body> {

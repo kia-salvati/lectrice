@@ -19,7 +19,7 @@ pub use cleaned::{CleanedBlock, CleanedDocument, TextSpan};
 pub use clock::{Clock, Timestamp};
 pub use document::{Block, BlockKind, Document, DocumentMeta, DocumentSummary, PageLabel, ReadingPosition, Sentence, TocEntry};
 pub use error::{AppError, AppResult, ErrorName, ErrorSpec};
-pub use export::{AudioExport, ExportFormat, ExportRecord, ExportStatus, ExportTarget, ExportedFile};
+pub use export::{AudioExport, ChapterMark, ExportFormat, ExportPart, ExportRecord, ExportStatus, ExportTarget, ExportedFile};
 pub use ids::{BlockId, DocumentId, ExportId, SentenceId, VoiceId};
 pub use paging::{ListOptions, Page};
 pub use pdf::{BoundingBox, OutlineItem, PdfContent, PdfPage, TextRun};

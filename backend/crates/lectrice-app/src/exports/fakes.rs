@@ -7,16 +7,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use lectrice_domain::{
-    AppError, AppResult, Audio, AudioDecoder, AudioExporter, ErrorName, ExportId, ExportRecord, ExportRecordStore, ExportTarget, ExportWriter, ExportedFile,
+    AppError, AppResult, Audio, AudioDecoder, AudioExporter, ChapterMark, ErrorName, ExportId, ExportPart, ExportRecord, ExportRecordStore, ExportTarget,
+    ExportWriter, ExportedFile,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Event {
-    Begin { title: String, artist: String, sample_rate: u32 },
-    Chapter(String),
+    BeginPart { index: u32, sample_rate: u32 },
     Append(usize),
-    Finish,
-    Abandoned,
+    FinishPart(u32),
+    Abandoned(u32),
+    Assemble { title: String, artist: String, parts: Vec<u32>, chapters: Vec<(String, u64)> },
+    Discard,
 }
 
 #[derive(Default)]
@@ -32,7 +34,11 @@ impl FakeExporter {
     }
 
     pub fn begins(&self) -> usize {
-        self.events().iter().filter(|event| matches!(event, Event::Begin { .. })).count()
+        self.events().iter().filter(|event| matches!(event, Event::BeginPart { .. })).count()
+    }
+
+    pub fn clear(&self) {
+        self.events.lock().unwrap().clear();
     }
 }
 
@@ -44,46 +50,62 @@ impl AudioExporter for FakeExporter {
         Ok(())
     }
 
-    fn begin(&self, target: &ExportTarget, sample_rate: u32) -> AppResult<Box<dyn ExportWriter>> {
+    fn begin_part(&self, target: &ExportTarget, part_index: u32, sample_rate: u32) -> AppResult<Box<dyn ExportWriter>> {
         self.check_available()?;
-        self.events.lock().unwrap().push(Event::Begin { title: target.title.clone(), artist: target.artist.clone(), sample_rate });
+        self.events.lock().unwrap().push(Event::BeginPart { index: part_index, sample_rate });
+        let path = PathBuf::from(format!("/exports/parts/{}/{part_index}.wav", target.export_id));
+        let fail_appends = self.fail_appends.load(Ordering::SeqCst);
+        Ok(Box::new(FakeWriter { events: self.events.clone(), fail_appends, index: part_index, path, sample_rate, samples: 0, finished: false }))
+    }
+
+    fn assemble(&self, target: &ExportTarget, parts: &[ExportPart], chapters: &[ChapterMark]) -> AppResult<ExportedFile> {
+        self.events.lock().unwrap().push(Event::Assemble {
+            title: target.title.clone(),
+            artist: target.artist.clone(),
+            parts: parts.iter().map(|part| part.index).collect(),
+            chapters: chapters.iter().map(|chapter| (chapter.title.clone(), chapter.start_ms)).collect(),
+        });
         let path = PathBuf::from(format!("/exports/{}/{}.{}", target.document_id, target.voice_id, target.format.extension()));
-        Ok(Box::new(FakeWriter { events: self.events.clone(), fail_appends: self.fail_appends.load(Ordering::SeqCst), path, finished: false }))
+        Ok(ExportedFile { path, size_bytes: 1 })
+    }
+
+    fn discard_parts(&self, _export_id: &ExportId) -> AppResult<()> {
+        self.events.lock().unwrap().push(Event::Discard);
+        Ok(())
     }
 }
 
 struct FakeWriter {
     events: Arc<Mutex<Vec<Event>>>,
     fail_appends: bool,
+    index: u32,
     path: PathBuf,
+    sample_rate: u32,
+    samples: u64,
     finished: bool,
 }
 
 impl ExportWriter for FakeWriter {
-    fn start_chapter(&mut self, title: &str) -> AppResult<()> {
-        self.events.lock().unwrap().push(Event::Chapter(title.to_string()));
-        Ok(())
-    }
-
     fn append(&mut self, audio: &Audio) -> AppResult<()> {
         if self.fail_appends {
             return Err(AppError::new(ErrorName::Internal).with_detail("fake encoder failure"));
         }
+        self.samples += audio.samples.len() as u64;
         self.events.lock().unwrap().push(Event::Append(audio.samples.len()));
         Ok(())
     }
 
-    fn finish(mut self: Box<Self>) -> AppResult<ExportedFile> {
+    fn finish(mut self: Box<Self>) -> AppResult<ExportPart> {
         self.finished = true;
-        self.events.lock().unwrap().push(Event::Finish);
-        Ok(ExportedFile { path: self.path.clone(), size_bytes: 1 })
+        self.events.lock().unwrap().push(Event::FinishPart(self.index));
+        Ok(ExportPart { index: self.index, path: self.path.clone(), samples: self.samples, sample_rate: self.sample_rate })
     }
 }
 
 impl Drop for FakeWriter {
     fn drop(&mut self) {
         if !self.finished {
-            self.events.lock().unwrap().push(Event::Abandoned);
+            self.events.lock().unwrap().push(Event::Abandoned(self.index));
         }
     }
 }

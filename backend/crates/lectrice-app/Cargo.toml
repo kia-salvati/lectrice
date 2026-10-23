@@ -1,6 +1,6 @@
 [package]
 name = "lectrice-app"
-description = "Use cases (services) and the speech worker. Adapters arrive as Arc<dyn Trait>."
+description = "Use cases (services), the speech worker and the shared wiring (services::assemble). Adapters arrive as Arc<dyn Trait>."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

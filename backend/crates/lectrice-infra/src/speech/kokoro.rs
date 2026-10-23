@@ -21,6 +21,9 @@ type NoProgress = fn(&[f32], f32) -> bool;
 pub struct KokoroSettings {
     pub model_dir: PathBuf,
     pub num_threads: u32,
+    /// The onnxruntime execution provider: "cpu", or e.g. "xnnpack" / "nnapi" on Android. sherpa-onnx falls back to
+    /// the CPU (and logs it) when the provider isn't in its onnxruntime build.
+    pub provider: String,
 }
 
 /// Kokoro 82M through sherpa-onnx. Exposes only the English voices and always speaks at 1x.
@@ -86,6 +89,10 @@ fn engine_config(settings: &KokoroSettings) -> AppResult<OfflineTtsConfig> {
         existing_file(&espeak_dir.join(file))?;
     }
     let num_threads = i32::try_from(settings.num_threads).ok().filter(|threads| *threads > 0).ok_or_else(|| unavailable("num_threads must be at least 1"))?;
+    let provider = settings.provider.trim();
+    if provider.is_empty() || provider.contains(NUL) {
+        return Err(unavailable("provider must be a non-empty name"));
+    }
 
     let kokoro = OfflineTtsKokoroModelConfig {
         model: Some(existing_file(&dir.join(MODEL_FILE))?),
@@ -95,7 +102,8 @@ fn engine_config(settings: &KokoroSettings) -> AppResult<OfflineTtsConfig> {
         data_dir: Some(utf8(&espeak_dir)?),
         ..OfflineTtsKokoroModelConfig::default()
     };
-    Ok(OfflineTtsConfig { model: OfflineTtsModelConfig { kokoro, num_threads, ..OfflineTtsModelConfig::default() }, ..OfflineTtsConfig::default() })
+    let model = OfflineTtsModelConfig { kokoro, num_threads, provider: Some(provider.to_string()), ..OfflineTtsModelConfig::default() };
+    Ok(OfflineTtsConfig { model, ..OfflineTtsConfig::default() })
 }
 
 fn existing_file(path: &Path) -> AppResult<String> {

@@ -16,7 +16,8 @@ pub struct StartAudioExportArgs {
     pub read_skipped: bool,
 }
 
-/// Queues a whole-book export (spec §4a). Refused up front when the voice, the document or the exporter is missing.
+/// Queues a whole-book export (spec §4a), or continues a paused one for the same file. Refused up front when the
+/// voice, the document or the exporter is missing.
 pub struct StartAudioExport {
     jobs: Arc<ExportJobs>,
     engine: Arc<dyn SpeechEngine>,
@@ -56,8 +57,9 @@ impl UseCase for StartAudioExport {
         self.exporter.check_available()?;
         info!(service = Self::NAME, "exporter available");
 
-        let sentences_total = export_plan(&document, read_skipped, self.settings.max_sentences).sentences;
-        let (export, created) = self.jobs.enqueue(NewExport { document_id, voice_id, format, read_skipped, sentences_total })?;
+        let plan = export_plan(&document, read_skipped, self.settings.max_sentences, self.settings.part_minutes);
+        let (sentences_total, parts_total) = (plan.sentences, u32::try_from(plan.parts.len()).unwrap_or(u32::MAX));
+        let (export, created) = self.jobs.enqueue(NewExport { document_id, voice_id, format, read_skipped, sentences_total, parts_total })?;
         info!(service = Self::NAME, export_id = %export.id, created, status = ?export.status, sentences_total = export.sentences_total, "audio export queued");
         Ok(export)
     }

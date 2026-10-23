@@ -1,5 +1,6 @@
-//! Whole-book audio export (spec §4a): `StartAudioExport`, `GetAudioExport`, `ListAudioExports`, `CancelAudioExport`
-//! and `GetAudioExportFile`, over the job registry (`ExportJobs`) and its runner.
+//! Whole-book audio export (spec §4a): `StartAudioExport`, `GetAudioExport`, `ListAudioExports`, `PauseAudioExport`,
+//! `ResumeAudioExports`, `CancelAudioExport` and `GetAudioExportFile`, over the job registry (`ExportJobs`) and its
+//! runner, which writes each book as resumable parts.
 
 mod audio_export_queries;
 #[cfg(test)]
@@ -12,6 +13,6 @@ mod start_audio_export;
 #[cfg(test)]
 mod tests;
 
-pub use audio_export_queries::{CancelAudioExport, ExportDownload, GetAudioExport, GetAudioExportFile, ListAudioExports};
+pub use audio_export_queries::{CancelAudioExport, ExportDownload, GetAudioExport, GetAudioExportFile, ListAudioExports, PauseAudioExport, ResumeAudioExports};
 pub use jobs::{ExportDeps, ExportJobs, ExportSettings, NewExport};
 pub use start_audio_export::{StartAudioExport, StartAudioExportArgs};

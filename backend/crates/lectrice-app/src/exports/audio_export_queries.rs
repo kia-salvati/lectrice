@@ -65,7 +65,55 @@ impl UseCase for ListAudioExports {
     }
 }
 
-/// Stops a queued or running export. Finished exports are left as they are.
+/// Pauses a queued or running export, keeping its finished parts. Other exports are left as they are.
+pub struct PauseAudioExport {
+    jobs: Arc<ExportJobs>,
+}
+
+impl PauseAudioExport {
+    pub fn new(jobs: Arc<ExportJobs>) -> Self {
+        Self { jobs }
+    }
+}
+
+impl UseCase for PauseAudioExport {
+    const NAME: &'static str = "PauseAudioExport";
+    type Args = ExportId;
+    type Output = AudioExport;
+
+    fn run(&self, ctx: &RequestContext, id: ExportId) -> AppResult<AudioExport> {
+        info!(service = Self::NAME, request_id = %ctx.request_id, export_id = %id, "pausing audio export");
+        let export = self.jobs.pause(&id)?;
+        info!(service = Self::NAME, export_id = %id, status = ?export.status, parts_done = export.parts_done, "audio export pause handled");
+        Ok(export)
+    }
+}
+
+/// Queues every paused export again (after a restart, or when the app may work again) and returns the active ones.
+pub struct ResumeAudioExports {
+    jobs: Arc<ExportJobs>,
+}
+
+impl ResumeAudioExports {
+    pub fn new(jobs: Arc<ExportJobs>) -> Self {
+        Self { jobs }
+    }
+}
+
+impl UseCase for ResumeAudioExports {
+    const NAME: &'static str = "ResumeAudioExports";
+    type Args = ();
+    type Output = Vec<AudioExport>;
+
+    fn run(&self, ctx: &RequestContext, (): ()) -> AppResult<Vec<AudioExport>> {
+        info!(service = Self::NAME, request_id = %ctx.request_id, "resuming audio exports");
+        let active = self.jobs.resume_all()?;
+        info!(service = Self::NAME, active = active.len(), "audio exports resumed");
+        Ok(active)
+    }
+}
+
+/// Stops an unfinished export and deletes its parts. Finished exports are left as they are.
 pub struct CancelAudioExport {
     jobs: Arc<ExportJobs>,
 }

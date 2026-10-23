@@ -33,6 +33,8 @@ impl ExportFormat {
 pub enum ExportStatus {
     Queued,
     Running,
+    /// Stopped with its finished parts kept; resuming continues at the first unfinished part.
+    Paused,
     Done,
     Failed,
     Cancelled,
@@ -42,6 +44,11 @@ impl ExportStatus {
     /// Queued or running: the job can still change.
     pub const fn is_active(self) -> bool {
         matches!(self, Self::Queued | Self::Running)
+    }
+
+    /// Active or paused: the job still owns its target file and its parts.
+    pub const fn is_unfinished(self) -> bool {
+        matches!(self, Self::Queued | Self::Running | Self::Paused)
     }
 }
 
@@ -55,6 +62,11 @@ pub struct AudioExport {
     pub status: ExportStatus,
     pub sentences_done: u32,
     pub sentences_total: u32,
+    /// Finished parts of about ten listening-minutes each (records saved before v1.1 have none).
+    #[serde(default)]
+    pub parts_done: u32,
+    #[serde(default)]
+    pub parts_total: u32,
     pub estimated_seconds_left: Option<u32>,
 }
 
@@ -68,11 +80,36 @@ pub struct ExportRecord {
     /// Set once the job is done.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file: Option<PathBuf>,
+    /// The finished parts, in order. A resumed export continues after the last one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parts: Vec<ExportPart>,
+    /// The chapter marks inside the finished parts, measured from the start of the book.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chapters: Vec<ChapterMark>,
+}
+
+/// One finished part of an export, as the exporter wrote it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportPart {
+    pub index: u32,
+    pub path: PathBuf,
+    pub samples: u64,
+    pub sample_rate: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChapterMark {
+    pub title: String,
+    pub start_ms: u64,
 }
 
 /// What a whole-book export writes: one file per document, voice and format, tagged with `title` and `artist`.
+/// `export_id` names the job, so its parts can be kept apart from other jobs' parts.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExportTarget {
+    pub export_id: ExportId,
     pub document_id: DocumentId,
     pub voice_id: VoiceId,
     pub format: ExportFormat,

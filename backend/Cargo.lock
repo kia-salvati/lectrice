@@ -959,7 +959,7 @@ checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 
 [[package]]
 name = "lectrice-api"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "axum",
  "futures-core",
@@ -981,7 +981,7 @@ dependencies = [
 
 [[package]]
 name = "lectrice-app"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "lectrice-domain",
  "tracing",
@@ -989,7 +989,7 @@ dependencies = [
 
 [[package]]
 name = "lectrice-domain"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "regex",
@@ -1000,7 +1000,7 @@ dependencies = [
 
 [[package]]
 name = "lectrice-infra"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
  "chrono",
  "hound",

@@ -30,3 +30,5 @@ engine = "kokoro"
 model_dir = "../models/kokoro-multi-lang-v1_0"
 default_voice = "af_heart"
 num_threads = 4
+# The onnxruntime execution provider. "cpu" everywhere; sherpa-onnx falls back to it for a provider it doesn't have.
+provider = "cpu"

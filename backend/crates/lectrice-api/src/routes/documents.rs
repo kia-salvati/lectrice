@@ -83,7 +83,7 @@ pub async fn import_pdf(
 ) -> Result<(StatusCode, Json<ImportResponse>), ApiError> {
     let multipart = multipart.map_err(|rejection| AppError::new(ErrorName::UploadMissingFile).with_detail(rejection.body_text()))?;
     let upload = read_upload(multipart, state.upload_max_bytes).await?;
-    let documents = state.documents.clone();
+    let documents = state.services.documents.clone();
     let args = ImportPdfArgs { file_name: upload.file_name, bytes: upload.bytes };
     let imported = run_blocking(move || documents.import_pdf.run(&ctx, args)).await?;
     Ok(present_import(imported))
@@ -96,7 +96,7 @@ pub async fn list_documents(
     ValidQuery(query): ValidQuery<ListQuery>,
 ) -> Result<Json<Page<DocumentSummary>>, ApiError> {
     let options = query.validate()?;
-    let documents = state.documents.clone();
+    let documents = state.services.documents.clone();
     let page = run_blocking(move || documents.list_recent.run(&ctx, options)).await?;
     Ok(Json(page))
 }
@@ -104,7 +104,7 @@ pub async fn list_documents(
 /// `GET /api/documents/{id}`
 pub async fn get_document(State(state): State<AppState>, Ctx(ctx): Ctx, Path(id): Path<String>) -> Result<Json<OpenedDocumentResponse>, ApiError> {
     let id = DocumentId::parse(&id)?;
-    let documents = state.documents.clone();
+    let documents = state.services.documents.clone();
     let opened = run_blocking(move || documents.get_document.run(&ctx, GetDocumentArgs { id })).await?;
     Ok(present_opened(opened))
 }
@@ -117,7 +117,7 @@ pub async fn save_position(
     ValidJson(body): ValidJson<PositionBody>,
 ) -> Result<StatusCode, ApiError> {
     let args = SaveReadingPositionArgs { id: DocumentId::parse(&id)?, sentence_id: SentenceId(body.sentence_id) };
-    let documents = state.documents.clone();
+    let documents = state.services.documents.clone();
     run_blocking(move || documents.save_position.run(&ctx, args)).await?;
     Ok(StatusCode::NO_CONTENT)
 }

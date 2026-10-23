@@ -63,7 +63,7 @@ pub async fn get_sentence_audio(
         rate: query.rate,
         read_skipped: query.read_skipped,
     };
-    let speech = state.speech()?;
+    let speech = state.services.speech()?;
     let _cancel_on_disconnect = CancelOnDrop(ctx.cancellation.clone());
     let spoken = run_blocking(move || speech.speak_sentence.run(&ctx, args)).await?;
     Ok(present(spoken))
@@ -211,7 +211,7 @@ mod tests {
     #[ignore = "loads the real Kokoro model"]
     async fn the_real_engine_speaks_a_sentence() {
         let model_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(KOKORO_MODEL_DIR);
-        let config = SpeechConfig { engine: SpeechEngineKind::Kokoro, model_dir, default_voice: "af_heart".into(), num_threads: 4 };
+        let config = SpeechConfig { engine: SpeechEngineKind::Kokoro, model_dir, default_voice: "af_heart".into(), num_threads: 4, provider: "cpu".into() };
         let engine = build_speech_engine(&config).unwrap();
         let app = TestApp::with_engine(engine);
         let id = app.import_book().await;

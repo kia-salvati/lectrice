@@ -1,6 +1,6 @@
 [package]
 name = "lectrice-api"
-description = "The HTTP server: routes, controllers, DTOs, presenters, config, logging and wiring."
+description = "The HTTP server: routes, controllers, DTOs, presenters, config, logging and the choice of adapters."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

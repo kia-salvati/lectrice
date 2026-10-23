@@ -7,17 +7,48 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+default = ["pdfium", "kokoro", "sherpa-static", "ffmpeg-export"]
+pdfium = ["dep:pdfium-render"]
+kokoro = ["dep:sherpa-onnx"]
+sherpa-static = ["kokoro", "sherpa-onnx/static"]
+ffmpeg-export = []
+
 [dependencies]
 lectrice-domain.workspace = true
 chrono.workspace = true
-sherpa-onnx.workspace = true
-pdfium-render.workspace = true
+sherpa-onnx = { workspace = true, optional = true }
+pdfium-render = { workspace = true, optional = true }
 sentencex.workspace = true
 sha2.workspace = true
 hound.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
+
+[[test]]
+name = "export_ffmpeg"
+required-features = ["ffmpeg-export"]
+
+[[test]]
+name = "pdf_books"
+required-features = ["pdfium"]
+
+[[test]]
+name = "pdf_fixtures"
+required-features = ["pdfium"]
+
+[[test]]
+name = "pdf_outline"
+required-features = ["pdfium"]
+
+[[test]]
+name = "pdf_source"
+required-features = ["pdfium"]
+
+[[test]]
+name = "speech_kokoro"
+required-features = ["kokoro"]
 
 [lints]
 workspace = true

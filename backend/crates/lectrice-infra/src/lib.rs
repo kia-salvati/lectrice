@@ -1,15 +1,25 @@
 //! Adapters that implement the domain ports with real libraries, files and programs.
+//!
+//! Features (all on by default, for the desktop): `pdfium` (PDF text), `kokoro` (the voice, sherpa-onnx),
+//! `sherpa-static` (links sherpa-onnx statically; off on Android, which ships its shared libraries) and
+//! `ffmpeg-export` (exports through the system ffmpeg; Android brings its own exporter).
 
 pub mod clock;
+#[cfg(feature = "ffmpeg-export")]
 pub mod export;
+#[cfg(feature = "pdfium")]
 pub mod pdf;
 pub mod speech;
 pub mod storage;
 pub mod text;
 
 pub use clock::SystemClock;
+#[cfg(feature = "ffmpeg-export")]
 pub use export::FfmpegExporter;
+#[cfg(feature = "pdfium")]
 pub use pdf::PdfiumTextSource;
-pub use speech::{KokoroSettings, KokoroSpeechEngine, WavDecoder, WavEncoder};
+#[cfg(feature = "kokoro")]
+pub use speech::{KokoroSettings, KokoroSpeechEngine};
+pub use speech::{WavDecoder, WavEncoder};
 pub use storage::{CachedLibrary, FsAudioCache, FsDocumentRepository, FsExportRecordStore};
 pub use text::{SentencexSplitter, Sha256ContentHasher};

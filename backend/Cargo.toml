@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/lectrice-domain", "crates/lectrice-infra", "crates/lectrice-app", "crates/lectrice-api"]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.1.0"
 edition = "2024"
 rust-version = "1.91"
 license = "Apache-2.0"
@@ -23,7 +23,8 @@ unicode-normalization = "=0.1.26"
 
 # infra
 sha2 = "=0.11.1"
-sherpa-onnx = { version = "=1.13.8", default-features = false, features = ["static"] }
+# Linked statically through lectrice-infra's `sherpa-static` feature; Android links the shared libraries.
+sherpa-onnx = { version = "=1.13.8", default-features = false }
 pdfium-render = { version = "=0.9.4", default-features = false, features = ["pdfium_7881", "thread_safe"] }
 sentencex = "=0.1.32"
 hound = "=3.5.1"

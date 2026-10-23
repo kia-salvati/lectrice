@@ -7,7 +7,7 @@ use crate::cleaned::CleanedDocument;
 use crate::clock::Timestamp;
 use crate::document::{Document, DocumentMeta, DocumentSummary, ReadingPosition};
 use crate::error::AppResult;
-use crate::export::{ExportRecord, ExportTarget, ExportedFile};
+use crate::export::{ChapterMark, ExportPart, ExportRecord, ExportTarget, ExportedFile};
 use crate::ids::{DocumentId, ExportId};
 use crate::paging::{ListOptions, Page};
 use crate::pdf::PdfContent;
@@ -73,20 +73,24 @@ pub trait AudioCache: Send + Sync {
     fn put(&self, key: &AudioKey, bytes: &[u8]) -> AppResult<()>;
 }
 
-/// Encodes a whole book into one file. Unavailable tooling is reported as `ExporterUnavailable`.
+/// Encodes a whole book into one file, written as numbered parts and then joined, so a stopped export can resume.
+/// Unavailable tooling is reported as `ExporterUnavailable`.
 pub trait AudioExporter: Send + Sync {
     /// Fails with `ExporterUnavailable` when the tooling is missing, so a job can be refused up front.
     fn check_available(&self) -> AppResult<()>;
-    fn begin(&self, target: &ExportTarget, sample_rate: u32) -> AppResult<Box<dyn ExportWriter>>;
+    /// Starts part `part_index` of the export. A part that was started before and not finished is replaced.
+    fn begin_part(&self, target: &ExportTarget, part_index: u32, sample_rate: u32) -> AppResult<Box<dyn ExportWriter>>;
+    /// Joins the finished parts, in order, into the target file with the chapter marks (M4B only). Keeps the parts.
+    fn assemble(&self, target: &ExportTarget, parts: &[ExportPart], chapters: &[ChapterMark]) -> AppResult<ExportedFile>;
+    /// Deletes every part of an export. Parts that are already gone are fine.
+    fn discard_parts(&self, export_id: &ExportId) -> AppResult<()>;
 }
 
-/// One export in progress: audio is streamed in sentence by sentence, so a book never sits in memory.
-/// Dropping it without `finish` abandons the export.
+/// One part in progress: audio is streamed in sentence by sentence, so a book never sits in memory.
+/// Dropping it without `finish` abandons the part.
 pub trait ExportWriter: Send {
-    /// Marks a chapter starting at the current position (used for M4B chapters).
-    fn start_chapter(&mut self, title: &str) -> AppResult<()>;
     fn append(&mut self, audio: &Audio) -> AppResult<()>;
-    fn finish(self: Box<Self>) -> AppResult<ExportedFile>;
+    fn finish(self: Box<Self>) -> AppResult<ExportPart>;
 }
 
 /// Export job metadata on disk.

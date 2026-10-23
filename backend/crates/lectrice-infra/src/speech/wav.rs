@@ -19,7 +19,7 @@ impl AudioEncoder for WavEncoder {
     }
 
     fn encode(&self, audio: &Audio) -> AppResult<Vec<u8>> {
-        let spec = WavSpec { channels: MONO, sample_rate: audio.sample_rate, bits_per_sample: BITS_PER_SAMPLE, sample_format: SampleFormat::Int };
+        let spec = pcm16_mono(audio.sample_rate);
         let mut buffer = Cursor::new(Vec::with_capacity(HEADER_BYTES + audio.samples.len() * BYTES_PER_SAMPLE));
         let mut writer = WavWriter::new(&mut buffer, spec).map_err(encoding_failed)?;
         for &sample in &audio.samples {
@@ -46,7 +46,11 @@ impl AudioDecoder for WavDecoder {
     }
 }
 
-fn to_pcm16(sample: f32) -> i16 {
+pub(crate) fn pcm16_mono(sample_rate: u32) -> WavSpec {
+    WavSpec { channels: MONO, sample_rate, bits_per_sample: BITS_PER_SAMPLE, sample_format: SampleFormat::Int }
+}
+
+pub(crate) fn to_pcm16(sample: f32) -> i16 {
     (sample.clamp(-1.0, 1.0) * f32::from(i16::MAX)).round() as i16
 }
 

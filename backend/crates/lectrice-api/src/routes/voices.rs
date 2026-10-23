@@ -23,7 +23,7 @@ fn present(list: VoiceList) -> Json<VoiceListResponse> {
 
 /// `GET /api/voices`
 pub async fn list_voices(State(state): State<AppState>, Ctx(ctx): Ctx) -> Result<Json<VoiceListResponse>, ApiError> {
-    let speech = state.speech()?;
+    let speech = state.services.speech()?;
     let list = run_blocking(move || speech.list_voices.run(&ctx, ())).await?;
     Ok(present(list))
 }

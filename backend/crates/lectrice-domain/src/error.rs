@@ -51,7 +51,12 @@ error_registry! {
     ExportNotFound          => (3001, 404, true,  "Export not found."),
     ExportNotReady          => (3002, 409, true,  "The audio file isn't ready yet."),
     ExportFormatUnsupported => (3003, 400, true,  "That audio format isn't supported."),
-    ExporterUnavailable     => (3004, 503, true,  "Audio export isn't available (ffmpeg is missing)."),
+    ExporterUnavailable     => (3004, 503, true,  "Audio export isn't available."),
+    ModelMissing            => (4001, 503, true,  "The voice model isn't installed."),
+    ModelDownloadFailed     => (4002, 502, true,  "The voice model couldn't be downloaded."),
+    ModelChecksumMismatch   => (4003, 502, true,  "The downloaded voice model is damaged."),
+    StorageFull             => (4004, 507, true,  "There isn't enough free space."),
+    ExportPaused            => (4005, 409, true,  "Export paused; it will continue later."),
     StorageFailed           => (9001, 500, false, "Something went wrong saving data."),
     Internal                => (9999, 500, false, "Something went wrong."),
 }
@@ -143,8 +148,9 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
-    /// Spec §8, plus `RequestInvalid` (B4) and `RouteNotFound`, `MethodNotAllowed`, `RequestCancelled` (B-fixes).
-    const SPEC_ERROR_COUNT: usize = 20;
+    /// Spec §8, plus `RequestInvalid` (B4), `RouteNotFound`, `MethodNotAllowed`, `RequestCancelled` (B-fixes)
+    /// and the five device-neutral 4xxx names (Android spec C4).
+    const SPEC_ERROR_COUNT: usize = 25;
 
     #[test]
     fn every_name_has_a_unique_code() {

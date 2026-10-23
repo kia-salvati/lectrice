@@ -1,26 +1,38 @@
 use std::ffi::OsString;
-use std::fs;
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::fs::{self, File};
+use std::io::{self, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, Command, ExitStatus, Stdio};
+use std::process::{Command, Stdio};
 
-use lectrice_domain::{AppError, AppResult, Audio, AudioExporter, ErrorName, ExportFormat, ExportTarget, ExportWriter, ExportedFile};
+use hound::WavWriter;
+use lectrice_domain::{
+    AppError, AppResult, Audio, AudioExporter, ChapterMark, ErrorName, ExportFormat, ExportId, ExportPart, ExportTarget, ExportWriter, ExportedFile,
+};
 use tempfile::NamedTempFile;
 
-use super::ffmetadata::{ChapterMark, Tags, ffmetadata};
+use super::ffmetadata::{Tags, ffmetadata};
+use crate::speech::{pcm16_mono, to_pcm16};
 use crate::storage::{safe_component, storage_failed};
 
 const EXPORTS_DIR: &str = "exports";
+const PARTS_DIR: &str = "parts";
+const PART_EXTENSION: &str = "wav";
+const LIST_EXTENSION: &str = "ffconcat";
+const METADATA_EXTENSION: &str = "txt";
+const LOG_EXTENSION: &str = "log";
 /// Partial files start with this, so a crash's leftovers can be found and removed.
 const PARTIAL_PREFIX: &str = ".partial-";
+const CONCAT_HEADER: &str = "ffconcat version 1.0\n";
 const BITRATE: &str = "64k";
 const MONO: &str = "1";
 const GENRE: &str = "Audiobook";
+const MILLIS_PER_SECOND: u64 = 1000;
 /// How much of ffmpeg's error output goes into an error detail.
 const STDERR_TAIL_BYTES: u64 = 2000;
 
-/// MP3 (libmp3lame) and M4B (aac, with chapter marks) through the system `ffmpeg`, fed 16-bit mono PCM on stdin.
-/// Files go to `<data_dir>/exports/<docId>/<voiceId>.<ext>`, written to a partial file first and renamed when done.
+/// Parts are 16-bit mono WAV files in `<data_dir>/exports/parts/<exportId>/part-<n>.wav`. `assemble` joins them with
+/// the system `ffmpeg` (concat demuxer) into MP3 (libmp3lame) or M4B (aac, with chapter marks) at
+/// `<data_dir>/exports/<docId>/<voiceId>.<ext>`. Every file is written to a partial file first and renamed when done.
 pub struct FfmpegExporter {
     program: PathBuf,
     exports_dir: PathBuf,
@@ -33,9 +45,12 @@ impl FfmpegExporter {
     }
 
     /// Deletes partial files left by exports that never finished (e.g. the server was killed). Returns how many.
+    /// Finished parts stay: a paused export needs them.
     pub fn remove_partial_files(&self) -> AppResult<usize> {
+        let mut directories = subdirectories(&self.exports_dir)?;
+        directories.extend(subdirectories(&self.exports_dir.join(PARTS_DIR))?);
         let mut removed = 0;
-        for directory in subdirectories(&self.exports_dir)? {
+        for directory in directories {
             for entry in fs::read_dir(&directory).map_err(|error| storage_failed("listing", &directory, error))? {
                 let path = entry.map_err(|error| storage_failed("listing", &directory, error))?.path();
                 let is_partial = path.file_name().and_then(|name| name.to_str()).is_some_and(|name| name.starts_with(PARTIAL_PREFIX));
@@ -46,6 +61,15 @@ impl FfmpegExporter {
             }
         }
         Ok(removed)
+    }
+
+    fn parts_dir(&self, export_id: &ExportId) -> AppResult<PathBuf> {
+        Ok(self.exports_dir.join(PARTS_DIR).join(safe_component(export_id.as_str())?))
+    }
+
+    fn encoder_failed(&self, what: &str, status: Option<std::process::ExitStatus>, stderr_log: &mut NamedTempFile) -> AppError {
+        let status = status.map_or_else(|| "unknown".to_string(), |status| status.to_string());
+        AppError::new(ErrorName::Internal).with_detail(format!("{} {what} (exit {status}): {}", self.program.display(), stderr_tail(stderr_log)))
     }
 }
 
@@ -59,130 +83,51 @@ impl AudioExporter for FfmpegExporter {
         }
     }
 
-    fn begin(&self, target: &ExportTarget, sample_rate: u32) -> AppResult<Box<dyn ExportWriter>> {
+    fn begin_part(&self, target: &ExportTarget, part_index: u32, sample_rate: u32) -> AppResult<Box<dyn ExportWriter>> {
+        let directory = self.parts_dir(&target.export_id)?;
+        fs::create_dir_all(&directory).map_err(|error| storage_failed("creating", &directory, error))?;
+        let temp = partial_file(&directory, PART_EXTENSION)?;
+        let file = temp.reopen().map_err(|error| storage_failed("opening", temp.path(), error))?;
+        let wav = WavWriter::new(BufWriter::new(file), pcm16_mono(sample_rate)).map_err(|error| storage_failed("writing", temp.path(), error))?;
+        let path = directory.join(format!("part-{part_index:04}.{PART_EXTENSION}"));
+        Ok(Box::new(WavPartWriter { index: part_index, path, sample_rate, samples: 0, wav, temp }))
+    }
+
+    fn assemble(&self, target: &ExportTarget, parts: &[ExportPart], chapters: &[ChapterMark]) -> AppResult<ExportedFile> {
+        let audible: Vec<&ExportPart> = parts.iter().filter(|part| part.samples > 0).collect();
+        let Some(sample_rate) = audible.first().map(|part| part.sample_rate) else {
+            return Err(AppError::new(ErrorName::Internal).with_detail("the export has no audio to join"));
+        };
+        if audible.iter().any(|part| part.sample_rate != sample_rate) {
+            return Err(AppError::new(ErrorName::Internal).with_detail("the export parts have different sample rates"));
+        }
+        let total_ms = audible.iter().map(|part| part.samples).sum::<u64>() * MILLIS_PER_SECOND / u64::from(sample_rate.max(1));
+
         let directory = self.exports_dir.join(target.document_id.as_str());
         let target_path = directory.join(format!("{}.{}", safe_component(target.voice_id.as_str())?, target.format.extension()));
         fs::create_dir_all(&directory).map_err(|error| storage_failed("creating", &directory, error))?;
-        let encoded = partial_file(&directory, target.format.extension())?;
-        let stderr_log = partial_file(&directory, "log")?;
+        let list = write_partial(&directory, LIST_EXTENSION, &concat_list(&audible)?)?;
+        let mut stderr_log = partial_file(&directory, LOG_EXTENSION)?;
+        let output = partial_file(&directory, target.format.extension())?;
 
         let mut command = Command::new(&self.program);
-        command.args(quiet_args()).args(pcm_input_args(sample_rate));
-        match target.format {
-            ExportFormat::Mp3 => command.args(mp3_args(target)),
-            ExportFormat::M4b => command.args(aac_args()),
+        command.args(quiet_args()).args(["-f", "concat", "-safe", "0", "-i"]).arg(list.path());
+        // Kept until ffmpeg is done with it.
+        let _metadata = match target.format {
+            ExportFormat::Mp3 => {
+                command.args(["-map", "0:a"]).args(mp3_args(target));
+                None
+            }
+            ExportFormat::M4b => {
+                let tags = Tags { title: &target.title, artist: &target.artist };
+                let metadata = write_partial(&directory, METADATA_EXTENSION, &ffmetadata(&tags, chapters, total_ms))?;
+                command.args(["-f", "ffmetadata", "-i"]).arg(metadata.path()).args(m4b_args());
+                Some(metadata)
+            }
         };
         let stderr = stderr_log.reopen().map_err(|error| storage_failed("opening", stderr_log.path(), error))?;
-        let mut child = command
+        let status = command
             .arg("-y")
-            .arg(encoded.path())
-            .stdin(Stdio::piped())
-            .stdout(Stdio::null())
-            .stderr(stderr)
-            .spawn()
-            .map_err(|error| spawn_failed(&self.program, error))?;
-        let stdin = child.stdin.take();
-
-        Ok(Box::new(FfmpegWriter {
-            program: self.program.clone(),
-            child: Some(child),
-            stdin,
-            stderr_log,
-            encoded: Some(encoded),
-            directory,
-            target_path,
-            target: target.clone(),
-            sample_rate,
-            samples_written: 0,
-            chapters: Vec::new(),
-            buffer: Vec::new(),
-        }))
-    }
-}
-
-struct FfmpegWriter {
-    program: PathBuf,
-    /// `None` once ffmpeg has exited and been waited for.
-    child: Option<Child>,
-    stdin: Option<ChildStdin>,
-    stderr_log: NamedTempFile,
-    /// What the encoder writes: the final MP3, or the M4B's audio before chapters are added. Taken by `finish`.
-    encoded: Option<NamedTempFile>,
-    directory: PathBuf,
-    target_path: PathBuf,
-    target: ExportTarget,
-    sample_rate: u32,
-    samples_written: u64,
-    chapters: Vec<ChapterMark>,
-    buffer: Vec<u8>,
-}
-
-impl ExportWriter for FfmpegWriter {
-    fn start_chapter(&mut self, title: &str) -> AppResult<()> {
-        self.chapters.push(ChapterMark { title: title.to_string(), start_sample: self.samples_written });
-        Ok(())
-    }
-
-    fn append(&mut self, audio: &Audio) -> AppResult<()> {
-        if audio.sample_rate != self.sample_rate {
-            return Err(AppError::new(ErrorName::Internal).with_detail(format!("export is {} Hz but a clip is {} Hz", self.sample_rate, audio.sample_rate)));
-        }
-        self.buffer.clear();
-        self.buffer.extend(audio.samples.iter().flat_map(|&sample| to_pcm16(sample).to_le_bytes()));
-        let Some(stdin) = self.stdin.as_mut() else {
-            return Err(AppError::new(ErrorName::Internal).with_detail("ffmpeg input is already closed"));
-        };
-        if let Err(error) = stdin.write_all(&self.buffer) {
-            let status = self.wait_for_encoder();
-            return Err(self.encoder_failed(status.ok(), "ffmpeg stopped reading audio").with_source(error));
-        }
-        self.samples_written += audio.samples.len() as u64;
-        Ok(())
-    }
-
-    fn finish(mut self: Box<Self>) -> AppResult<ExportedFile> {
-        let status = self.wait_for_encoder().map_err(|error| AppError::new(ErrorName::Internal).with_detail("waiting for ffmpeg").with_source(error))?;
-        if !status.success() {
-            return Err(self.encoder_failed(Some(status), "ffmpeg failed to encode"));
-        }
-        let Some(encoded) = self.encoded.take() else {
-            return Err(AppError::new(ErrorName::Internal).with_detail("export was already finished"));
-        };
-        let finished = match self.target.format {
-            ExportFormat::Mp3 => encoded,
-            ExportFormat::M4b => self.add_chapters(&encoded)?,
-        };
-        finished.persist(&self.target_path).map_err(|error| storage_failed("renaming", &self.target_path, error.error))?;
-        let size_bytes = fs::metadata(&self.target_path).map_err(|error| storage_failed("inspecting", &self.target_path, error))?.len();
-        Ok(ExportedFile { path: self.target_path.clone(), size_bytes })
-    }
-}
-
-impl FfmpegWriter {
-    fn wait_for_encoder(&mut self) -> io::Result<ExitStatus> {
-        drop(self.stdin.take());
-        let Some(mut child) = self.child.take() else {
-            return Err(io::Error::other("ffmpeg was already waited for"));
-        };
-        child.wait()
-    }
-
-    /// Copies the AAC audio into an ipod (M4B) container with the tags and chapter marks.
-    fn add_chapters(&mut self, encoded: &NamedTempFile) -> AppResult<NamedTempFile> {
-        let tags = Tags { title: &self.target.title, artist: &self.target.artist };
-        let metadata = ffmetadata(&tags, &self.chapters, self.samples_written, self.sample_rate);
-        let mut metadata_file = partial_file(&self.directory, "txt")?;
-        metadata_file.write_all(metadata.as_bytes()).map_err(|error| storage_failed("writing", metadata_file.path(), error))?;
-        let output = partial_file(&self.directory, ExportFormat::M4b.extension())?;
-        let stderr = self.stderr_log.reopen().map_err(|error| storage_failed("opening", self.stderr_log.path(), error))?;
-
-        let status = Command::new(&self.program)
-            .args(quiet_args())
-            .arg("-i")
-            .arg(encoded.path())
-            .args(["-f", "ffmetadata", "-i"])
-            .arg(metadata_file.path())
-            .args(["-map", "0:a", "-map_metadata", "1", "-map_chapters", "1", "-c", "copy", "-movflags", "+faststart", "-f", "ipod", "-y"])
             .arg(output.path())
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -190,34 +135,55 @@ impl FfmpegWriter {
             .status()
             .map_err(|error| spawn_failed(&self.program, error))?;
         if !status.success() {
-            return Err(self.encoder_failed(Some(status), "ffmpeg failed to add chapters"));
+            return Err(self.encoder_failed("failed to join the parts", Some(status), &mut stderr_log));
         }
-        Ok(output)
+        output.persist(&target_path).map_err(|error| storage_failed("renaming", &target_path, error.error))?;
+        let size_bytes = fs::metadata(&target_path).map_err(|error| storage_failed("inspecting", &target_path, error))?.len();
+        Ok(ExportedFile { path: target_path, size_bytes })
     }
 
-    fn encoder_failed(&mut self, status: Option<ExitStatus>, what: &str) -> AppError {
-        let status = status.map_or_else(|| "unknown".to_string(), |status| status.to_string());
-        AppError::new(ErrorName::Internal).with_detail(format!("{what} (exit {status}): {}", stderr_tail(&mut self.stderr_log)))
+    fn discard_parts(&self, export_id: &ExportId) -> AppResult<()> {
+        let directory = self.parts_dir(export_id)?;
+        match fs::remove_dir_all(&directory) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(storage_failed("deleting", &directory, error)),
+        }
     }
 }
 
-/// Abandoning an export stops ffmpeg; the partial files are deleted when their handles drop.
-impl Drop for FfmpegWriter {
-    fn drop(&mut self) {
-        drop(self.stdin.take());
-        if let Some(mut child) = self.child.take() {
-            let _ = child.kill();
-            let _ = child.wait();
+/// Dropping it without `finish` deletes the partial file.
+struct WavPartWriter {
+    index: u32,
+    path: PathBuf,
+    sample_rate: u32,
+    samples: u64,
+    wav: WavWriter<BufWriter<File>>,
+    temp: NamedTempFile,
+}
+
+impl ExportWriter for WavPartWriter {
+    fn append(&mut self, audio: &Audio) -> AppResult<()> {
+        if audio.sample_rate != self.sample_rate {
+            return Err(AppError::new(ErrorName::Internal).with_detail(format!("export is {} Hz but a clip is {} Hz", self.sample_rate, audio.sample_rate)));
         }
+        for &sample in &audio.samples {
+            self.wav.write_sample(to_pcm16(sample)).map_err(|error| storage_failed("writing", self.temp.path(), error))?;
+        }
+        self.samples += audio.samples.len() as u64;
+        Ok(())
+    }
+
+    fn finish(self: Box<Self>) -> AppResult<ExportPart> {
+        let Self { index, path, sample_rate, samples, wav, temp } = *self;
+        wav.finalize().map_err(|error| storage_failed("writing", temp.path(), error))?;
+        temp.persist(&path).map_err(|error| storage_failed("renaming", &path, error.error))?;
+        Ok(ExportPart { index, path, samples, sample_rate })
     }
 }
 
 fn quiet_args() -> [&'static str; 4] {
     ["-hide_banner", "-nostdin", "-loglevel", "error"]
-}
-
-fn pcm_input_args(sample_rate: u32) -> Vec<OsString> {
-    ["-f", "s16le", "-ar", &sample_rate.to_string(), "-ac", MONO, "-i", "pipe:0"].into_iter().map(OsString::from).collect()
 }
 
 fn mp3_args(target: &ExportTarget) -> Vec<OsString> {
@@ -230,12 +196,20 @@ fn mp3_args(target: &ExportTarget) -> Vec<OsString> {
     args
 }
 
-fn aac_args() -> [&'static str; 8] {
-    ["-c:a", "aac", "-b:a", BITRATE, "-ac", MONO, "-f", "mp4"]
+/// Input 1 is the ffmetadata file with the tags and chapter marks.
+fn m4b_args() -> [&'static str; 16] {
+    ["-map", "0:a", "-map_metadata", "1", "-map_chapters", "1", "-c:a", "aac", "-b:a", BITRATE, "-ac", MONO, "-movflags", "+faststart", "-f", "ipod"]
 }
 
-fn to_pcm16(sample: f32) -> i16 {
-    (sample.clamp(-1.0, 1.0) * f32::from(i16::MAX)).round() as i16
+/// The concat demuxer's list: one quoted path per line (a `'` inside is closed, escaped and reopened).
+fn concat_list(parts: &[&ExportPart]) -> AppResult<String> {
+    let mut list = String::from(CONCAT_HEADER);
+    for part in parts {
+        let path =
+            part.path.to_str().ok_or_else(|| AppError::new(ErrorName::Internal).with_detail(format!("part path is not UTF-8: {}", part.path.display())))?;
+        list.push_str(&format!("file '{}'\n", path.replace('\'', r"'\''")));
+    }
+    Ok(list)
 }
 
 fn partial_file(directory: &Path, extension: &str) -> AppResult<NamedTempFile> {
@@ -244,6 +218,12 @@ fn partial_file(directory: &Path, extension: &str) -> AppResult<NamedTempFile> {
         .suffix(&format!(".{extension}"))
         .tempfile_in(directory)
         .map_err(|error| storage_failed("creating a partial file in", directory, error))
+}
+
+fn write_partial(directory: &Path, extension: &str, text: &str) -> AppResult<NamedTempFile> {
+    let mut file = partial_file(directory, extension)?;
+    file.write_all(text.as_bytes()).map_err(|error| storage_failed("writing", file.path(), error))?;
+    Ok(file)
 }
 
 fn stderr_tail(log: &mut NamedTempFile) -> String {
@@ -274,6 +254,7 @@ fn subdirectories(directory: &Path) -> AppResult<Vec<PathBuf>> {
     Ok(directories)
 }
 
+/// The ffmpeg detail stays in the log; the client only sees `ExporterUnavailable`.
 fn spawn_failed(program: &Path, error: io::Error) -> AppError {
     let name = if error.kind() == io::ErrorKind::NotFound { ErrorName::ExporterUnavailable } else { ErrorName::Internal };
     AppError::new(name).with_detail(format!("cannot run {}", program.display())).with_source(error)

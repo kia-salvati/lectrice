@@ -12,6 +12,7 @@ pub use audio_cache::FsAudioCache;
 pub use cached_library::CachedLibrary;
 pub use document_repository::FsDocumentRepository;
 pub use export_records::FsExportRecordStore;
+#[cfg(feature = "ffmpeg-export")]
 pub(crate) use path_component::safe_component;
 
 use std::path::Path;

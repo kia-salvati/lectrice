@@ -25,6 +25,6 @@ enum SpeechEngineState {
 }
 
 pub async fn get_health(State(state): State<AppState>) -> Json<HealthResponse> {
-    let speech_engine = if state.speech.is_some() { SpeechEngineState::Ready } else { SpeechEngineState::Failed };
+    let speech_engine = if state.services.speech.is_some() { SpeechEngineState::Ready } else { SpeechEngineState::Failed };
     Json(HealthResponse { status: HealthStatus::Ok, speech_engine })
 }

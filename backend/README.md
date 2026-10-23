@@ -1,7 +1,20 @@
 # Lectrice backend
 
 Rust workspace: `lectrice-domain` ← `lectrice-infra`, `lectrice-app` ← `lectrice-api` (the binary).
-Contract: `../docs/2026-10-21-design-spec.md`.
+Contract: `../docs/2026-10-21-design-spec.md`. Changes per release: `../CHANGELOG.md`.
+
+The core (`lectrice-domain`, `-app`, `-infra`) is shared with the Android app, which pulls it by release tag.
+`lectrice_app::services::assemble` wires adapters into services for every shell; `lectrice-api` only picks the
+adapters from its config. `lectrice-infra` features, all on by default:
+
+| Feature | Gates | Default |
+|---|---|---|
+| `pdfium` | `PdfiumTextSource` (pdfium-render) | on |
+| `kokoro` | `KokoroSpeechEngine` (sherpa-onnx) | on |
+| `sherpa-static` | links sherpa-onnx statically (implies `kokoro`) | on |
+| `ffmpeg-export` | `FfmpegExporter` (the system ffmpeg) | on |
+
+Android builds with `default-features = false, features = ["pdfium", "kokoro"]`.
 
 ## Needs
 - Rust ≥ 1.91 (rustup stable), `g++` (sherpa-onnx links libstdc++).
@@ -12,6 +25,9 @@ Contract: `../docs/2026-10-21-design-spec.md`.
   works and exports answer `ExporterUnavailable`. `ffprobe` is only used by the ignored export tests:
   `cargo test -p lectrice-infra --test export_ffmpeg -- --ignored`.
 - `LECTRICE_EXPORT_MAX_SENTENCES=60` exports only the first 60 sentences (quick manual checks).
+- Exports are written as WAV parts of about 10 listening-minutes (`<data_dir>/exports/parts/<exportId>/`), then
+  joined by ffmpeg. An export the server stop interrupted is paused and continues at its first unfinished part
+  when the server starts again.
 
 ## Build, run, test
 ```bash

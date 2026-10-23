@@ -1,18 +1,20 @@
 //! `FfmpegExporter`. The tests that run the real ffmpeg are `#[ignore]`d: `cargo test -p lectrice-infra -- --ignored`.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use lectrice_domain::{Audio, AudioExporter, DocumentId, ErrorName, ExportFormat, ExportTarget, VoiceId};
+use lectrice_domain::{Audio, AudioExporter, ChapterMark, DocumentId, ErrorName, ExportFormat, ExportId, ExportPart, ExportTarget, VoiceId};
 use lectrice_infra::FfmpegExporter;
 use serde_json::Value;
 use tempfile::TempDir;
 
 const SAMPLE_RATE: u32 = 24_000;
 const TONE_HZ: f32 = 440.0;
+const EXPORT_ID: &str = "e1";
 
 fn target(format: ExportFormat) -> ExportTarget {
     ExportTarget {
+        export_id: ExportId::new(EXPORT_ID),
         document_id: DocumentId::parse(&format!("{:064x}", 5)).unwrap(),
         voice_id: VoiceId::new("af_heart"),
         format,
@@ -33,6 +35,10 @@ fn files_in(directory: &Path) -> Vec<String> {
     names
 }
 
+fn parts_dir(data_dir: &Path) -> PathBuf {
+    data_dir.join("exports").join("parts").join(EXPORT_ID)
+}
+
 fn ffprobe(path: &Path) -> Value {
     let output = Command::new("ffprobe")
         .args(["-v", "error", "-print_format", "json", "-show_format", "-show_streams", "-show_chapters"])
@@ -47,42 +53,82 @@ fn duration(probe: &Value) -> f64 {
     probe["format"]["duration"].as_str().unwrap().parse().unwrap()
 }
 
-/// Three one-second clips, a chapter before the first and the third.
-fn export(data_dir: &Path, format: ExportFormat) -> std::path::PathBuf {
+fn write_part(exporter: &FfmpegExporter, format: ExportFormat, index: u32, clips: &[Audio]) -> ExportPart {
+    let mut writer = exporter.begin_part(&target(format), index, SAMPLE_RATE).unwrap();
+    for clip in clips {
+        writer.append(clip).unwrap();
+    }
+    writer.finish().unwrap()
+}
+
+/// Three one-second clips in two parts, a chapter at the start and one at 2 s.
+fn export(data_dir: &Path, format: ExportFormat) -> PathBuf {
     let exporter = FfmpegExporter::new("ffmpeg", data_dir);
     exporter.check_available().unwrap();
-    let mut writer = exporter.begin(&target(format), SAMPLE_RATE).unwrap();
-    writer.start_chapter("Chapter 1. Start").unwrap();
-    writer.append(&tone(1.0)).unwrap();
-    writer.append(&tone(1.0)).unwrap();
-    writer.start_chapter("Chapter 2. Next").unwrap();
-    writer.append(&tone(1.0)).unwrap();
-    let file = writer.finish().unwrap();
+    let parts = [write_part(&exporter, format, 0, &[tone(1.0), tone(1.0)]), write_part(&exporter, format, 1, &[tone(1.0)])];
+    let chapters = [ChapterMark { title: "Chapter 1. Start".into(), start_ms: 0 }, ChapterMark { title: "Chapter 2. Next".into(), start_ms: 2000 }];
+    let file = exporter.assemble(&target(format), &parts, &chapters).unwrap();
     assert!(file.size_bytes > 0);
+    assert_eq!(files_in(&parts_dir(data_dir)), ["part-0000.wav", "part-0001.wav"], "assembling keeps the parts");
+    exporter.discard_parts(&ExportId::new(EXPORT_ID)).unwrap();
     file.path
+}
+
+#[test]
+fn parts_are_wav_files_named_by_index_and_can_be_discarded() {
+    let data_dir = TempDir::new().unwrap();
+    let exporter = FfmpegExporter::new("/nonexistent/ffmpeg", data_dir.path());
+
+    let part = write_part(&exporter, ExportFormat::M4b, 3, &[tone(0.5)]);
+
+    assert_eq!((part.index, part.samples, part.sample_rate), (3, u64::from(SAMPLE_RATE / 2), SAMPLE_RATE));
+    assert_eq!(part.path, parts_dir(data_dir.path()).join("part-0003.wav"));
+    let bytes = std::fs::read(&part.path).unwrap();
+    assert_eq!((&bytes[..4], &bytes[8..12]), (&b"RIFF"[..], &b"WAVE"[..]));
+    exporter.discard_parts(&ExportId::new(EXPORT_ID)).unwrap();
+    assert!(!parts_dir(data_dir.path()).exists());
+    exporter.discard_parts(&ExportId::new(EXPORT_ID)).unwrap();
+}
+
+#[test]
+fn an_abandoned_part_leaves_nothing() {
+    let data_dir = TempDir::new().unwrap();
+    let exporter = FfmpegExporter::new("ffmpeg", data_dir.path());
+    let mut writer = exporter.begin_part(&target(ExportFormat::M4b), 0, SAMPLE_RATE).unwrap();
+    writer.append(&tone(1.0)).unwrap();
+
+    drop(writer);
+
+    assert!(files_in(&parts_dir(data_dir.path())).is_empty());
 }
 
 #[test]
 fn a_missing_program_is_exporter_unavailable() {
     let data_dir = TempDir::new().unwrap();
     let exporter = FfmpegExporter::new("/nonexistent/ffmpeg", data_dir.path());
+    let part = write_part(&exporter, ExportFormat::Mp3, 0, &[tone(0.1)]);
 
     assert_eq!(exporter.check_available().unwrap_err().primary(), ErrorName::ExporterUnavailable);
-    assert_eq!(exporter.begin(&target(ExportFormat::Mp3), SAMPLE_RATE).err().unwrap().primary(), ErrorName::ExporterUnavailable);
+    assert_eq!(exporter.assemble(&target(ExportFormat::Mp3), &[part], &[]).unwrap_err().primary(), ErrorName::ExporterUnavailable);
 }
 
 #[test]
-fn leftover_partial_files_are_removed() {
+fn leftover_partial_files_are_removed_and_finished_parts_stay() {
     let data_dir = TempDir::new().unwrap();
     let directory = data_dir.path().join("exports").join(format!("{:064x}", 5));
     std::fs::create_dir_all(&directory).unwrap();
     std::fs::write(directory.join(".partial-abc.mp3"), b"x").unwrap();
     std::fs::write(directory.join("af_heart.mp3"), b"x").unwrap();
+    let parts = parts_dir(data_dir.path());
+    std::fs::create_dir_all(&parts).unwrap();
+    std::fs::write(parts.join(".partial-def.wav"), b"x").unwrap();
+    std::fs::write(parts.join("part-0000.wav"), b"x").unwrap();
 
     let removed = FfmpegExporter::new("ffmpeg", data_dir.path()).remove_partial_files().unwrap();
 
-    assert_eq!(removed, 1);
+    assert_eq!(removed, 2);
     assert_eq!(files_in(&directory), ["af_heart.mp3"]);
+    assert_eq!(files_in(&parts), ["part-0000.wav"]);
 }
 
 #[test]
@@ -119,18 +165,4 @@ fn exports_an_aac_m4b_with_chapters() {
     assert!((second_start - 2.0).abs() < 0.01, "second chapter starts at {second_start}");
     assert_eq!(probe["format"]["tags"]["title"], "A Book; with = signs");
     assert_eq!(files_in(path.parent().unwrap()), ["af_heart.m4b"], "no partial files are left");
-}
-
-#[test]
-#[ignore = "runs the system ffmpeg"]
-fn an_abandoned_export_stops_ffmpeg_and_leaves_nothing() {
-    let data_dir = TempDir::new().unwrap();
-    let exporter = FfmpegExporter::new("ffmpeg", data_dir.path());
-    let mut writer = exporter.begin(&target(ExportFormat::M4b), SAMPLE_RATE).unwrap();
-    writer.append(&tone(1.0)).unwrap();
-
-    drop(writer);
-
-    let directory = data_dir.path().join("exports").join(format!("{:064x}", 5));
-    assert!(files_in(&directory).is_empty());
 }

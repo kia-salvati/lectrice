@@ -3,7 +3,7 @@
 use lectrice_domain::{Block, Document, Sentence, SentenceId};
 
 /// Speaking rate at 1x (spec §4, measured): text length → estimated audio length.
-const CHARS_PER_SECOND: f64 = 18.0;
+pub(crate) const CHARS_PER_SECOND: f64 = 18.0;
 pub(crate) const SECONDS_PER_MINUTE: f64 = 60.0;
 
 #[derive(Debug, Clone, Copy)]
@@ -36,7 +36,7 @@ impl ReadAheadPlan<'_> {
 /// A `from` that isn't playable in this order (e.g. code text with `read_skipped` off) starts at the first
 /// playable sentence of its block or a later one, which is what the player plays next. An unknown id plans nothing.
 pub fn plan_read_ahead(input: ReadAheadInput<'_>) -> ReadAheadPlan<'_> {
-    let order = playback_order(input.document, input.read_skipped);
+    let order = playable_in_order(input.document, input.read_skipped);
     let budget_seconds = f64::from(input.minutes) * SECONDS_PER_MINUTE * f64::from(input.rate);
     let mut plan = ReadAheadPlan { sentences: Vec::new(), estimated_seconds: 0.0 };
     let Some(start) = start_position(input.document, &order, input.from) else {
@@ -60,10 +60,15 @@ fn estimated_seconds(text: &str) -> f64 {
     text.chars().count() as f64 / CHARS_PER_SECOND
 }
 
+/// The ids of what playback reads, in order: the one source for a player's playlist, the read-ahead and exports.
+pub fn playback_order(document: &Document, read_skipped: bool) -> Vec<SentenceId> {
+    playable_in_order(document, read_skipped).into_iter().map(|(_, sentence)| sentence.id).collect()
+}
+
 /// What playback reads, in order, with each sentence's block index. Mirrors the frontend's
 /// `buildPlaybackOrder` (`frontend/src/utils/playbackOrder.ts`): a skipped block (code, table, caption)
 /// plays its cue when `read_skipped` is off (captions have none) and its own sentences when it's on.
-pub fn playback_order(document: &Document, read_skipped: bool) -> Vec<(usize, &Sentence)> {
+pub(crate) fn playable_in_order(document: &Document, read_skipped: bool) -> Vec<(usize, &Sentence)> {
     document.blocks.iter().enumerate().flat_map(|(index, block)| playable_sentences(block, read_skipped).map(move |sentence| (index, sentence))).collect()
 }
 
@@ -123,7 +128,7 @@ mod tests {
     }
 
     fn order_ids(document: &Document, read_skipped: bool) -> Vec<u32> {
-        playback_order(document, read_skipped).iter().map(|(_, sentence)| sentence.id.0).collect()
+        playback_order(document, read_skipped).iter().map(|id| id.0).collect()
     }
 
     fn plan_ids(document: &Document, from: u32, read_skipped: bool) -> Vec<u32> {
