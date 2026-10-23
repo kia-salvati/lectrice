@@ -1,0 +1,22 @@
+.marker {
+  font: .75rem/1.2 var(--sans);
+  color: var(--fg2);
+  user-select: none;
+  white-space: nowrap;
+  position: absolute;
+  left: 0;
+  width: calc(var(--gutter) - .75rem);
+  text-align: right;
+  padding-top: .45em;
+}
+@media (max-width: 720px) {
+  .marker {
+    position: static;
+    display: inline-block;
+    width: auto;
+    margin-right: .35em;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0 .3em;
+  }
+}

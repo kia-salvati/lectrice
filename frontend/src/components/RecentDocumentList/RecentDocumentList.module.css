@@ -1,0 +1,21 @@
+.heading { font-size: 1rem; margin: 0 0 .5rem; }
+.list { list-style: none; padding: 0; margin: 0; }
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .25rem 1rem;
+  align-items: center;
+  padding: .75rem .25rem;
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+}
+.row:hover .title { text-decoration: underline; }
+.main { display: grid; gap: .25rem; min-width: 0; }
+.title { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.meta { color: var(--fg2); font-size: .875rem; }
+.side { display: grid; gap: .35rem; justify-items: end; }
+.action { color: var(--accent); font-size: .875rem; white-space: nowrap; }
+.track { display: block; width: 6rem; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.fill { display: block; height: 100%; background: var(--accent); }
+.more { margin-top: .75rem; }

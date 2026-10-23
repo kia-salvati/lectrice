@@ -1,0 +1,21 @@
+:root {
+  --bg: #ffffff; --bg2: #f3f3ef; --fg: #1c1f24; --fg2: #5b636d; --line: #d3d3cd;
+  --accent: #1d5fae; --on-accent: #ffffff;
+  --hl: #ffe58f; --hl-fg: #1c1f24;
+  --err-bg: #fbe7e5; --err-fg: #8b1a12;
+  --serif: Charter, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  --gutter: 4.5rem;          /* page-marker margin; 0 on phones */
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121417; --bg2: #1c1f24; --fg: #e8e6e1; --fg2: #a8adb5; --line: #363a41;
+    --accent: #8ab8ff; --on-accent: #0b1a33;
+    --hl: #4d4214; --hl-fg: #fff6d8;
+    --err-bg: #44181a; --err-fg: #f4b1ad;
+    color-scheme: dark;
+  }
+}
+@media (max-width: 720px) { :root { --gutter: 0rem; } }

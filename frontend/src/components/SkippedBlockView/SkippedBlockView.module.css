@@ -1,0 +1,21 @@
+.box {
+  margin: 0 0 1em;
+  border-left: 4px solid transparent;
+  padding-left: .5rem;
+  cursor: pointer;
+}
+.active { border-left-color: var(--accent); }
+.activePreparing .pre { border: 1px dotted var(--fg2); }
+.label { font: .75rem var(--sans); color: var(--fg2); margin-bottom: .25rem; }
+.pre {
+  margin: 0;
+  padding: .75rem 1rem;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: .875rem/1.5 var(--mono);
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+.caption { font: .875rem/1.5 var(--sans); color: var(--fg2); margin: -.5em 0 1em; }

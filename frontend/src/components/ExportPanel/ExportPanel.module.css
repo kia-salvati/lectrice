@@ -1,0 +1,8 @@
+.panel { display: grid; gap: .5rem; border-top: 1px solid var(--line); padding-top: .65rem; }
+.title { margin: 0; font-size: .875rem; font-weight: 600; }
+.row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.field { display: inline-flex; align-items: center; gap: .35rem; min-width: 0; }
+.text { margin: 0; }
+.help { color: var(--fg2); margin: 0; }
+.error { margin: 0; padding: .4rem .6rem; border-radius: 6px; background: var(--err-bg); color: var(--err-fg); }
+.progress { width: 100%; accent-color: var(--accent); }

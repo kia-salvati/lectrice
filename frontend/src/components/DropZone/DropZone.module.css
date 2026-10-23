@@ -1,0 +1,18 @@
+.drop {
+  margin: 3rem auto 2rem;
+  width: min(28rem, calc(100% - 2rem));
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  display: grid;
+  gap: .75rem;
+  justify-items: center;
+  line-height: 1.5;
+}
+.dragging { border-color: var(--accent); border-style: solid; }
+.err { border-style: solid; border-color: var(--err-fg); background: var(--err-bg); color: var(--err-fg); }
+.title { margin: 0; font-size: 1.25rem; }
+.text { margin: 0; }
+.muted { margin: 0; color: var(--fg2); font-size: .85rem; }
+.progress { width: 60%; }

@@ -1,0 +1,29 @@
+.article {
+  position: relative;
+  max-width: calc(40rem + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 2rem 1rem 9rem;   /* the bottom padding keeps the last lines clear of the pill */
+  font-family: var(--serif);
+  font-size: 1.1875rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.block {
+  position: relative;
+  padding-inline: var(--gutter);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 7rem;
+}
+.heading1 { font-size: 1.65rem; line-height: 1.25; margin: 0 0 1rem; }
+.heading2 { font-size: 1.25rem; margin: 1.6em 0 .5em; }
+.headingSmall { font-size: 1.1rem; margin: 1.3em 0 .4em; }
+.paragraph { margin: 0 0 1em; }
+.listItem { margin: 0 0 1em; padding-left: 1.25em; }
+.listItem::before { content: "•"; position: absolute; margin-left: -1.1em; }
+.note {
+  margin: 0 0 1em;
+  font: .95em/1.6 var(--sans);
+  padding: .5rem .75rem;
+  border-left: 3px solid var(--line);
+  background: var(--bg2);
+}

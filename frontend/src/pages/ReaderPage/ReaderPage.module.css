@@ -1,0 +1,12 @@
+.centered {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  gap: .75rem;
+  padding: 1rem;
+  text-align: center;
+}
+.title { margin: 0; font-size: 1.25rem; }
+.text { margin: 0; }
+.actions { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; }
+.banners { position: sticky; top: 0; z-index: 11; }

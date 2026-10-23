@@ -1,0 +1,13 @@
+.banner {
+  display: flex;
+  gap: .5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  background: var(--err-bg);
+  color: var(--err-fg);
+  padding: .5rem 1rem;
+  font-size: .875rem;
+}
+.actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.actions button { color: currentColor; border-color: currentColor; background: transparent; }

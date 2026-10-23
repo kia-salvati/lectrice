@@ -1,0 +1,11 @@
+.sentence {
+  cursor: pointer;
+  border-radius: 2px;
+  padding: .05em 0;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.sentence:hover { text-decoration: underline dotted; text-underline-offset: .15em; }
+.read { color: var(--fg2); }
+.active { background: var(--hl); color: var(--hl-fg); }
+.activePreparing { border-bottom: 2px dotted var(--fg2); }
