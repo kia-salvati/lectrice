@@ -16,6 +16,8 @@ pub struct Document {
     pub page_count: u32,
     pub cleaner_version: u32,
     pub pages: Vec<PageLabel>,
+    #[serde(default)]
+    pub toc: Vec<TocEntry>,
     pub blocks: Vec<Block>,
 }
 
@@ -33,6 +35,18 @@ impl Document {
 pub struct PageLabel {
     pub index: u32,
     pub label: String,
+}
+
+/// One table-of-contents line, in reading order: level 1 is a chapter (or part), 2 a sub-chapter, 3 below that.
+/// `sentence_id` is the first sentence of that part and `page_index` the PDF page it starts on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TocEntry {
+    pub id: u32,
+    pub title: String,
+    pub level: u8,
+    pub sentence_id: SentenceId,
+    pub page_index: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -182,6 +196,16 @@ mod tests {
         assert_eq!(value["spoken"], false);
         assert_eq!(value["cue"]["id"], 812);
         assert_eq!(serde_json::from_value::<Block>(value).unwrap(), block);
+    }
+
+    #[test]
+    fn toc_is_camel_case_and_missing_in_older_documents() {
+        let entry = TocEntry { id: 0, title: "Pods".into(), level: 2, sentence_id: SentenceId(41), page_index: 29 };
+        assert_eq!(serde_json::to_value(&entry).unwrap(), json!({ "id": 0, "title": "Pods", "level": 2, "sentenceId": 41, "pageIndex": 29 }));
+        let saved_by_v2 = json!({
+            "id": "a".repeat(64), "title": "T", "sourceFileName": "t.pdf", "pageCount": 1, "cleanerVersion": 2, "pages": [], "blocks": []
+        });
+        assert!(serde_json::from_value::<Document>(saved_by_v2).unwrap().toc.is_empty());
     }
 
     #[test]

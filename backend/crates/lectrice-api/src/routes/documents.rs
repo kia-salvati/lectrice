@@ -265,6 +265,7 @@ mod tests {
         assert_eq!(status, StatusCode::OK);
         assert_eq!((body["id"].as_str(), body["cleanerVersion"].as_u64()), (Some(id.as_str()), Some(1)));
         assert_eq!(body["blocks"][0]["sentences"][0]["text"], "Intro");
+        assert_eq!(body["toc"], serde_json::json!([{ "id": 0, "title": "Intro", "level": 1, "sentenceId": 0, "pageIndex": 1 }]));
         assert_eq!(body["blocks"][3]["cue"]["id"], sentences::CODE_CUE);
         assert!(body["lastSentenceId"].is_null(), "{body}");
 

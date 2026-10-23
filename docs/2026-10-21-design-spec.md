@@ -151,6 +151,11 @@ deleting the sentences **farthest behind** the reading position first. A global 
   "pageCount": 429,
   "cleanerVersion": 1,
   "pages": [ { "index": 1, "label": "i" }, { "index": 25, "label": "1" } ],
+  "toc": [
+    { "id": 0, "title": "PART I Introduction", "level": 1, "sentenceId": 234, "pageIndex": 25 },
+    { "id": 1, "title": "Chapter 1 What Is Design and Architecture?", "level": 2, "sentenceId": 271, "pageIndex": 27 },
+    { "id": 2, "title": "The Goal?", "level": 3, "sentenceId": 298, "pageIndex": 28 }
+  ],
   "blocks": [
     { "id": 0, "kind": "heading", "level": 1, "pageIndex": 25, "sentences": [ { "id": 0, "text": "What Is Design and Architecture?", "pageIndex": 25 } ] },
     { "id": 1, "kind": "paragraph", "pageIndex": 25, "sentences": [ { "id": 1, "text": "This chapter opens with a short story…", "pageIndex": 25 } ] },
@@ -185,6 +190,20 @@ deleting the sentences **farthest behind** the reading position first. A global 
 - Default text fixes from the survey: GoF's missing spaces ("Forexample") are left as they are in v1.
 - `cleanerVersion` is stored. Raising it makes the app re-clean old documents from their saved
   original PDFs.
+- **Table of contents (`toc`, added 2026-10-23, cleaner version 3).** A flat list in reading order:
+  `{ id, title, level, sentenceId, pageIndex }`. `level` 1 is the book's top level (a part or a
+  chapter), 2 a sub-chapter, 3 below that; deeper entries are left out. A level is the entry's depth
+  under the entries before it with a smaller source level, so it is never more than one deeper than
+  the entry before and entries of the same source level stay siblings. `sentenceId` is the first sentence of that part (jump
+  there to start it) and strictly increases; `pageIndex` is that sentence's PDF page (show it with
+  `pages`). Built by `lectrice-domain/src/cleaning/toc.rs` once sentence ids exist: the PDF outline
+  (bookmarks) when at least half of its entries are found as heading blocks (same words, ±1 page),
+  else the heading blocks. Front matter (cover, title page, copyright, contents, "Tweet This
+  Book!"), empty titles, entries whose page has no text (dropped TOC/index pages) and extra
+  entries that share a page with the entry before (LinkedIn's outline holds post sentences) are
+  skipped; a title stops at a zero-width space and is cut at 120 chars. It is `[]` when a PDF has
+  neither an outline nor headings. Documents saved before version 3 load with `toc: []` until
+  they are re-cleaned.
 
 ## 6. Storage on disk
 
@@ -214,7 +233,7 @@ Dates are ISO 8601 strings in UTC (`"2026-10-21T18:04:00Z"`).
 | `GET /api/voices` | | `200 { voices: [{ id: "af_heart", name: "Heart", language: "en-US" | "en-GB", gender: "female" | "male" }], defaultVoiceId: "af_heart" }` |
 | `POST /api/documents` | multipart, field `file` (PDF, max `upload.max_mb`) | `201 { document: DocumentSummary, alreadyInLibrary: false }`, or `200 { …, alreadyInLibrary: true }` |
 | `GET /api/documents?limit=20&offset=0` | | `200 { items: [DocumentSummary], total, limit, offset }` |
-| `GET /api/documents/{id}` | | `200 Document` (§5) plus `lastSentenceId: number | null`, so "Continue" can resume |
+| `GET /api/documents/{id}` | | `200 Document` (§5, including `toc`) plus `lastSentenceId: number | null`, so "Continue" can resume |
 | `PUT /api/documents/{id}/position` | `{ sentenceId }` | `204` |
 | `GET /api/documents/{id}/sentences/{sentenceId}/audio?voice=af_heart&rate=1.5&readSkipped=false` | | `200 audio/wav` (also triggers read-ahead, scaled by `rate`; `readSkipped` includes code/captions/tables in the read-ahead) |
 | `POST /api/documents/{id}/exports` | `{ voiceId, format: "mp3" | "m4b", readSkipped }` | `202 { export: AudioExport }` |

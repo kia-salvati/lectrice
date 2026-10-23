@@ -13,7 +13,7 @@ use http_body_util::BodyExt;
 use lectrice_app::exports::ExportSettings;
 use lectrice_domain::{
     AppError, AppResult, Audio, AudioExporter, BlockKind, CleanedBlock, CleanedDocument, DocumentCleaner, ErrorName, ExportTarget, ExportWriter, ExportedFile,
-    PdfContent, PdfTextSource, SentenceSplitter, SpeechEngine, SpeechRequest, TextSpan, Voice, VoiceGender, VoiceId, VoiceLanguage,
+    OutlineItem, PdfContent, PdfTextSource, SentenceSplitter, SpeechEngine, SpeechRequest, TextSpan, Voice, VoiceGender, VoiceId, VoiceLanguage,
 };
 use lectrice_infra::{FsAudioCache, FsDocumentRepository, FsExportRecordStore, Sha256ContentHasher, SystemClock, WavDecoder, WavEncoder};
 use serde_json::Value;
@@ -80,6 +80,7 @@ impl DocumentCleaner for FakeCleaner {
             title: Some("Fake Book".into()),
             page_count: 2,
             pages: Vec::new(),
+            outline: vec![OutlineItem { title: "Intro".into(), level: 1, pdf_page: Some(1) }],
             blocks: vec![
                 block(BlockKind::Heading, vec![span("Intro", true)]),
                 block(BlockKind::Paragraph, vec![span("One. Two.", true)]),

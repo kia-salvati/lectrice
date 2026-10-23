@@ -77,7 +77,7 @@ impl UseCase for GetDocument {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::documents::fakes::{Library, at, id_for};
+    use crate::documents::fakes::{Library, PDF_BYTES, at, id_for};
 
     fn get(library: &Library, id: DocumentId) -> AppResult<OpenedDocument> {
         let service = GetDocument::new(library.pipeline(), library.reader(), library.writer(), library.clock());
@@ -125,5 +125,21 @@ mod tests {
         let summary = library.store.summary(&id).unwrap();
         assert_eq!((summary.added_at, summary.last_opened_at), (at(100), at(600)));
         assert_eq!(library.store.document(&id).unwrap().cleaner_version, 2);
+    }
+
+    #[test]
+    fn a_document_saved_before_the_toc_existed_gains_one_when_re_cleaned() {
+        let library = Library::new(1);
+        let id = library.add_book();
+        let saved_without_toc = Document { toc: Vec::new(), ..library.store.document(&id).unwrap() };
+        let summary = library.store.summary(&id).unwrap();
+        let meta = DocumentMeta { added_at: summary.added_at, last_opened_at: summary.last_opened_at, last_sentence_id: None };
+        library.store.save(&saved_without_toc, PDF_BYTES, &meta).unwrap();
+        library.cleaner.set_version(2);
+
+        let opened = get(&library, id.clone()).unwrap();
+
+        assert_eq!(opened.document.toc.iter().map(|entry| entry.title.as_str()).collect::<Vec<_>>(), ["Intro"]);
+        assert_eq!(library.store.document(&id).unwrap().toc, opened.document.toc);
     }
 }

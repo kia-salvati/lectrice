@@ -1,12 +1,15 @@
 use crate::document::{BlockKind, PageLabel};
+use crate::pdf::OutlineItem;
 
 /// The cleaner's output: blocks of text without sentence ids yet.
 /// Import splits each block's text into sentences and numbers them into a [`crate::Document`].
+/// `outline` is the PDF's, kept so the table of contents can be built once sentence ids exist.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct CleanedDocument {
     pub title: Option<String>,
     pub page_count: u32,
     pub pages: Vec<PageLabel>,
+    pub outline: Vec<OutlineItem>,
     pub blocks: Vec<CleanedBlock>,
 }
 

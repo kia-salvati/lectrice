@@ -11,7 +11,7 @@ use regex::Regex;
 use crate::pdf::OutlineItem;
 
 /// Outline items may point one page before or after the printed heading.
-const PAGE_SLACK: u32 = 1;
+pub(super) const PAGE_SLACK: u32 = 1;
 const MAX_LEVEL: u8 = 4;
 const SIZE_BUCKET: f32 = 2.0;
 
@@ -86,7 +86,7 @@ fn size_bucket(size: f32) -> i32 {
 }
 
 /// Lowercase words without punctuation and without the leading numbering words.
-fn core_words(text: &str) -> String {
+pub(super) fn core_words(text: &str) -> String {
     let lowered = text.to_lowercase();
     let words: Vec<&str> = lowered.split(|character: char| !character.is_alphanumeric()).filter(|word| !word.is_empty()).collect();
     let first_name_word = words.iter().position(|word| !NUMBERING_WORD.is_match(word)).unwrap_or(words.len());

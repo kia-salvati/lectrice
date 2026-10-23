@@ -14,7 +14,16 @@ fn id_for(n: u8) -> DocumentId {
 fn document(id: DocumentId, title: &str) -> Document {
     let sentence = Sentence { id: SentenceId(0), text: "One.".into(), page_index: 1, speech_text: None };
     let block = Block { id: 0, kind: BlockKind::Paragraph, level: None, page_index: 1, spoken: true, text: None, sentences: vec![sentence], cue: None };
-    Document { id, title: title.into(), source_file_name: "a.pdf".into(), page_count: 1, cleaner_version: 1, pages: Vec::new(), blocks: vec![block] }
+    Document {
+        id,
+        title: title.into(),
+        source_file_name: "a.pdf".into(),
+        page_count: 1,
+        cleaner_version: 1,
+        pages: Vec::new(),
+        toc: Vec::new(),
+        blocks: vec![block],
+    }
 }
 
 fn meta() -> DocumentMeta {

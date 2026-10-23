@@ -36,7 +36,7 @@ impl DocumentPipeline {
         let origin = DocumentOrigin { id, source_file_name, cleaner_version: self.cleaner.version() };
         let document = build_document(origin, cleaned, self.splitter.as_ref());
         let duration_ms = started.elapsed().as_millis();
-        info!(service = NAME, doc_id = %id, blocks = document.blocks.len(), sentences = document.sentence_count(), duration_ms, "sentences split");
+        info!(service = NAME, doc_id = %id, blocks = document.blocks.len(), sentences = document.sentence_count(), toc_entries = document.toc.len(), duration_ms, "sentences split");
         Ok(document)
     }
 

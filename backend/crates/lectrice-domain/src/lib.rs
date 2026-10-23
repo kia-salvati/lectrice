@@ -17,7 +17,7 @@ pub mod speech;
 pub use audio_retention::{AudioEviction, AudioRetention};
 pub use cleaned::{CleanedBlock, CleanedDocument, TextSpan};
 pub use clock::{Clock, Timestamp};
-pub use document::{Block, BlockKind, Document, DocumentMeta, DocumentSummary, PageLabel, ReadingPosition, Sentence};
+pub use document::{Block, BlockKind, Document, DocumentMeta, DocumentSummary, PageLabel, ReadingPosition, Sentence, TocEntry};
 pub use error::{AppError, AppResult, ErrorName, ErrorSpec};
 pub use export::{AudioExport, ExportFormat, ExportRecord, ExportStatus, ExportTarget, ExportedFile};
 pub use ids::{BlockId, DocumentId, ExportId, SentenceId, VoiceId};

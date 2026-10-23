@@ -320,6 +320,7 @@ mod tests {
             page_count: 1,
             cleaner_version: 1,
             pages: vec![PageLabel { index: 1, label: "1".into() }],
+            toc: Vec::new(),
             blocks: vec![block],
         };
         let now = setup.library.clock.now();

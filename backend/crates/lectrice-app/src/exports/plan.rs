@@ -78,6 +78,7 @@ mod tests {
             page_count: 1,
             cleaner_version: 1,
             pages: Vec::new(),
+            toc: Vec::new(),
             blocks: vec![
                 block(BlockKind::Heading, Some(1), vec![sentence(0, "Chapter 1."), sentence(1, "Start")], None),
                 block(BlockKind::Paragraph, None, vec![sentence(2, "One."), sentence(3, "Two.")], None),

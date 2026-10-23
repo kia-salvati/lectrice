@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use lectrice_domain::cleaning::build_toc;
 use lectrice_domain::{Block, BlockId, CleanedBlock, CleanedDocument, Document, DocumentId, Sentence, SentenceId, SentenceSplitter, TextSpan};
 
 const PDF_EXTENSION: &str = ".pdf";
@@ -21,7 +22,8 @@ pub(crate) fn build_document(origin: DocumentOrigin<'_>, cleaned: CleanedDocumen
         .filter(|block| block.spans.iter().any(|span| !span.text.trim().is_empty()))
         .zip(0..)
         .map(|(block, id)| build_block(id, block, splitter, &mut next_sentence_id))
-        .collect();
+        .collect::<Vec<_>>();
+    let toc = build_toc(&cleaned.outline, &blocks);
     let title = cleaned.title.map(|title| title.trim().to_string()).filter(|title| !title.is_empty());
     Document {
         id: origin.id.clone(),
@@ -30,6 +32,7 @@ pub(crate) fn build_document(origin: DocumentOrigin<'_>, cleaned: CleanedDocumen
         page_count: cleaned.page_count,
         cleaner_version: origin.cleaner_version,
         pages: cleaned.pages,
+        toc,
         blocks,
     }
 }
@@ -93,7 +96,7 @@ fn take_id(next_sentence_id: &mut u32) -> SentenceId {
 
 #[cfg(test)]
 mod tests {
-    use lectrice_domain::{BlockKind, PageLabel};
+    use lectrice_domain::{BlockKind, OutlineItem, PageLabel};
 
     use super::*;
     use crate::documents::fakes::{FakeSplitter, id_for};
@@ -117,6 +120,7 @@ mod tests {
             title: Some(" Clean Code ".into()),
             page_count: 9,
             pages: vec![PageLabel { index: 1, label: "i".into() }],
+            outline: vec![OutlineItem { title: "Intro".into(), level: 1, pdf_page: Some(1) }],
             blocks: vec![
                 block(BlockKind::Heading, vec![span("Intro", 1, true)]),
                 block(BlockKind::Paragraph, vec![span("   ", 1, true)]),
@@ -139,6 +143,7 @@ mod tests {
         assert_eq!(code.text.as_deref(), Some("let x = 1;"));
         assert_eq!(code.sentences[0].id, SentenceId(3));
         assert_eq!(code.cue.as_ref().map(|cue| (cue.id, cue.text.as_str(), cue.page_index)), Some((SentenceId(4), "Code example.", 2)));
+        assert_eq!(document.toc.iter().map(|entry| (entry.title.as_str(), entry.sentence_id)).collect::<Vec<_>>(), [("Intro", SentenceId(0))]);
     }
 
     #[test]

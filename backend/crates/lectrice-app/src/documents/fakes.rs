@@ -116,6 +116,7 @@ impl DocumentCleaner for FakeCleaner {
             title: Some("Fake Book".into()),
             page_count: 3,
             pages: Vec::new(),
+            outline: Vec::new(),
             blocks: vec![
                 cleaned_block(BlockKind::Heading, 1, "Intro"),
                 cleaned_block(BlockKind::Paragraph, 1, "One. Two."),

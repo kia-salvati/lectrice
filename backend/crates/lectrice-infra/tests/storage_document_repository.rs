@@ -3,7 +3,7 @@ use std::path::Path;
 
 use lectrice_domain::{
     Block, BlockKind, Document, DocumentId, DocumentMeta, DocumentReader, DocumentWriter, ErrorName, ListOptions, PageLabel, ReadingPosition, Sentence,
-    SentenceId, Timestamp,
+    SentenceId, Timestamp, TocEntry,
 };
 use lectrice_infra::FsDocumentRepository;
 use tempfile::TempDir;
@@ -30,6 +30,7 @@ fn document(id: DocumentId) -> Document {
         page_count: 12,
         cleaner_version: 1,
         pages: vec![PageLabel { index: 3, label: "1".into() }],
+        toc: vec![TocEntry { id: 0, title: "Chapter 1".into(), level: 1, sentence_id: SentenceId(0), page_index: 3 }],
         blocks: vec![
             Block {
                 id: 0,

@@ -105,6 +105,7 @@ mod tests {
             page_count: 1,
             cleaner_version: 1,
             pages: Vec::new(),
+            toc: Vec::new(),
             blocks,
         }
     }
