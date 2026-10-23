@@ -94,11 +94,12 @@ Follow `rules/` (copied from the user's shared rules on 2026-10-06):
 - Stack details and risks: `research/2026-10-06-rust-stack.md`.
 
 ## Agents
-The user wants work dispatched to agents and orchestrated: **Opus for everything except visual
-design; Fable only for designs (UI mockups, CSS/layout). No other models.**
-For UI work (2026-10-21): **Opus first does the research and writes the instructions and options
-(a build brief), then passes it down to Fable, who builds it.** Fable doesn't research. Design options are
-local `.html` files under `design/`, never published Artifacts.
+The user wants work dispatched to agents and orchestrated: **Opus for everything except design
+code; Fable only writes design code (UI mockups, HTML/CSS/layout, UI components). No other models.**
+**Design split (user 2026-10-23):** Opus does all the research, ideas, UI/UX thinking and the
+design options, and writes exact instructions for what to build and how (a build brief). Fable
+only turns that brief into code. Fable doesn't research, invent options or make UX decisions.
+Design options are local `.html` files under `design/`, never published Artifacts.
 
 ## Where we are (2026-10-21)
 Process: brainstorm, then a written design spec, then an implementation plan, then build.
@@ -156,6 +157,20 @@ plan, and said **Fable may start designing and building the frontend now against
   lock-screen next = next sentence; **don't install the Android tools yet (metered network)**:
   give copy-paste download commands for later. Open question: GPU/NPU acceleration on the phone
   (being researched for the spike).
+- **Android design approved (user 2026-10-23): option 3 "Quiet" v2**,
+  `design/2026-10-23-android-quiet-v2.html` (brief `docs/2026-10-23-android-quiet-v2-brief.md`):
+  option 1's library with Quiet's Open PDF button, tapping the pill opens option 4's Listen
+  stage, option 4's export with voice / model quality / speed choices, the current sentence on the
+  lock screen, and no visible scrollbars anywhere (scrolling still works). Answers: **export is
+  M4B only** (no MP3, because of the license; the mockup's MP3 choice is dropped); **Listen view
+  over the lock screen** is a setting, off by default; chapters access: best practice (Opus decides).
+  Feature logic spec done 2026-10-24: `docs/android-logic/` (README index + 19 feature files;
+  file 19 = new core/FFI changes C10–C27). Chapters: ⋯ → Chapters (2 taps), 1 tap from Listen.
+  **User 2026-10-24:** "Remove from library" is in v1; all file-19 core changes go into
+  **v1.1.0**; voice sample = one fixed default sentence; export predicts the file size first
+  and, if space is short, blocks the full export or offers a partial one; the cache and the
+  exported files must show in Android's own Settings → Apps → Lectrice → Storage. "Save to
+  Audiobooks" **moves** the export to `Audiobooks/Lectrice/` (not a copy).
 - **Chapters build (2026-10-23): option 1A** = rail take 1 (outline + filter) + label A (in the
   pill). My defaults: `C` = simple toggle; current chapter = nearest chapter-like title with the
   book's own number. Fable is building it on `feature/chapters`.

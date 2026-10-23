@@ -1,21 +1,27 @@
-# Lectrice: session handoff (2026-10-23)
+# Lectrice: session handoff (2026-10-24)
 
-Read this first, then `CLAUDE.md` (the full decision log and rules). Everything below is current as
-of 2026-10-23.
+Read this first, then `CLAUDE.md` (the full decision log and rules).
 
-## What exists
-| | Where | State |
+## State
+| What | Where | State |
 |---|---|---|
-| **Web app v1 + chapters** | `~/Desktop/learning/lectrice` → github.com/kia-salvati/lectrice (public) | Done and pushed to `main`. Tag `v1.0.0` = v1 without chapters |
-| **Android app** | `~/Desktop/learning/lectrice-android` → github.com/kia-salvati/lectrice-android (public) | Only starter files (README, licenses, .gitignore, CLAUDE.md) on `main`. No code yet |
-| **Voice-model research** (side topic) | `~/Desktop/learning/voice-models/2026-10-23-voice-and-anime-models.md` | Done; not part of the repos |
+| Web app v1 + chapters | `lectrice/` → github.com/kia-salvati/lectrice (public) | On `main`, pushed. Tag `v1.0.0` = v1 without chapters |
+| Core v1.1.0 | local branch `feature/core-v1.1` (checked out) | Built and tested, **not committed**. `docs/progress/core-v1.1.md` |
+| Android design | `design/2026-10-23-android-quiet-v2.html` | **Approved** (option 3 "Quiet" v2) |
+| Android logic spec | `docs/android-logic/` (README + 21 feature files) | Done. Start here for any Android work |
+| Android app | `../lectrice-android` → github.com/kia-salvati/lectrice-android (public) | Starter files only |
 
-**v1 does:** PDF → cleaned reading view (headers, footers and citation markers removed; page numbers,
-printed labels and headings kept) → Kokoro `af_heart` voice reading sentence by sentence with a
-highlight, speed 0.75–2×, 28 English voices, click-to-jump, recent documents + "Continue", 10 min of
-read-ahead scaled by speed, a ~1 h cache per book, and MP3/M4B whole-book export. **Chapters:** a
-`toc` per document, a closable whole-book outline rail on wide screens, a bottom sheet elsewhere,
-and "Ch. 7 · Title · p. 213" in the player pill.
+**v1:** PDF → cleaned reading view (page labels and headings kept, not spoken) → Kokoro `af_heart`
+reading sentence by sentence with a highlight; speed 0.75–2×, 28 voices, click-to-jump, recent
+documents + "Continue", 10 min read-ahead (scaled by speed), ~1 h cache per book, MP3/M4B export,
+chapters (outline rail / bottom sheet, "Ch. 7 · Title · p. 213" in the pill).
+
+**Core v1.1.0 so far:** infra feature flags (`pdfium`, `kokoro`, `sherpa-static`, `ffmpeg-export`),
+wiring moved into `lectrice-app` (`services::assemble`), no desktop paths in the core, resumable
+export in ~10-minute parts, a Kokoro `provider` setting, `CHANGELOG.md`. 351 tests pass; clippy and fmt
+clean. Review `lectrice-domain/src/export.rs` closely (edited with a python replace). The design spec §8
+still has the old error text. **The new core changes in `docs/android-logic/19-*.md` (C10–C30) also
+go into v1.1.0**; tag it only after the user reviews and commits.
 
 ## Run it
 ```bash
@@ -23,55 +29,66 @@ cd ~/Desktop/learning/lectrice/backend && cargo run --release -p lectrice-api   
 cd ~/Desktop/learning/lectrice/frontend && npm run dev                          # :5173 (dev:mock = sample data)
 ```
 Gitignored files that must exist locally: `models/kokoro-multi-lang-v1_0/`,
-`backend/vendor/pdfium/lib/libpdfium.so`, `backend/test-data/books/` (book fixtures),
-`docs/progress/B2-samples/`. How to get each one back: `backend/README.md`.
+`backend/vendor/pdfium/lib/libpdfium.so`, `backend/test-data/books/`, `docs/progress/B2-samples/`.
+How to get them back: `backend/README.md`.
 
 ## Rules that are easy to break
-- **Public repos: no text from the user's copyrighted books** (`~/Desktop/*.pdf`) in any tracked file:
-  no samples, fixtures or prose quotes. Titles and counts are fine. Book tests read the PDFs directly,
-  are `#[ignore]`, and skip without them. Scan for book sentences before every commit.
+- **Public repos: no text from the user's books** (`~/Desktop/*.pdf`) in any tracked file. Titles
+  and counts are fine. Book tests are `#[ignore]` and skip without the PDFs. Scan before every commit.
 - **Push only `main` and version tags.** Feature and release branches stay local.
-- **Commits:** only when the user asks; propose groups first; no Co-Authored-By trailer. Author is
-  `kia <limsclaude@gmail.com>` (repo-local config). Remote alias `personal:` = `~/.ssh/config`
-  (key `~/.ssh/github`, port 443).
-- **Agents:** the main session orchestrates and doesn't do the work itself (keeps context small).
-  **Opus** for research, specs, code and reviews; **Fable** only for UI design and building.
-  For UI work, Opus writes the brief and options, then Fable builds. No other models. Design options
-  are local HTML in `design/`, never published Artifacts. Each step writes `docs/progress/<step>.md`.
-- Coding rules: `rules/` (universal parts only; see CLAUDE.md for what to ignore).
-- The user often works remotely via RustDesk; remote audio works, so give `xdg-open` paths.
-- The user is on a **metered network** right now: no big downloads without asking.
+- **Commits:** only when asked; propose groups first; no Co-Authored-By trailer. Author
+  `kia <limsclaude@gmail.com>`. Remote alias `personal:` (`~/.ssh/config`, key `~/.ssh/github`).
+- **Agents:** the main session only orchestrates. **Opus** does research, specs, code, reviews and
+  all UI/UX thinking (ideas, options, exact build briefs); **Fable** only writes design code from
+  Opus's brief. No other models. Designs are local HTML in `design/`, never published Artifacts.
+  Each step writes `docs/progress/<step>.md`.
+- Coding rules: `rules/` (universal parts only; see CLAUDE.md).
+- Android design: no visible scrollbars anywhere (scrolling still works).
+- The user often works via RustDesk; give `xdg-open` paths. **Metered network:** no big downloads
+  without asking.
 
-## Uncommitted right now
-- `lectrice/CLAUDE.md`: notes on the `main` branch and the "push only main + tags" rule.
-- `lectrice/docs/HANDOFF.md`: this file.
-- `lectrice-android/CLAUDE.md`: the same push rule.
-Commit them with the next change (ask first).
+## Uncommitted (on `feature/core-v1.1`)
+Core v1.1.0 code + `CHANGELOG.md` + `docs/progress/core-v1.1.md`; `CLAUDE.md`, this file; the Android
+design briefs, mockups, screenshots and progress notes; `docs/android-logic/`. Propose commit groups first.
+
+## Android decisions
+- Kotlin + Jetpack Compose with Telegram's *principles* (never its code). One shared Rust core,
+  pulled by tag via Cargo git dependencies, never forked. No server. GitHub Releases only. iOS, if
+  ever, is `lectrice-ios`.
+- Design "Quiet" v2: option 1's library with Quiet's round Open PDF button; tapping the pill status
+  opens the Listen stage; chapters via ⋯ → Chapters (1 tap from Listen); current sentence as the
+  lock-screen title; Listen over the lock screen is a setting, off by default.
+- The user picks the model (fp32 or int8). Lock-screen "next" = next sentence. Voice sample = one
+  fixed sentence, made on demand and cached.
+- **Export: M4B only** (no MP3, license). Pick voice, model quality and speed (baked in, Sonic).
+  Size is predicted first; if space is short, the full export is blocked, with "Free up space" or
+  a partial export. Out of space mid-export pauses and keeps the parts.
+- Read-ahead stops on pause (60 s), sleep timer, book change, low memory, heat, battery saver.
+- **Storage:** the audio cache lives in `cacheDir` (shows as "Cache" in Android's Settings → Apps →
+  Lectrice); `manageSpaceActivity` opens our Storage screen; exports stay in app storage until
+  "Save to Audiobooks" **moves** them to `Audiobooks/Lectrice/` (user confirmed 2026-10-24).
+- "Remove from library" is in v1 (confirm + 8 s undo; exported files kept by default).
 
 ## Next steps
-1. **Android M1, the go/no-go spike** (`docs/2026-10-23-android-m1-spike-plan.md`).
-   - **Waiting on the user:** run the download block in §3a when on an unmetered network (~1.6 GB,
-     no sudo; +2–3 GB on the first Gradle build), then say so.
-   - Then the core changes for **v1.1.0** (spec §3.5: infra feature flags, move the wiring into
-     `lectrice-app`, no desktop paths in the core, CHANGELOG + semver tags, resumable export), the
-     `lectrice-ffi` crate, and the spike on the Galaxy S10+ (slow case) and the S26 Ultra
-     (decides go/no-go). Pass line: real-time factor ≤ 0.6 green, ≤ 0.9 amber.
-   - Includes: fp32 vs int8, sherpa-onnx 1.13.8 vs 2.0.0 (2.0 drops GPL espeak-ng but skips unknown
-     words: switch if ≤ 0.1 % skipped on average and ≤ 0.25 % in the worst book + an ear test), and
-     the accelerator experiment (cpu / xnnpack / nnapi; QNN NPU only if the CPU result disappoints).
-2. **Android decisions already made:** Kotlin + Jetpack Compose with Telegram's *principles* (never
-   its code); one shared Rust core, pulled by tag via Cargo git dependencies, never forked; no
-   server, everything on the phone; the user picks the model to download; GitHub Releases only
-   (signed APK via Actions later; back up the key); lock-screen "next" = next sentence; iOS, if
-   ever, is a separate `lectrice-ios` repo.
-3. Optional: a GitHub Release page for `v1.0.0` (the user offered; release notes not written yet).
-4. Known v1 cleaner limits (`docs/progress/T.md`): figure text and the GoF table come out as
-   fragments, tables are only "Table.", a few line splits remain, and "Tweet This Book!" is spoken.
+1. **Waiting on the user:** review the core diff and say when to commit.
+2. **Design pass for the new screens** (Opus brief → Fable), listed in `docs/android-logic/README.md`
+   §7: book sheet + remove/undo (L7*), Storage screen (T3*), not enough space / partial export
+   (E5b, E6, E7), and the E3/E4/E5 variants.
+3. **Android M1 spike** (`docs/2026-10-23-android-m1-spike-plan.md`):
+   - The user runs `bash ~/Downloads/lectrice-android-dl.sh` on an unmetered network (~1.6 GB, no
+     sudo, answer `y` to the licenses), then an agent adds the `~/.zshenv` lines (shown first).
+   - Agents write `lectrice-ffi` and the spike app (S3/S4; can be done before the download). Then
+     `cd ~/Desktop/learning/lectrice-android && ./gradlew :spike:assembleSherpa1Release :spike:assembleSherpa2Release`
+     downloads the other 2–3 GB (unmetered too).
+   - Run on the Galaxy S10+ and S26 Ultra. Pass line: real-time factor ≤ 0.6 green, ≤ 0.9 amber.
+     Also fp32 vs int8, sherpa-onnx 1.13.8 vs 2.0.0, accelerators.
+4. Optional: a GitHub Release page for `v1.0.0`.
+5. Known cleaner limits (`docs/progress/T.md`): figure text and the GoF table come out as fragments,
+   tables are only "Table.", a few line splits remain, "Tweet This Book!" is spoken.
 
 ## Key documents
-- `docs/2026-10-21-design-spec.md`: the web/backend contract (incl. `toc`).
-- `docs/2026-10-21-implementation-plan.md`, `docs/progress/*.md`: how v1 was built and reviewed.
-- `docs/2026-10-23-chapters-brief.md`, `design/2026-10-23-chapter-options-v2.html` (take 1 + label A).
-- `research/2026-10-23-android-options.md`, `docs/2026-10-23-android-spec.md`,
-  `docs/2026-10-23-android-m1-spike-plan.md`.
-- `research/2026-10-21-pdf-survey.md` (cleaner rules), `research/2026-10-06-rust-stack.md` (crates).
+- Web/backend contract: `docs/2026-10-21-design-spec.md`; build history: `docs/progress/*.md`.
+- Android: `docs/android-logic/README.md`, `docs/2026-10-23-android-spec.md`,
+  `docs/2026-10-23-android-m1-spike-plan.md`, `docs/2026-10-23-android-quiet-v2-brief.md`,
+  `research/2026-10-23-android-options.md`.
+- Cleaner rules: `research/2026-10-21-pdf-survey.md`; crates: `research/2026-10-06-rust-stack.md`.
