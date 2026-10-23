@@ -115,7 +115,49 @@ plan, and said **Fable may start designing and building the frontend now against
   session to only orchestrate agents (no hands-on work, to keep the session context small), then
   report back when finished. Each step's agent writes `docs/progress/<step>.md`.
 - **2026-10-23: v1 is built end to end** (B0–B6, F, review + fixes, W, Fable review, T). Reports:
-  `docs/progress/*.md`; remaining problems in `T.md`. Cleaner version 2. Nothing committed.
+  `docs/progress/*.md`; remaining problems in `T.md`. Cleaner version 2.
+- **Git (2026-10-23):** repo at `lectrice/`, author `kia <limsclaude@gmail.com>` (repo-local
+  config). v1 committed in 4 commits on `release/v1`, tagged `v1.0.0`. New work goes on
+  `feature/<name>` branches; now on `feature/chapters`. **Remote:** `origin` =
+  `personal:kia-salvati/lectrice.git` (public; SSH alias `personal` in `~/.ssh/config`, key
+  `~/.ssh/github`). `release/v1` + tag `v1.0.0` pushed 2026-10-23 (history rebuilt without book
+  text first). License: **MIT OR Apache-2.0**, with a README note that binaries built with
+  sherpa-onnx 1.13.x include GPL-3 espeak-ng. **The repo will be PUBLIC (user 2026-10-23): no text from the user's
+  copyrighted books may be tracked in git** (samples, fixtures, prose quotes in docs). Book-derived
+  test data lives in a gitignored local folder and is regenerated from `~/Desktop/*.pdf`; tests
+  that need it skip when it's missing. History must be cleaned before the first push.
+- **Android app (2026-10-23):** research started → `research/2026-10-23-android-options.md`.
+  The user wants it "clean and awesome", time is OK, and likes building it **the way Telegram
+  Android is built** (to be checked against alternatives: Compose, classic Views, Flutter, RN,
+  KMP, Tauri). Reuse the Rust core via `lectrice-ffi`.
+  **Decided 2026-10-23: Kotlin + Jetpack Compose, applying Telegram's *principles* (§4.1 of the
+  report), never copying Telegram code** (it's GPL). Test phones: Galaxy S10+ and Galaxy S26
+  Ultra (others available). **No server option for the phone** (user 2026-10-23): everything
+  on device. **The Android app is a separate project/repo** (user 2026-10-23). **Sync confirmed
+  2026-10-23: one shared Rust core.** The Android repo depends on `lectrice-domain`, `-app`,
+  `-infra` from this repo via Cargo git dependencies pinned to release tags (local path override
+  for side-by-side dev); platform adapters live in each repo; the core gets feature flags for
+  desktop-only parts, a CHANGELOG and semver tags. Never fork the core.
+- **Android repo (2026-10-23):** `lectrice-android` (Android only; iOS would be a separate
+  `lectrice-ios`). Local repo at `../lectrice-android` (branch `main`, remote
+  `personal:kia-salvati/lectrice-android.git`, on GitHub, public), with README, licenses,
+  .gitignore and its own CLAUDE.md. First commit `4ac4ca6` pushed to `main` 2026-10-23. Releases: signed APKs on GitHub
+  Releases via Actions later.
+- **Android answers (user 2026-10-23):** the user picks which model to download (fp32 or int8);
+  try sherpa-onnx 2.0 (no GPL); "prepare while charging" only if needed; GitHub Releases only;
+  lock-screen next = next sentence; **don't install the Android tools yet (metered network)**:
+  give copy-paste download commands for later. Open question: GPU/NPU acceleration on the phone
+  (being researched for the spike).
+- **Chapters build (2026-10-23): option 1A** = rail take 1 (outline + filter) + label A (in the
+  pill). My defaults: `C` = simple toggle; current chapter = nearest chapter-like title with the
+  book's own number. Fable is building it on `feature/chapters`.
+- **Chapters UI decided 2026-10-23:** option 3 (bottom sheet) combined with option 4 (rail), with
+  the rail reworked into a whole-book overview with easier navigation, closable and reopenable.
+  Fable is making `design/2026-10-23-chapter-options-v2.html`. Label style (A/B/C) and the
+  "current chapter = nearest chapter-like title, book's own number" rule are not answered yet.
+- **Next feature (2026-10-23):** show the current chapter beside the page number, and a chapters
+  panel (chapters + sub-chapters, click to jump). Flow: Opus backend `toc` + brief → Fable UI
+  options HTML → user picks → Fable builds → review → commit when the user approves.
   Waiting on the user: test the app, read the regenerated `docs/progress/B2-samples/`, listen to
   `T-k8s-chapter.m4b`, and decide on reading short domain names aloud (T changed it to "read").
   Earlier: **B1 voice approved by the user** ("it sounds awesome").
