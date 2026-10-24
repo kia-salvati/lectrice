@@ -47,7 +47,7 @@ Rules:
 
 - `core:data` maps `CoreException.Failed(name, …)` → `LectriceError(ErrorName)`; anything unknown → `Internal`.
 - The **primary** name decides the message (`StorageFull` is primary over `StorageFailed`, core C22).
-- User-facing text comes from `strings.xml` per name (+ per place); the core's `message` is never shown (it's English
+- User-facing text comes from `strings.xml` per name (+ per place); the core's `user_message` is never shown (it's English
   developer text).
 - File names in messages are the display names (shown, never logged).
 - Snackbars: one at a time, 4 s (8 s with an action), 12 dp above the pill / collapsed button / FAB; a new one replaces the

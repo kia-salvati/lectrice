@@ -497,6 +497,64 @@ svg{fill:currentColor}
   .nowbar{width:300px; margin-left:-150px}
 }
 
+/* ===== 2026-10-24: remove from library, storage, export space ===== */
+.newtag{display:inline-block; margin-left:6px; font-size:11px; font-weight:600; padding:0 6px; border-radius:6px; border:1px solid var(--paccent); color:var(--paccent); vertical-align:1px}
+/* book sheet header (L7 / T3b) and export-file sheet header (T3c) */
+.bsh{display:flex; gap:16px; align-items:center; padding:0 16px 12px}
+.bsh .tx{flex:1; min-width:0}
+.bsh > svg{width:24px; height:24px; flex:none; color:var(--fg2); align-self:flex-start; margin-top:2px}
+.screen .sheet .bd.flush .bsh ~ .row{min-height:56px}
+.row.danger, .row.danger > svg.lead{color:var(--errFg)}
+/* checkbox row in the remove dialog */
+.cbx{display:flex; align-items:center; gap:12px; min-height:48px; width:100%; text-align:left; margin-top:12px; color:var(--fg); font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.cbx svg{width:24px; height:24px; flex:none; color:var(--fg2)}
+.cbx[aria-checked="true"] svg{color:var(--accent)}
+.dlg .more{margin-top:8px}
+.dwrap{position:absolute; inset:0; z-index:24}      /* a dialog with its own scrim above an open sheet */
+/* snackbar with an action; .over = no pill or FAB under it; .lift = above a full-height sheet (E4s) */
+.snack .act{flex:none; height:48px; margin:-14px -8px -14px 0; padding:0 12px; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--inverseFg)}
+.screen .snack.over{bottom:40px}
+.screen .snack.lift{z-index:25}
+.snack.out{opacity:0; transition:opacity 150ms linear}
+/* Library row leaving (200 ms) */
+.gone{overflow:hidden; transition:height 200ms cubic-bezier(.2,.9,.25,1.05), opacity 150ms linear}
+.layer.above{z-index:19}                              /* Storage and Android's page sit above the Listen view */
+/* Storage: summary card, stacked bar, legend */
+.sumcard{margin:0 16px; border-radius:12px}
+.stack{display:flex; gap:2px; height:8px; border-radius:999px; overflow:hidden; margin-top:12px; background:var(--line)}
+.stack span{display:block; height:100%; min-width:2px}
+.k0{background:var(--onTile0)} .k1{background:var(--onTile1)} .k2{background:var(--onTile2)} .k3{background:var(--onTile3)} .k4{background:var(--onTile4)}
+.legend{display:flex; flex-wrap:wrap; gap:4px 16px; margin-top:12px; font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2)}
+.legend span{display:inline-flex; align-items:center; gap:6px; white-space:nowrap}
+.legend i{width:8px; height:8px; border-radius:50%; flex:none}
+.shead{padding:0 16px 8px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.lrow .sz{flex:none; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg)}
+.row[data-act="t3-export"] .t{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.row .t.errc{color:var(--errFg)}
+.btn.txt[disabled]{background:none; color:var(--fg2)}
+/* neutral "room now" card */
+.okcard{display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; border-radius:12px; padding:12px 16px; background:var(--bg2); border:1px solid var(--line); font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.okcard > svg{width:24px; height:24px; flex:none; color:var(--okFg)}
+.okcard .tx{flex:1; min-width:0}
+.okcard .acts{display:flex; justify-content:flex-end; width:100%}
+/* export footer warn card (E6) and the part page's range rows (E7) */
+.warncard{display:flex; gap:12px; align-items:flex-start; margin-top:8px; border-radius:12px; padding:12px 16px; background:var(--warnBg); color:var(--warnFg)}
+.warncard > svg{width:20px; height:20px; flex:none; margin-top:2px}
+.warncard .t{font:500 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.warncard .s{font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); margin-top:2px}
+.xfoot .warnline{color:var(--warnFg)}
+.xrange{display:flex; align-items:center; gap:16px; min-height:56px; border-radius:12px; background:var(--bg); padding:8px 12px; width:100%; text-align:left; color:var(--fg); flex:none}
+.xrange + .xrange{margin-top:8px}
+.xrange .tx{flex:1; min-width:0}
+.xrange .tr svg{width:24px; height:24px; color:var(--fg2)}
+.inner{position:absolute; inset:0; z-index:5}           /* a sheet inside a pushed page (E7 lists) */
+/* Android's own Settings page (X1): a mock of a system screen */
+.sysapp{display:flex; flex-direction:column; align-items:center; padding:8px 16px 0}
+.sysacts{display:flex; gap:12px; padding:24px 16px 8px}
+.sysact{flex:1; height:72px; border-radius:16px; background:var(--bg2); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--fg); font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.sysact svg{width:24px; height:24px; color:var(--accent)}
+.sysact[aria-disabled="true"], .sysact[aria-disabled="true"] svg{color:var(--fg2)}
+
 @media (prefers-reduced-motion: reduce){ .screen *{transition:none !important; animation:none !important; scroll-behavior:auto !important} }
 </style>
 </head>
@@ -517,7 +575,7 @@ svg{fill:currentColor}
       <li><strong>Lock screen and media notification: show the current sentence.</strong> The design: the sentence becomes the media title, updated per sentence (each sentence is already its own media item, so this costs nothing extra), and the chapter and book become the second line.</li>
     </ol>
   </div>
-  <div class="live"><div><div data-live></div><div class="sysbar"><button data-sys="back">◁ Back</button></div></div><div><h2>How to try</h2><ol>
+  <div class="live"><div><div data-live></div><div class="sysbar"><button data-sys="back">◁ Back</button><div class="seg"><span>Phone space:</span><button data-space="plenty" aria-pressed="true">Plenty</button><button data-space="low" aria-pressed="false">Nearly full</button></div><button data-sys="android">Android Settings ›</button></div></div><div><h2>How to try</h2><ol>
     <li>Tap the play button on "The Long Book".</li>
     <li>Tap "Ch. 7 · p. 265" on the pill to open the Listen view.</li>
     <li>Tap the big text to pause; swipe it sideways to change sentence.</li>
@@ -525,7 +583,29 @@ svg{fill:currentColor}
     <li>Tap the chevron (or ◁ Back) to return to the text at the same sentence.</li>
     <li>Scroll the text down to shrink the pill; drag the pill up for the player; long-press play for speed.</li>
     <li>Switch Theme to Black.</li>
+    <li>Long-press "A Field Guide to Small Gardens" (or right-click it) → Remove from library → Remove; then tap Undo.</li>
+    <li>Library ⚙ → Storage: tap a book, an exported audiobook, and "Clear audio cache".</li>
+    <li>Choose "Phone space: Nearly full", then play → ⋯ → Export audiobook: see "Not enough space", tap "Export part of the book", change "To", and start it.</li>
+    <li>On "Not enough space", tap "Free up space" and delete the two Field Guide audiobooks until the banner says there's room; go back.</li>
+    <li>Start a whole-book export with "Plenty", then switch to "Nearly full" while it runs (out of space, parts kept).</li>
+    <li>Tap "Android Settings ›" → "Clear storage" opens Lectrice's Storage screen.</li>
   </ol></div></div>
+  <aside class="impact" id="new-2026-10-24">
+    <h3>New on 24 October: storage, removing books, export space</h3>
+    <ul>
+      <li><strong>Remove a book (L7, L7c, L7u).</strong> Long-press a Library row or the Continue card → a short book sheet (cover tile, title, sizes, "Clear this book's audio", "Remove from library" in red) → a confirm dialog that says what goes, how much it frees, and only the extra lines that apply ("Playback stops.", "Its export in progress is cancelled.", the "also delete its exported audiobooks" checkbox, unticked) → the row slides away and a snackbar with Undo stays 8 s.</li>
+      <li><strong>Storage (T1s, T3…, X1).</strong> One "Storage" row in Settings opens one screen that shows every byte: a summary card ("1.2 GB used by Lectrice · 23.4 GB free on this phone") with a thin stacked bar, then Voice models, Books (largest first, same book sheet), Audio cache (bar + "Clear audio cache"), Exported audiobooks (Open / Share / Save to Audiobooks / Delete), and at the bottom the phone's storage page and "Delete all Lectrice data".</li>
+      <li><strong>Export and space (E6, E7, E5n, E5b, E3h, E3p, E4s, E2p, E4p).</strong> The export page already shows a live estimate; now the estimate also checks the space.</li>
+    </ul>
+    <h3>Notes</h3>
+    <ul>
+      <li><strong>E5b copy says "Free up about {needed − free}"</strong> (222 MB: the amount still missing), while the line under it says "Needs about 342 MB free · 120 MB free now". Every "Free up about …" on the page is the missing amount, never the total needed (user decision, 24 October).</li>
+      <li><strong>The whole file is M4B-only</strong> (user decision, 24 October): the Format group, its "Spec change" badge and the MP3 notes were removed from E1, E1x, E2–E5 and the live phone; summaries read "Heart · Full quality · 1×", and only E4 / E4p / E4s name the format.</li>
+      <li><strong>Clearing the audio cache doesn't raise "free".</strong> Free space is <code>getAllocatableBytes</code>, which already counts our cache (<code>cacheDir</code>) as free (file 10 §5). So in the live demo, "Clear audio cache" lowers Lectrice's total but not the export's shortfall; deleting exports or removing a book does. The banner number follows that rule.</li>
+      <li><strong>Removing a book frees "about {library + cache} MB"</strong> even when its exports' checkbox is ticked (spec §3.1 defines n that way). The dialog doesn't re-count when the box is ticked.</li>
+      <li><strong>"Save to Audiobooks" doesn't change the phone's free space</strong> (the file moves on the same phone); it lowers Lectrice's own total only. The live demo follows that.</li>
+    </ul>
+  </aside>
   <h2 class="group">First run</h2><div class="gallery" data-group="first"></div>
   <h2 class="group">Library</h2><div class="gallery" data-group="library"></div>
   <h2 class="group">Reader &amp; player</h2><div class="gallery" data-group="reader"></div>
@@ -536,7 +616,6 @@ svg{fill:currentColor}
   <aside class="impact">
     <h3>Impact (what these choices cost)</h3>
     <ul>
-      <li><strong>MP3 is a spec change.</strong> The spec (§1, §8.4; ffi <code>ExportFormat { M4b }</code>) says M4B only. Android's <code>MediaCodec</code> has no MP3 <strong>encoder</strong> (decoders only). The real choices are <strong>LAME</strong> (LGPL-2.0; the standard, best quality) or <strong>shine</strong> (LGPL too, lower quality); there's no permissive MP3 encoder of LAME's quality. MP3 patents expired in 2017, so licence is the only issue. LGPL is fine in our MIT/Apache app if LAME is a <strong>separate shared library</strong> (<code>libmp3lame.so</code>, loaded dynamically, replaceable) with its notice and source offer. <strong>APK size:</strong> about 0.3–0.5 MB for arm64-v8a (UNVERIFIED; measure in M4). <strong>Work:</strong> an MP3 <code>AudioEncoderSink</code>; parts join by appending frames (simpler than the M4B remux); chapters only as ID3 <code>CHAP</code> frames, which few players read. About 2 days of work plus a licences entry (estimate). My view: M4B stays the default; MP3 only if you want "plays everywhere" (Q1).</li>
       <li><strong>Speed baked into the file is new for the core.</strong> Today audio is always made at 1× and the player changes speed (ExoPlayer's Sonic time-stretch on Android, the browser on the desktop). An export at 1.5× needs a <strong>time-stretch step in the export runner</strong> before each part is encoded. Proposed: Sonic's algorithm (Apache-2.0, the same one ExoPlayer uses, so the file sounds exactly like in-app listening) behind a small port in the core, so the desktop gets it too (it could also use ffmpeg <code>atempo</code>). The export record gains <code>speed</code>; chapter times are divided by the speed; resume must keep the same speed; <code>start_export(…)</code> gains <code>speed</code> and <code>model</code>. Cached 1× clips stay valid and can be reused. (Kokoro's own <code>speed</code> input would sound slightly more natural but can't reuse the cache; not chosen.)</li>
       <li><strong>Quality choice:</strong> the core holds one loaded engine. If the export uses the model you are <em>not</em> listening with, running both at once would need a second engine in memory (about +300 MB RAM for fp32, UNVERIFIED). Decision: in that case the export <strong>waits while you listen</strong> and continues when playback stops; the page says so.</li>
     </ul>
@@ -545,9 +624,14 @@ svg{fill:currentColor}
   <section id="questions">
     <h2>8. Questions for the user</h2>
     <ol>
-      <li><strong>MP3 export on the phone:</strong> add it (a spec change: LGPL LAME as a separate library, about 0.3–0.5 MB, about 2 days, chapters mostly lost), or keep M4B only? The mockup shows both so you can see it.</li>
       <li><strong>Listen view over the lock screen</strong> (N2L): want it as an optional setting (off by default)?</li>
       <li><strong>Chapters from the reader</strong> are now two taps (⋯ → chapter line), because tapping the pill opens the Listen view. OK, or should I give chapters back a one-tap spot (for example, swap the ⋯ button for a chapters button and rely on drag-up and the Listen view's "More" for the player sheet)?</li>
+    </ol>
+    <h2>Questions (24 October)</h2>
+    <ol>
+      <li><strong>Old export frames still show MP3.</strong> The existing E1/E1x/E2–E5, N3 and the live phone still have the Format (M4B | MP3) group from before "M4B only". Clean them up in a small follow-up pass (drop the group, the badge and the MP3 impact bullet)? <em>Answered 24 October: yes, done in this pass; the file is M4B-only.</em></li>
+      <li><strong>E5b wording.</strong> The spec says "Free up about {needed}" (342 MB) while the phone has 120 MB, so the user really needs to free 222 MB. Change the copy to the amount still missing ("Free up about 222 MB and continue")? <em>Answered 24 October: yes, every "Free up about …" shows the missing amount.</em></li>
+      <li><strong>"There's room now" card</strong> on the Storage screen after freeing enough for an export: keep it (my addition), or just hide the banner? <em>Answered 24 October: keep it.</em></li>
     </ol>
   </section>
 </main>
@@ -590,6 +674,16 @@ const ICONS = {
   keyboard_double_arrow_left: 'M17.59 18L19 16.59 14.42 12 19 7.41 17.59 6l-6 6zM11 18l1.41-1.41L7.83 12l4.58-4.59L11 6l-6 6z',
   keyboard_double_arrow_right: 'M6.41 6L5 7.41 9.58 12 5 16.59 6.41 18l6-6zM13 6l-1.41 1.41L16.17 12l-4.58 4.59L13 18l6-6z',
   lock: 'M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z',
+  delete: 'M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
+  delete_sweep: 'M15 16h4v2h-4zm0-8h7v2h-7zm0 4h6v2h-6zM3 18c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8H3v10zM14 5h-3l-1-1H6L5 5H2v2h12z',
+  sd_card_alert: 'M18 2h-8L4.02 8 4 20c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5 15h-2v-2h2v2zm0-4h-2V8h2v5z',
+  audio_file: 'M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 11h-3v3.75c0 1.24-1.01 2.25-2.25 2.25S8.5 17.99 8.5 16.75s1.01-2.25 2.25-2.25c.46 0 .89.14 1.25.38V11h4v2zm-3-4V3.5L18.5 9H13z',
+  thermostat: 'M15 13V5c0-1.66-1.34-3-3-3S9 3.34 9 5v8c-1.21.91-2 2.37-2 4 0 2.76 2.24 5 5 5s5-2.24 5-5c0-1.63-.79-3.09-2-4zm-4-8c0-.55.45-1 1-1s1 .45 1 1h-1v1h1v2h-1v1h1v2h-2V5z',
+  battery_saver: 'M16 4h-2V2h-4v2H8c-.55 0-1 .45-1 1v16c0 .55.45 1 1 1h8c.55 0 1-.45 1-1V5c0-.55-.45-1-1-1zm-1 10h-2v2h-2v-2H9v-2h2v-2h2v2h2v2z',
+  check_box: 'M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z',
+  check_box_outline_blank: 'M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z',
+  open_in_new: 'M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z',
+  library_music: 'M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 5h-3v5.5c0 1.38-1.12 2.5-2.5 2.5S10 13.88 10 12.5s1.12-2.5 2.5-2.5c.57 0 1.08.19 1.5.51V5h4v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z',
 };
 const ic = (name, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -761,10 +855,9 @@ const COPY = {
   r8c: 'This PDF has no chapters or headings, so there’s nothing to list. The page numbers in the text show where you are.',
   r4: { speed: 'Speed', voice: 'Voice', voiceSub: 'Heart · US · female', sleep: 'Sleep timer', readCode: 'Read code & tables aloud', library: 'Library', chapters: 'Chapters', stopsAt: 'Stops at 23:41', sleepLeft: '28 min', allVoices: 'All 28 voices' },
   stage: { back: 'Back to reading', speed: 'Speed', sleep: 'Sleep', chapters: 'Chapters', more: 'More', section: 'Section', prevSection: 'Previous section', nextSection: 'Next section', codeTitle: 'Code example', unlock: 'Swipe up to unlock' },
-  x: { title: 'Export audiobook', sub: 'Pick the voice, quality, format and speed', exporting: 'Exporting', voice: 'Voice', quality: 'Quality', format: 'Format', speed: 'Speed', badge: 'Spec change',
+  x: { title: 'Export audiobook', sub: 'Pick the voice, quality and speed', exporting: 'Exporting', voice: 'Voice', quality: 'Quality', speed: 'Speed',
     full: ['Full quality', 'In use · 370 MB'], small: 'Smaller', notInstalled: 'Not downloaded', dl: 'Download · 126 MB', installed: 'Installed · 126 MB', downloading: 'Downloading',
     smallNote: 'This export uses the smaller model. While you listen, it waits and continues when you stop.',
-    formatNotes: { M4B: 'One file with chapter marks. Audiobook apps show the chapters.', MP3: 'Plays everywhere. Most players don’t show chapters.' },
     speed1: 'Normal speed. Your audiobook app can still change it.', speedN: (s) => `Baked into the file: it plays at ${s} everywhere, at the same pitch.`,
     takes: (t) => `Takes ${t} on this phone`, start: (t) => `Start export (${t})`,
     reassure: 'Keep using your phone. The export runs in the background, and if Android pauses it, it picks up where it stopped.' },
@@ -778,11 +871,120 @@ const COPY = {
       lockSentence: ['Sentence on the lock screen', 'Shows what’s being read. Off: the section title.'], lockStage: ['Listen view over the lock screen', 'Keeps the Listen view up when the screen turns off while it’s open.'],
       size: 'Text size', preview: 'The quick reader turns the page.', theme: 'Theme', model: 'Full quality · 370 MB · in use', cache: 'Audio cache', cacheVal: '312 MB of 1 GB', clear: 'Clear audio cache', clearSub: 'Your books and reading places stay.', lib: 'Library: 3 books · 48 MB', keep: ['Keep exports running', 'Allow unrestricted battery use'], version: 'Version 1.0.0 · core 1.1.0', licenses: 'Open-source licenses', source: 'Source code on GitHub' } },
   t2: { title: 'Voice model', installed: 'Installed · in use', notInstalled: 'Not installed', use: 'Use this', del: 'Delete (126 MB)', confirm: ['Delete the smaller model?', 'You can download it again later.', 'Cancel', 'Delete'] },
+  /* 2026-10-24: remove from library, export space, storage */
+  l7: { clear: 'Clear this book’s audio', remove: 'Remove from library', title: (t) => `Remove “${t}”?`,
+    body: (mb) => `This removes the book, its reading place and its audio from this phone, and frees about ${mb} MB. You can open the PDF again later.`,
+    exportCancelled: 'Its export in progress is cancelled.', playbackStops: 'Playback stops.',
+    alsoOne: (mb) => `Also delete its exported audiobook (${mb} MB)`, alsoMany: (k, mb) => `Also delete its ${k} exported audiobooks (${mb} MB)`,
+    cancel: 'Cancel', confirm: 'Remove', removed: (t) => `Removed “${t}”.`, undo: 'Undo', cleared: (mb) => `Cleared ${mb} MB of audio.`,
+    meta: (lib, audio) => audio > 0 ? `PDF and text ${lib} MB · audio ${audio} MB` : `PDF and text ${lib} MB` },
+  e6: { title: 'Not enough space for the whole book.', needs: (n, f) => `It needs about ${n} free. The phone has ${f}.`, none: (x) => `There isn’t room for even one chapter. Free up about ${x} and try again.`, part: 'Export part of the book', free: 'Free up space' },
+  e7: { title: 'Export part of the book', freeLine: (f, n) => `${f} free on this phone. The whole book needs about ${n}.`, from: 'From', to: 'To', noFit: (n, f) => `Doesn’t fit: needs about ${n}, ${f} free`, pickFits: 'Pick what fits' },
+  e2p: 'Part 8 of 19 · about 25 min left',
+  e3h: 'Paused while the phone is hot. It continues when it cools down.', e3p: 'Paused to save battery. It continues while charging.',
+  e5n: { text: (k) => `The export stopped: the phone ran out of space. ${k} of 49 parts are kept, so nothing is lost. Free up space and continue.`, needs: (n, f) => `Needs about ${n} free · ${f} free now` },
+  e5b: { text: (x) => `All 49 parts are made, but there isn’t room to put them together. Free up about ${x} and continue.`, parts: 'All 49 parts made · putting them together' },
+  e4s: { saved: 'Saved to Audiobooks', snack: 'Saved to Audiobooks/Lectrice.', another: 'Make another version' },
+  t3: { title: 'Storage', used: (t) => `${t} used by Lectrice`, free: (f) => `${f} free on this phone`, kinds: ['Voice models', 'Books', 'Audio cache', 'Exports', 'App & other'],
+    models: 'Voice models', books: 'Books', cache: 'Audio cache', exports: 'Exported audiobooks', phone: 'Phone', inUse: 'in use',
+    noVoice: 'No voice installed', download: 'Download', noBooks: 'No books yet.', cacheOf: (c) => `${c} of 1 GB`, clear: 'Clear audio cache',
+    cacheNote: 'Audio is made again when it’s needed. Android may also clear it when the phone is low on space.',
+    booksHead: (k, lib, audio) => `${k} ${k === 1 ? 'book' : 'books'} · ${lib} MB${audio > 0 ? `, plus ${audio} MB of audio` : ''}`,
+    inLectrice: 'In Lectrice', inAudiobooks: 'In Audiobooks', soFar: (p, mb) => `Exporting · ${p} % · ${mb} MB so far`,
+    freeUpPhone: 'Free up space on the phone', deleteAll: 'Delete all Lectrice data',
+    freeUp: (x) => `Free up about ${x} to export this book.`, openPhone: 'Open phone storage', roomNow: 'There’s room now to export this book.', roomResume: 'There’s room now. The export continues.', backExport: 'Back to the export',
+    clearedCache: (mb) => `Cleared ${mb} MB.`,
+    deleteAllDlg: ['Delete all Lectrice data?', 'This deletes your books, reading places, voice models, audio and exports kept in Lectrice. Audiobooks you saved to Audiobooks stay. The app closes.', 'Cancel', 'Delete all'] },
+  t3c: { open: 'Open', share: 'Share', save: 'Save to Audiobooks', saveSub: 'Moves the file to Audiobooks/Lectrice', del: 'Delete', goto: 'Go to the export', cancelNote: 'To delete it, cancel the export on its page.',
+    inLectrice: 'In Lectrice', inAudiobooks: 'In Audiobooks/Lectrice', dlg: ['Delete this audiobook?', (mb) => `This deletes the file from your phone (${mb} MB).`, 'Cancel', 'Delete'] },
+  x1: { title: 'Storage', app: 'Lectrice', badge: 'Android’s screen, not Lectrice’s', clearStorage: 'Clear storage', clearCache: 'Clear cache', head: 'Space used', rows: ['App size', 'User data', 'Cache', 'Total'] },
+  mock: { chooser: '(Mockup: Android’s app chooser opens here.)', gotoExport: '(Mockup: opens Designing Calm Software at its export page.)', phoneStorage: '(Mockup: Android’s storage page opens here.)', deleteAll: '(Mockup: Lectrice deletes everything and closes; the next start shows the welcome screen.)' },
 };
+
+/* storage numbers in MB (10^6 bytes, as Android shows them) */
+const STORE = {
+  free: { plenty: 23400, low: 320 },
+  appMB: 45,          // "App & other": APK, native libraries, settings
+  sysAppMB: 44,       // Android's "App size"
+  cacheCapMB: 1000,
+  otherCacheMB: 11,   // voice samples and cover tiles (in the cache, not per book)
+  models: [{ id: 'full', name: 'Full quality', mb: 370, inUse: true }, { id: 'small', name: 'Smaller', mb: 126, inUse: false }],
+  books: [            // lib = PDF + text; audio = this book's audio cache
+    { title: 'The Long Book', lib: 16, audio: 212 },
+    { title: 'Designing Calm Software', lib: 3, audio: 58 },
+    { title: 'Meeting Notes (no chapters)', lib: 2, audio: 0 },
+    { title: 'Quarterly Notes', lib: 5, audio: 0 },
+    { title: 'A Field Guide to Small Gardens', lib: 22, audio: 31 },
+  ],
+  exports: [          // newest first; where: 'app' = in Lectrice, 'shared' = in Audiobooks
+    { id: 'x4', title: 'Designing Calm Software', voice: 'Heart', quality: 'Full quality', speed: '1×', state: 'running', pct: 42, mb: 4 },
+    { id: 'x3', title: 'A Field Guide to Small Gardens', voice: 'Bella', quality: 'Full quality', speed: '0.75×', state: 'done', where: 'app', mb: 153 },
+    { id: 'x2', title: 'A Field Guide to Small Gardens', voice: 'Heart', quality: 'Full quality', speed: '1×', state: 'done', where: 'app', mb: 115 },
+    { id: 'x1', title: 'Quarterly Notes', voice: 'Heart', quality: 'Smaller', speed: '1.5×', state: 'done', where: 'shared', mb: 14 },
+  ],
+};
+/* the Continue card when The Long Book is gone (next most recent book with a place; it has no chapters list) */
+const CARD_FALLBACK = { title: 'Designing Calm Software', loc: 'p. 7', pct: 34, left: '12 min' };
+/* The Long Book: 1× minutes per top-level outline entry (BOOK.outline order: Preface, 1 … 15); sums to 490 = 8 h 10 min */
+const CH_MIN_1X = [8, 30, 28, 27, 42, 32, 44, 36, 26, 22, 33, 36, 32, 50, 30, 14];
+/* the no-chapters book of E7p (invented, static frame only) */
+const PAGE_BOOK = { title: 'Garden Club Minutes (no chapters)', pages: 312, parts: 39, partMin: 10, pagesPerPart: 8 };
+const storeExport = (id) => STORE.exports.find((x) => x.id === id);
+const clearedStore = (st) => ({ ...st, otherCacheMB: 0, books: st.books.map((b) => ({ ...b, audio: 0 })) });
+/* what Lectrice keeps, by kind; "In Audiobooks" files are not Lectrice's */
+function storeTotals(st) {
+  const sum = (xs, k) => xs.reduce((a, x) => a + x[k], 0);
+  const lib = sum(st.books, 'lib'), audio = sum(st.books, 'audio'), cache = audio + st.otherCacheMB;
+  const models = sum(st.models, 'mb'), exports = sum(st.exports.filter((x) => x.where !== 'shared'), 'mb');
+  return { models, lib, audio, cache, exports, app: st.appMB, total: models + lib + cache + exports + st.appMB };
+}
 
 /* ===== view helpers ===== */
 const defaultView = (over = {}) => ({ theme: 'light', w: 412, playing: true, idx: BOOK.current, speed: 1, sleep: 0, voice: 'ok', prep: false, slow: false, ended: false, x2: false,
-  readCode: false, lockSentence: true, lockStage: false, xVoice: 'Heart', xQuality: 'full', xFormat: 'M4B', xSpeed: 1, smallInstalled: false, ...over });
+  readCode: false, lockSentence: true, lockStage: false, xVoice: 'Heart', xQuality: 'full', xSpeed: 1, smallInstalled: false, freeMB: 23400, xRange: null, ...over });
+
+/* ===== export space maths (file 10 §3.11; MB = 10^6 bytes) ===== */
+const SPEED_X = [0.75, 1, 1.25, 1.5, 1.75, 2];
+const BYTES_PER_S = 8000;            // AAC-LC mono 64 kbit/s
+const OVERHEAD = 0.03;               // container, chapter box, part joins (check only)
+const MARGIN_MIN_MB = 100;
+const WHOLE_MIN_1X = 490;            // The Long Book at 1×
+const PARTS = 49;                    // the whole book's export parts
+const RTF = { full: 120 / 490, small: 180 / 490 };   // so the whole book takes "about 2 h" / "about 3 h"
+const UNDO_MS = 8000, SNACK_MS = 4000, ROW_MS = 200, CLEAR_MS = 600, FADE_MS = 150;
+
+const fmtMB = (mb) => mb < 1000 ? `${Math.round(mb)} MB` : `${(mb / 1000).toFixed(1).replace(/\.0$/, '')} GB`;
+const fmtLen = (min) => { const m = Math.round(min); if (m < 60) return `${m} min`; const h = Math.floor(m / 60), r = m % 60; return r ? `${h} h ${r} min` : `${h} h`; };
+const fmtMake = (min) => { if (min < 5) return 'a few minutes'; if (min < 60) return `about ${Math.round(min / 5) * 5} min`; const m = Math.round(min / 10) * 10; return `about ${fmtLen(m)}`; };
+const outMin = (min1x, s) => min1x / SPEED_X[s];
+const shownMB = (min1x, s) => outMin(min1x, s) * 60 * BYTES_PER_S / 1e6;                 // what the UI shows
+const finalMB = (min1x, s) => shownMB(min1x, s) * (1 + OVERHEAD);                        // F
+const neededMB = (F) => 2 * F + Math.max(MARGIN_MIN_MB, 0.1 * F);                       // new export
+const resumePartsMB = (F, doneShare) => (F - doneShare * F) + F + Math.max(MARGIN_MIN_MB, 0.1 * F);
+const resumeAssembleMB = (F) => F + Math.max(MARGIN_MIN_MB, 0.1 * F);
+/* range = { from, to } indexes into BOOK.outline (inclusive) */
+const rangeMin = (r) => CH_MIN_1X.slice(r.from, r.to + 1).reduce((a, b) => a + b, 0);
+const exportMin1x = (v) => v.xRange ? rangeMin(v.xRange) : WHOLE_MIN_1X;                 // the export being made
+const wholeF = (v) => finalMB(WHOLE_MIN_1X, v.xSpeed);
+const fitsWhole = (v) => neededMB(wholeF(v)) <= v.freeMB;
+const rangeFits = (v, r) => neededMB(finalMB(rangeMin(r), v.xSpeed)) <= v.freeMB;
+const partsDone = (pct) => Math.round(pct / 100 * PARTS);
+/* start = the chapter of the saved place (outline index CUR.ch + 1 = 7); extend while it fits; null when the start alone doesn't fit */
+function suggestRange(v) { const from = CUR.ch + 1; if (!rangeFits(v, { from, to: from })) return null; let to = from; while (to + 1 < CH_MIN_1X.length && rangeFits(v, { from, to: to + 1 })) to++; return { from, to }; }
+const entryLabel = (i) => BOOK.outline[i].num ? `${BOOK.outline[i].num}. ${BOOK.outline[i].title}` : BOOK.outline[i].title;
+const shortNum = (i) => BOOK.outline[i].num || BOOK.outline[i].title;      // "7" or "Preface"
+function rangeLabel(r) {        // footer line 1 and E4
+  if (r.pages) return `Pages ${r.p1}–${r.p2}`;
+  const a = BOOK.outline[r.from].num, b = BOOK.outline[r.to].num;
+  if (r.from === r.to) return a ? `Chapter ${a}` : shortNum(r.from);
+  return a ? `Chapters ${a}–${b}` : `${shortNum(r.from)}–Ch. ${b}`;
+}
+function rangeSuffix(r) {       // the summary line under the export header
+  if (r.pages) return `p. ${r.p1}–${r.p2}`;
+  const a = BOOK.outline[r.from].num, b = BOOK.outline[r.to].num;
+  if (r.from === r.to) return a ? `Ch. ${a}` : shortNum(r.from);
+  return a ? `Ch. ${a}–${b}` : `${shortNum(r.from)}–Ch. ${b}`;
+}
 
 /* where a sentence index sits in the book */
 function pos(v) {
@@ -873,14 +1075,21 @@ function S4(v) {
 
 /* ===== library (option 1's layout in Quiet's style) ===== */
 function continueCard(v, book = BOOKS[0]) {
-  return `<div class="card cont"><div class="tx"><div class="cap w5 fg2">${COPY.l1.cont}</div><div class="tm ell2 mt4">${esc(book.title)}</div>
+  return `<div class="card cont" data-longpress="book" data-title="${esc(book.title)}"><div class="tx"><div class="cap w5 fg2">${COPY.l1.cont}</div><div class="tm ell2 mt4">${esc(book.title)}</div>
     <div class="bs fg2" style="display:flex;white-space:nowrap"><span>Ch. 7 ·&nbsp;</span><span class="ell">${esc(CUR_ENTRY.title)}</span><span>&nbsp;· p. 265</span></div>
     ${progress(book.pct, '', 'margin-top:12px')}<div class="cap fg2 mt4">${book.pct} % · ${book.left} left</div></div>
     ${playBtn(false, 'aria-label="Play The Long Book from chapter 7" data-act="continue-play"')}</div>`;
 }
+/* the Continue card once The Long Book is gone: the next book with a place (no chapters list) */
+function fallbackCard() {
+  const b = CARD_FALLBACK;
+  return `<div class="card cont" data-longpress="book" data-title="${esc(b.title)}"><div class="tx"><div class="cap w5 fg2">${COPY.l1.cont}</div><div class="tm ell2 mt4">${esc(b.title)}</div>
+    <div class="bs fg2 ell">${b.loc}</div>${progress(b.pct, '', 'margin-top:12px')}<div class="cap fg2 mt4">${b.pct} % · ${b.left} left</div></div>
+    ${playBtn(false, `aria-label="Play ${esc(b.title)} from page 7" data-act="continue-play"`)}</div>`;
+}
 function recentRow(book) {
   const pct = book.pct ? `Continue · ${book.pct} %` : 'Start';
-  return `<button class="lrow" data-act="open-book" aria-label="${esc(book.title)}, ${pct}">${tile(book.title, 40, 56)}<span class="tx"><span class="t ell" style="display:block">${esc(book.title)}</span><span class="m ell" style="display:block">${book.pages} pages · opened ${book.opened}</span></span>
+  return `<button class="lrow" data-act="open-book" data-longpress="book" data-title="${esc(book.title)}" aria-label="${esc(book.title)}, ${pct}">${tile(book.title, 40, 56)}<span class="tx"><span class="t ell" style="display:block">${esc(book.title)}</span><span class="m ell" style="display:block">${book.pages} pages · opened ${book.opened}</span></span>
     <span class="tr"><span>${pct}</span>${progress(book.pct)}</span></button>`;
 }
 function importingRow(long) {
@@ -889,11 +1098,31 @@ function importingRow(long) {
 }
 const qhead = () => `<div class="qhead"><span class="ttl">${COPY.l1.title}</span>${ib('settings', 'Settings', 'data-act="settings"')}</div>`;
 const qfab = () => `<button class="qfab" aria-label="${COPY.l1.open}" data-act="open-pdf">${ic('note_add')}</button>`;
-function L1(v, { banner: ban = '', importing = null } = {}) {
-  const rows = BOOKS.slice(1).map(recentRow).join(divider('i72'));
-  return `<div class="scroll" data-scroll>${qhead()}${ban ? `<div class="px16" style="margin-bottom:16px">${ban}</div>` : ''}${continueCard(v)}
+/* books = the Recent rows; card = 'long' (The Long Book), 'fallback' (CARD_FALLBACK) or null (no card) */
+function L1(v, { banner: ban = '', importing = null, books = BOOKS.slice(1), card = 'long' } = {}) {
+  if (!books.length && !card) return L2();
+  const rows = books.map(recentRow).join(divider('i72'));
+  const cardHtml = card === 'long' ? continueCard(v) : card === 'fallback' ? fallbackCard() : '';
+  return `<div class="scroll" data-scroll>${qhead()}${ban ? `<div class="px16" style="margin-bottom:16px">${ban}</div>` : ''}${cardHtml}
     <div class="lb w6" style="padding:24px 16px 0">${COPY.l1.recent}</div>${importing ? importingRow(importing === 'long') + divider('i72') : ''}${rows}<div style="height:120px"></div></div>${qfab()}`;
 }
+/* ===== remove from library (L7 / T3b): book sheet, confirm dialog, undo snackbar ===== */
+function bookSheet(book, { loading = false } = {}) {
+  const c = COPY.l7;
+  const meta = loading ? '…' : c.meta(book.lib, book.audio);
+  const clear = loading || book.audio > 0 ? sheetRow('delete_sweep', loading ? c.clear : `${c.clear} · ${book.audio} MB`, '', '', 'data-act="clear-book-audio"') : '';
+  return scrim() + sheet(`<div class="bd flush"><div class="bsh">${tile(book.title, 40, 56)}<div class="tx"><div class="tm ell2">${esc(book.title)}</div><div class="bs fg2 mt4">${meta}</div></div></div>${divider('i0')}${clear}
+    <button class="row danger" data-act="remove-book">${ic('delete', 'lead')}<span class="tx"><span class="t" style="display:block">${c.remove}</span></span></button></div>`, { auto: true, attrs: 'aria-label="Book"' });
+}
+/* exports = this book's finished exports kept in Lectrice; files in Audiobooks are never mentioned */
+function removeDialog(book, { playing = false, exportRunning = false, exports = [], ticked = false } = {}) {
+  const c = COPY.l7, mb = exports.reduce((a, x) => a + x.mb, 0);
+  const cbx = exports.length ? `<button class="cbx" role="checkbox" aria-checked="${ticked}" data-act="toggle-del-exports">${ic(ticked ? 'check_box' : 'check_box_outline_blank')}<span>${esc(exports.length === 1 ? c.alsoOne(mb) : c.alsoMany(exports.length, mb))}</span></button>` : '';
+  return `<div class="dwrap">${scrim()}<div class="dlg" role="dialog" aria-label="${esc(c.title(book.title))}"><div class="tm">${esc(c.title(book.title))}</div><div class="b mt16">${esc(c.body(book.lib + book.audio))}</div>
+    ${exportRunning ? `<div class="b more">${c.exportCancelled}</div>` : ''}${playing ? `<div class="b more">${c.playbackStops}</div>` : ''}${cbx}
+    <div class="acts">${btn(c.cancel, 'txt', 'data-act="dlg-cancel"')}${btn(c.confirm, 'txt errc', 'data-act="remove-confirm"')}</div></div></div>`;
+}
+const undoSnack = (title) => `<div class="snack" role="status"><span class="sp1">${esc(COPY.l7.removed(title))}</span><button class="act" data-act="undo-remove">${COPY.l7.undo}</button></div>`;
 function L2() {
   const c = COPY.l2;
   return `${qhead()}<div class="empty" style="bottom:0"><div class="tl">${c.title}</div><div class="b fg2 mt8">${c.body}</div><div class="cap fg2 mt12">${c.limits}</div></div>${qfab()}`;
@@ -988,12 +1217,12 @@ const sleepChips = (v) => `<div class="chips wrap" role="radiogroup" aria-label=
 function sheetRow(icon, title, sub, trailing, attrs = '', extra = '') {
   return `<button class="row${sub ? ' two' : ''}" ${attrs}>${icon ? ic(icon, 'lead') : ''}<span class="tx"><span class="t" style="display:block">${esc(title)}</span>${sub ? `<span class="m" style="display:block">${esc(sub)}</span>` : ''}${extra}</span><span class="tr">${trailing}</span></button>`;
 }
-function playerSheet(v, { detent = '600px', voiceOpen = false, voiceAll = false, sleepOpen = false, page = null, exportState = 'E1', exporting = null, xVoiceOpen = false, xVoiceAll = false, dl = null } = {}) {
+function playerSheet(v, { detent = '600px', voiceOpen = false, voiceAll = false, sleepOpen = false, page = null, exportState = 'E1', exporting = null, xVoiceOpen = false, xVoiceAll = false, dl = null, sub = null, range = null, list = null } = {}) {
   const c = COPY.r4, p = pos(v);
   const voiceRows = voiceOpen ? (voiceAll ? VOICES : VOICES.slice(0, 6)).map((vo) => `<button class="row${vo.name === 'Heart' ? ' sel' : ''}" role="radio" aria-checked="${vo.name === 'Heart'}" data-act="pick-voice"><span class="radio${vo.name === 'Heart' ? ' on' : ''}"></span><span class="tx b">${esc(vo.name)}</span><span class="m">${vo.group}</span></button>`).join('') + (voiceAll ? '' : `<div style="display:flex;justify-content:center">${btn(c.allVoices, 'txt', 'data-act="voice-all"')}</div>`) : '';
   const exportSub = exporting === null ? COPY.x.sub : `${COPY.x.exporting} · ${exporting} %`;
   const exportBar = exporting === null ? '' : progress(exporting, '', 'width:120px;margin-top:4px');
-  const pageHtml = page === 'export' ? `<div class="page">${exportPage(v, exportState, { voiceOpen: xVoiceOpen, voiceAll: xVoiceAll, dl })}</div>` : '';
+  const pageHtml = page === 'export' ? `<div class="page">${exportPage(v, exportState, { voiceOpen: xVoiceOpen, voiceAll: xVoiceAll, dl, sub, range, list })}</div>` : '';
   return scrim() + sheet(`<div class="bd">${transportRow(v)}<div class="mt16">${slider(STATS.bookPct, { buffered: STATS.buffered })}</div><div class="flex cap fg2 mt4"><span>Ch. ${p.chNum} · ${STATS.bookPct} %</span><span class="right">${STATS.bookLeft} left</span></div>
     <button class="mt16" data-act="chapters" style="display:block;text-align:left;color:inherit;width:100%"><span class="lb16 ell2">${esc(`${p.chNum}. ${p.chapterTitle} › ${p.sectionTitle}`)}</span><span class="bs fg2" style="display:block">${STATS.chapterPct} % of this chapter · ${STATS.chapterLeft} left in it · Page ${p.page} · PDF page ${STATS.pdfPage} of ${STATS.pdfPages}</span></button>
     <div class="lb w6 mt16">${c.speed}</div><div class="mt8">${speedSeg(v)}</div><div class="mt8">
@@ -1003,7 +1232,7 @@ function playerSheet(v, { detent = '600px', voiceOpen = false, voiceAll = false,
     ${sheetRow('download', COPY.x.title, exportSub, ic('chevron_right'), 'data-act="export-page" data-export-row', exportBar)}${divider('i0')}
     ${sheetRow('menu_book', c.library, '', ic('chevron_right'), 'data-act="to-library"')}</div></div>${pageHtml}`, { detent, attrs: 'aria-label="Player"' });
 }
-/* the export choices (E1): voice, quality, format, speed, the switch and the reassurance card */
+/* the export choices (E1): voice, quality, speed, the switch and the reassurance card */
 function exportChoices(v, { voiceOpen = false, voiceAll = false, dl = null } = {}) {
   const c = COPY.x;
   const head = (t, extra = '') => `<div class="xhead"><span>${t}</span>${extra}</div>`;
@@ -1020,35 +1249,88 @@ function exportChoices(v, { voiceOpen = false, voiceAll = false, dl = null } = {
   const speedNote = v.xSpeed === 1 ? c.speed1 : c.speedN(SPEEDS[v.xSpeed]);
   return `${head(c.voice)}<button class="xvoice" data-act="x-voice-row" aria-expanded="${voiceOpen}">${ic('record_voice_over')}<span class="tx"><span class="b w5" style="display:block">${esc(v.xVoice)}</span><span class="bs fg2" style="display:block">${voice.group}</span></span><span class="tr">${ic(voiceOpen ? 'expand_less' : 'expand_more')}</span></button>${voiceRows}
     ${head(c.quality)}${q({ id: 'full', on: v.xQuality === 'full', title: c.full[0], sub: c.full[1] })}${small}${qualityNote}
-    ${head(c.format, `<span class="badge">${c.badge}</span>`)}${segmented(['M4B', 'MP3'], v.xFormat, 'aria-label="Format"', (o) => `data-act="x-format" data-f="${o}"`)}<div class="xsub">${c.formatNotes[v.xFormat]}</div>
     ${head(c.speed)}${segmented(SPEEDS, SPEEDS[v.xSpeed], 'aria-label="Export speed"', (o, i) => `data-act="x-speed" data-speed="${i}"`)}<div class="xsub">${speedNote}</div>
     <div class="row mt8" style="flex:none">${ic('menu_book', 'lead')}<span class="tx"><span class="t" style="display:block">${COPY.r4.readCode}</span></span><span class="tr">${switchCtl(v.readCode, COPY.r4.readCode, 'readCode')}</span></div>
     <div class="card r12 xlast" style="background:var(--bg);border:0;flex:none"><div class="info">${ic('info')}<span class="b">${c.reassure}</span></div></div>`;
 }
 function exportFooter(v) {
+  if (!fitsWhole(v)) return e6Footer(v);
   const [len, size] = EST[v.xSpeed];
   const t = EST_TIME[v.xQuality];
   return `<div class="xfoot"><div data-est aria-live="polite"><div class="lb16">${len} · ${size}</div><div class="bs fg2">${COPY.x.takes(t)}</div></div>${btn(COPY.x.start(t), '', 'style="margin-top:8px" data-act="start-export"')}</div>`;
 }
-const exportSummary = (v) => `${esc(v.xVoice)} · ${QUALITY_NAMES[v.xQuality]} · ${v.xFormat} · ${SPEEDS[v.xSpeed]}`;
-const e4Summary = (v) => `${EST[v.xSpeed][0].replace('about ', '')} · ${EST[v.xSpeed][1].replace('about ', '')} · ${v.xFormat}`;
-/* the export states E2–E5 */
+const centred = (inner, cls = '') => `<div class="${cls}" style="display:flex;justify-content:center">${inner}</div>`;
+/* E6: the whole book doesn't fit; export part of it (when a chapter fits) or free up space */
+function e6Footer(v) {
+  const c = COPY.e6, [len, size] = EST[v.xSpeed];
+  const needed = neededMB(wholeF(v)), free = v.freeMB;
+  const some = suggestRange(v) !== null;
+  const none = some ? '' : `<div class="s">${c.none(fmtMB(needed - free))}</div>`;
+  const buttons = some ? btn(c.part, '', 'style="margin-top:8px" data-act="part-page"') + centred(btn(c.free, 'txt', 'data-act="free-up"'))
+    : btn(c.free, '', 'style="margin-top:8px" data-act="free-up"');
+  return `<div class="xfoot"><div data-est aria-live="polite"><div class="lb16">${len} · ${size}</div><div class="warncard" role="status">${ic('sd_card_alert')}<div><div class="t">${c.title}</div><div class="s">${c.needs(fmtMB(needed), fmtMB(free))}</div>${none}</div></div></div>${buttons}</div>`;
+}
+const exportSummary = (v) => `${esc(v.xVoice)} · ${QUALITY_NAMES[v.xQuality]} · ${SPEEDS[v.xSpeed]}${v.xRange ? ` · ${rangeSuffix(v.xRange)}` : ''}`;
+const e4Summary = (v) => v.xRange ? `${rangeLabel(v.xRange)} · ${fmtLen(outMin(rangeMin(v.xRange), v.xSpeed))} · ${fmtMB(shownMB(rangeMin(v.xRange), v.xSpeed))} · M4B`
+  : `${EST[v.xSpeed][0].replace('about ', '')} · ${EST[v.xSpeed][1].replace('about ', '')} · M4B`;
+/* the export states E2–E5 and their 2026-10-24 variants */
 function exportBody(v, state, { pct = 42 } = {}) {
-  const e2 = COPY.e2;
-  const running = (ban = '', buttons) => `${ban}${progress(pct, 'big', 'margin-top:16px')}<div class="lb16 mt12" data-export-label>${COPY.x.exporting} · ${pct} %</div><div class="bs fg2 mt4">${e2.parts}</div><div class="b mt16">${e2.note}</div><div class="exbtns mt24">${buttons}</div>`;
+  const e2 = COPY.e2, F = finalMB(exportMin1x(v), v.xSpeed), free = v.freeMB;
+  const running = (ban = '', buttons, { parts = e2.parts, p = pct } = {}) => `${ban}${progress(p, 'big', 'margin-top:16px')}<div class="lb16 mt12" data-export-label>${COPY.x.exporting} · ${p} %</div><div class="bs fg2 mt4">${parts}</div><div class="b mt16">${e2.note}</div><div class="exbtns mt24">${buttons}</div>`;
+  const e4 = ({ saved = false, another = false } = {}) => `<div class="center mt24" style="display:flex;flex-direction:column;align-items:center;gap:16px"><span class="ok" style="display:inline-flex;width:48px;height:48px">${ic('check_circle')}</span><span class="tm">${COPY.e4.title}</span><span class="b">${e4Summary(v)}</span></div>
+      ${saved ? `<button class="btn" style="margin-top:24px" disabled>${ic('check')}${COPY.e4s.saved}</button>` : btn(COPY.e4.save, '', 'style="margin-top:24px" data-act="save-audiobooks"')}<div class="cap fg2 center mt4">${COPY.e4.saveCap}</div>${btn(COPY.e4.saveAs, 'sec', 'style="margin-top:12px"')}${centred(btn(COPY.e4.share, 'txt', '', 'ios_share'), 'mt8')}
+      ${another ? centred(btn(COPY.e4s.another, 'txt', 'data-act="another-version"')) : ''}`;
+  /* out of space: the needed/free line under the banner, Continue only once there's room, Free up space, Cancel */
+  const space = (text, needed, p, parts) => running(`<div class="mt16">${banner('err', 'error', text)}</div><div class="bs mt8">${COPY.e5n.needs(fmtMB(needed), fmtMB(free))}</div>`,
+    btn(COPY.e5.cont, '', needed <= free ? 'data-act="resume-export"' : 'disabled'), { p, parts })
+    + centred(btn(COPY.e6.free, 'txt', 'data-act="free-up"'), 'mt8') + centred(btn(COPY.e5.cancel, 'txt', 'data-act="page-back"'));
   const bodies = {
     E2: running('', btn(e2.pause, 'sec') + btn(e2.cancel, 'txt', 'data-act="page-back"')),
-    E3: running(`<div class="mt16">${banner('warn', 'warning', COPY.e3.text)}</div>`, btn(COPY.e3.cont)) + `<div class="mt8" style="display:flex;justify-content:center">${btn(COPY.e3.battery, 'txt')}</div>`,
-    E4: `<div class="center mt24" style="display:flex;flex-direction:column;align-items:center;gap:16px"><span class="ok" style="display:inline-flex;width:48px;height:48px">${ic('check_circle')}</span><span class="tm">${COPY.e4.title}</span><span class="b">${e4Summary(v)}</span></div>
-      ${btn(COPY.e4.save, '', 'style="margin-top:24px"')}<div class="cap fg2 center mt4">${COPY.e4.saveCap}</div>${btn(COPY.e4.saveAs, 'sec', 'style="margin-top:12px"')}<div class="mt8" style="display:flex;justify-content:center">${btn(COPY.e4.share, 'txt', '', 'ios_share')}</div>`,
+    E2p: running('', btn(e2.pause, 'sec') + btn(e2.cancel, 'txt', 'data-act="page-back"'), { parts: COPY.e2p }),
+    E3: running(`<div class="mt16">${banner('warn', 'warning', COPY.e3.text)}</div>`, btn(COPY.e3.cont)) + centred(btn(COPY.e3.battery, 'txt'), 'mt8'),
+    E3h: running(`<div class="mt16">${banner('warn', 'thermostat', COPY.e3h)}</div>`, btn(COPY.e3.cont)),
+    E3p: running(`<div class="mt16">${banner('warn', 'battery_saver', COPY.e3p)}</div>`, btn(COPY.e3.cont)),
+    E4: e4(),
+    E4p: e4({ another: true }),
+    E4s: e4({ saved: true, another: true }),
     E5: running(`<div class="mt16">${banner('err', 'error', COPY.e5.text)}</div>`, btn(COPY.e5.cont) + btn(COPY.e5.cancel, 'txt', 'data-act="page-back"')),
+    E5n: space(COPY.e5n.text(partsDone(pct)), resumePartsMB(F, partsDone(pct) / PARTS), pct, e2.parts),
+    E5b: space(COPY.e5b.text(fmtMB(resumeAssembleMB(F) - free)), resumeAssembleMB(F), 98, COPY.e5b.parts),
   };
   return bodies[state];
 }
 function exportPage(v, state = 'E1', opts = {}) {
   const head = `<div class="shh">${ib('arrow_back', 'Back', 'data-act="page-back"')}<span class="tm">${COPY.x.title}</span></div>`;
-  if (state === 'E1') return `${head}<div class="bd xbd">${exportChoices(v, opts)}${exportFooter(v)}</div>`;
-  return `${head}<div class="bs fg2 px16">${exportSummary(v)}</div><div class="bd" style="padding-top:8px">${exportBody(v, state)}</div>`;
+  const part = opts.sub === 'part' ? `<div class="page">${partPage(v, opts)}</div>` : '';
+  if (state === 'E1') return `${head}<div class="bd xbd">${exportChoices(v, opts)}${exportFooter(v)}</div>${part}`;
+  const snack = state === 'E4s' && opts.snack !== false ? `<div class="snack over lift" role="status"><span class="sp1">${COPY.e4s.snack}</span></div>` : '';
+  return `${head}<div class="bs fg2 px16">${exportSummary(v)}</div><div class="bd" style="padding-top:8px">${exportBody(v, state, { pct: opts.pct })}</div>${snack}`;
+}
+/* E7: export part of the book. range = { from, to } (outline indexes) or the page-mode object of E7p; list = 'from' | 'to' opens the chapter list */
+function partPage(v, { range, list = null } = {}) {
+  const c = COPY.e7, s = v.xSpeed, free = v.freeMB, pages = !!range.pages;
+  const min1x = pages ? range.min1x : rangeMin(range);
+  const neededWhole = pages ? range.neededWhole : neededMB(wholeF(v));
+  const needed = neededMB(finalMB(min1x, s)), fits = needed <= free;
+  const make = fmtMake(min1x * RTF[v.xQuality]);
+  const endAria = (end, i) => { const e = BOOK.outline[i]; return `${end === 'from' ? c.from : c.to} ${e.num ? `chapter ${e.num}, ${e.title}` : e.title}. Change`; };
+  const rowv = (end) => {
+    const i = range[end];
+    const value = pages ? range[`${end}Label`] : entryLabel(i);
+    const aria = pages ? `${end === 'from' ? c.from : c.to} page ${range[`${end}Label`].slice(3)}. Change` : endAria(end, i);
+    return `<button class="xrange" data-act="range-list" data-end="${end}" aria-label="${esc(aria)}"><span class="tx"><span class="cap fg2" style="display:block">${end === 'from' ? c.from : c.to}</span><span class="b w5 ell" style="display:block">${esc(value)}</span></span><span class="tr">${ic('expand_more')}</span></button>`;
+  };
+  const line1 = `${rangeLabel(range)} · about ${fmtLen(outMin(min1x, s))} · about ${fmtMB(shownMB(min1x, s))}`;
+  const line2 = fits ? `<div class="bs fg2">${COPY.x.takes(make)}</div>` : `<div class="bs warnline">${c.noFit(fmtMB(needed), fmtMB(free))}</div>`;
+  const foot = `<div class="xfoot"><div data-est aria-live="polite"><div class="lb16">${line1}</div>${line2}</div>${btn(COPY.x.start(make), '', `style="margin-top:8px" data-act="start-part"${fits ? '' : ' disabled'}`)}${fits ? '' : centred(btn(c.pickFits, 'txt', 'data-act="pick-fits"'))}</div>`;
+  return `<div class="shh">${ib('arrow_back', 'Back', 'data-act="part-back"')}<span class="tm">${c.title}</span></div><div class="bs fg2 px16">${exportSummary({ ...v, xRange: null })}</div><div class="bs fg2 mt4 px16">${c.freeLine(fmtMB(free), fmtMB(neededWhole))}</div>
+    <div class="bd xbd" style="padding-top:16px">${rowv('from')}${rowv('to')}${foot}</div>${list ? rangeList(v, list, range) : ''}`;
+}
+/* the From / To chapter list inside the E7 page: every top-level outline entry with its length and size at the chosen speed */
+function rangeList(v, end, range) {
+  const sel = range[end], s = v.xSpeed, title = end === 'from' ? COPY.e7.from : COPY.e7.to;
+  const rows = BOOK.outline.map((e, i) => { const on = i === sel; return `<button class="row two${on ? ' sel cur' : ''}" role="radio" aria-checked="${on}" data-act="range-pick" data-i="${i}"><span class="tx"><span class="t ell2">${esc(entryLabel(i))}</span><span class="m" style="display:block">about ${fmtLen(outMin(CH_MIN_1X[i], s))} · about ${fmtMB(shownMB(CH_MIN_1X[i], s))}</span></span>${on ? `<span class="tr">${ic('check')}</span>` : ''}</button>`; }).join('');
+  return `<div class="inner">${scrim()}${sheet(`<div class="shh"><span class="tm">${title}</span>${ib('close', 'Close', 'data-act="list-close"')}</div><div class="bd flush" data-center-cur>${rows}</div>`, { auto: true, attrs: `aria-label="${title}"` })}</div>`;
 }
 const speedSheet = (v) => scrim() + sheet(`<div class="shh"><span class="tm">${COPY.r4.speed}</span>${ib('close', 'Close', 'data-act="close"')}</div><div class="bd">${speedSeg(v)}</div>`, { auto: true, attrs: 'aria-label="Speed"' });
 const sleepSheet = (v) => scrim() + sheet(`<div class="shh"><span class="tm">${COPY.r4.sleep}</span>${ib('close', 'Close', 'data-act="close"')}</div><div class="bd">${sleepChips(v)}</div>`, { auto: true, attrs: 'aria-label="Sleep timer"' });
@@ -1155,15 +1437,18 @@ function settingsRow(title, value, trailing = ic('chevron_right'), attrs = '') {
   const tag = trailing.includes('<button') ? 'div' : 'button';
   return `<${tag} class="row${value ? ' two' : ''}" ${attrs}><span class="tx"><span class="t" style="display:block">${esc(title)}</span>${value ? `<span class="m" style="display:block">${esc(value)}</span>` : ''}</span><span class="tr">${trailing}</span></${tag}>`;
 }
-function T1(v, { scrolled = false } = {}) {
+/* storageRow: the single "Storage" row (T1s) instead of the cache block and the library row */
+function T1(v, { scrolled = false, storageRow = false, store = STORE } = {}) {
   const c = COPY.t1, r = c.rows;
+  const storage = storageRow ? settingsRow(c.storage, `${fmtMB(storeTotals(store).total)} used · ${fmtMB(v.freeMB)} free`, ic('chevron_right'), 'data-act="t3"')
+    : `<div class="px16"><div class="lb16">${r.cache}</div>${progress(31, '', 'margin-top:8px')}<div class="bs fg2 mt4">${r.cacheVal}</div><div class="mt4" style="margin-left:-12px">${btn(r.clear, 'txt')}</div><div class="bs fg2">${r.clearSub}</div></div>${settingsRow(r.lib, '', '')}`;
   return `<div class="scroll" data-scroll data-scroll-end="${scrolled}"><div class="tbar">${ib('arrow_back', 'Back', 'data-act="back"')}<span class="tl">${c.title}</span></div>
     <div class="sechead">${c.listening}</div>${settingsRow(...r.voice)}${settingsRow(...r.speed)}${settingsRow(r.code, '', switchCtl(v.readCode, r.code, 'readCode'))}${settingsRow(...r.ahead)}
     ${settingsRow(r.lockSentence[0], r.lockSentence[1], switchCtl(v.lockSentence, r.lockSentence[0], 'lockSentence'))}${settingsRow(r.lockStage[0], r.lockStage[1], switchCtl(v.lockStage, r.lockStage[0], 'lockStage'))}
     <div class="sechead">${c.reading}</div><div class="px16 lb16">${r.size}</div><div class="px16 mt8"><div class="sl" role="slider" aria-valuenow="3" aria-valuemin="1" aria-valuemax="5" aria-label="Text size" tabindex="0"><span class="trk"></span><span class="act" style="width:50%"></span>${[0, 25, 50, 75, 100].map((p) => `<span class="tk" style="left:${p}%"></span>`).join('')}<span class="th" style="left:50%"></span></div><div class="stops"><span>S</span><span>M</span><span class="w6" style="color:var(--fg)">L</span><span>XL</span><span>XXL</span></div></div>
     <div class="prev" style="--pv:21">${r.preview}</div><div class="px16 lb16 mt8">${r.theme}</div><div class="px16 mt8" style="margin-bottom:8px">${segmented(['System', 'Light', 'Dark', 'Black'], 'System', 'aria-label="Theme"')}</div>
     <div class="sechead">${c.model}</div>${settingsRow(r.model, '', ic('chevron_right'), 'data-act="t2"')}
-    <div class="sechead">${c.storage}</div><div class="px16"><div class="lb16">${r.cache}</div>${progress(31, '', 'margin-top:8px')}<div class="bs fg2 mt4">${r.cacheVal}</div><div class="mt4" style="margin-left:-12px">${btn(r.clear, 'txt')}</div><div class="bs fg2">${r.clearSub}</div></div>${settingsRow(r.lib, '', '')}
+    <div class="sechead">${c.storage}</div>${storage}
     <div class="sechead">${c.battery}</div>${settingsRow(...r.keep)}
     <div class="sechead">${c.about}</div>${settingsRow(r.version, '', '')}${settingsRow(r.licenses, '')}${settingsRow(r.source, '')}<div style="height:48px"></div></div>`;
 }
@@ -1177,10 +1462,66 @@ function T2(v, { both = false, confirm = false } = {}) {
   return `<div class="scroll"><div class="tbar">${ib('arrow_back', 'Back', 'data-act="back"')}<span class="tl">${c.title}</span></div><div class="px16" style="display:flex;flex-direction:column;gap:12px">${full}${small}</div></div>${dlg}`;
 }
 
+/* ===== storage (T3) and Android's own app-storage page (X1) ===== */
+const exportMeta = (x) => x.state === 'done' ? `${x.voice} · ${x.speed} · ${x.mb} MB · ${x.where === 'shared' ? COPY.t3.inAudiobooks : COPY.t3.inLectrice}` : COPY.t3.soFar(x.pct, x.mb);
+/* from: 'settings' | 'system' (✕); banner: { short: mb } | { ok: true, resume } | null; clearing: the cache button shows a spinner */
+function T3(v, store, { from = 'settings', banner: ban = null, loading = false, empty = false, scrolled = false, clearing = false } = {}) {
+  const c = COPY.t3;
+  const st = empty ? { ...store, models: [], books: [], exports: [], otherCacheMB: 0 } : store;
+  const t = storeTotals(st), free = v.freeMB;
+  const n = (x) => loading ? '…' : x;
+  const top = from === 'system' ? ib('close', 'Close', 'data-act="t3-close"') : ib('arrow_back', 'Back', 'data-act="back"');
+  const banHtml = !ban ? '' : ban.ok
+    ? `<div class="okcard" role="status">${ic('check_circle')}<div class="tx">${ban.resume ? c.roomResume : c.roomNow}</div><div class="acts">${btn(c.backExport, 'txt', 'data-act="back"')}</div></div>`
+    : banner('warn', 'sd_card_alert', c.freeUp(fmtMB(ban.short)), btn(c.openPhone, 'txt', 'data-act="phone-storage"'));
+  const kinds = [t.models, t.lib, t.cache, t.exports, t.app].map((mb, k) => ({ mb, k })).filter((x) => x.mb > 0);
+  const stack = `<div class="stack" aria-hidden="true">${loading ? '' : kinds.map((x) => `<span class="k${x.k}" style="flex:${x.mb} 0 0"></span>`).join('')}</div>`;
+  const legend = loading ? '' : `<div class="legend" aria-hidden="true">${kinds.map((x) => `<span><i class="k${x.k}"></i>${c.kinds[x.k]} ${fmtMB(x.mb)}</span>`).join('')}</div>`;
+  const summary = `<div class="card sumcard"><div class="tm">${c.used(n(fmtMB(t.total)))}</div><div class="bs fg2 mt4">${c.free(n(fmtMB(free)))}</div>${stack}${legend}</div>`;
+  const models = st.models.length ? st.models.map((m) => settingsRow(m.name, n(`${m.mb} MB${m.inUse ? ` · ${c.inUse}` : ''}`), ic('chevron_right'), 'data-act="t2"')).join('')
+    : settingsRow(c.noVoice, '', btn(c.download, 'txt'));
+  const books = [...st.books].sort((a, b) => (b.lib + b.audio) - (a.lib + a.audio));
+  const bookRows = books.length ? `<div class="shead">${n(c.booksHead(books.length, t.lib, t.audio))}</div>` + books.map((b) => `<button class="lrow" data-act="t3-book" data-title="${esc(b.title)}">${tile(b.title, 40, 56)}<span class="tx"><span class="t ell" style="display:block">${esc(b.title)}</span><span class="m ell" style="display:block">${n(COPY.l7.meta(b.lib, b.audio))}</span></span>${loading ? '' : `<span class="sz">${b.lib + b.audio} MB</span>`}</button>`).join(divider('i72'))
+    : `<div class="b fg2 px16" style="padding-bottom:8px">${c.noBooks}</div>`;
+  const clearBtn = clearing ? `<button class="btn txt" disabled>${spinner()}${c.clear}</button>` : btn(c.clear, 'txt', `data-act="clear-cache"${t.cache ? '' : ' disabled'}`);
+  const cache = `<div class="px16">${progress(loading ? 0 : Math.round(t.cache / st.cacheCapMB * 100), '', 'margin-top:8px')}<div class="bs fg2 mt4">${c.cacheOf(n(`${t.cache} MB`))}</div><div class="mt4" style="margin-left:-12px">${clearBtn}</div><div class="bs fg2">${c.cacheNote}</div></div>`;
+  const exportRows = st.exports.map((x) => sheetRow('audio_file', x.title, n(exportMeta(x)), '', `data-act="t3-export" data-id="${x.id}"`, x.state === 'done' || loading ? '' : progress(x.pct, '', 'width:120px;margin-top:4px'))).join(divider());
+  const exports = st.exports.length ? `<div class="sechead">${c.exports}</div>${exportRows}` : '';
+  return `<div class="scroll" data-scroll data-scroll-end="${scrolled}"><div class="tbar">${top}<span class="tl">${c.title}</span></div>${banHtml ? `<div class="px16" style="margin-bottom:16px">${banHtml}</div>` : ''}${summary}
+    <div class="sechead">${c.models}</div>${models}
+    <div class="sechead">${c.books}</div>${bookRows}
+    <div class="sechead">${c.cache}</div>${cache}${exports}
+    <div class="sechead">${c.phone}</div>${settingsRow(c.freeUpPhone, '', ic('chevron_right'), 'data-act="phone-storage"')}<button class="row" data-act="delete-all"><span class="tx"><span class="t errc" style="display:block">${c.deleteAll}</span></span></button><div style="height:48px"></div></div>`;
+}
+/* T3c: one exported audiobook (done in Lectrice, done in Audiobooks, or unfinished) */
+function exportFileSheet(x) {
+  const c = COPY.t3c, done = x.state === 'done';
+  const meta = `${x.voice} · ${x.quality} · ${x.speed}${done ? ` · ${x.mb} MB` : ''}`;
+  const where = done ? (x.where === 'shared' ? c.inAudiobooks : c.inLectrice) : COPY.t3.soFar(x.pct, x.mb);
+  const rows = !done ? sheetRow('download', c.goto, '', ic('chevron_right'), 'data-act="x-goto"') + `<div class="bs fg2" style="padding:8px 16px 0">${c.cancelNote}</div>`
+    : sheetRow('open_in_new', c.open, '', '', 'data-act="x-open"') + sheetRow('ios_share', c.share, '', '', 'data-act="x-share"')
+      + (x.where === 'app' ? sheetRow('library_music', c.save, c.saveSub, '', 'data-act="x-save"') : '')
+      + `<button class="row danger" data-act="x-delete">${ic('delete', 'lead')}<span class="tx"><span class="t" style="display:block">${c.del}</span></span></button>`;
+  return scrim() + sheet(`<div class="bd flush"><div class="bsh">${ic('audio_file')}<div class="tx"><div class="tm ell2">${esc(x.title)}</div><div class="bs fg2 mt4">${meta}</div><div class="cap fg2 mt4">${where}</div>${done ? '' : progress(x.pct, '', 'width:120px;margin-top:4px')}</div></div>${divider('i0')}${rows}</div>`, { auto: true, attrs: 'aria-label="Exported audiobook"' });
+}
+const deleteDialog = (x) => { const d = COPY.t3c.dlg; return `<div class="dwrap">${scrim()}${dialog(d[0], d[1](x.mb), btn(d[2], 'txt', 'data-act="dlg-cancel"') + btn(d[3], 'txt errc', 'data-act="x-delete-confirm"'))}</div>`; };
+const deleteAllDialog = () => { const d = COPY.t3.deleteAllDlg; return `<div class="dwrap">${scrim()}${dialog(d[0], d[1], btn(d[2], 'txt', 'data-act="dlg-cancel"') + btn(d[3], 'txt errc', 'data-act="delete-all-confirm"'))}</div>`; };
+const snackOver = (text) => `<div class="snack over" role="status"><span class="sp1">${esc(text)}</span></div>`;
+/* X1: Android's Settings → Apps → Lectrice → Storage, drawn as a labelled mock; "User data" = total − app size − cache */
+function X1(v, store) {
+  const c = COPY.x1, t = storeTotals(store);
+  const vals = [`${STORE.sysAppMB} MB`, fmtMB(STORE.appMB + t.models + t.lib + t.exports - STORE.sysAppMB), t.cache ? fmtMB(t.cache) : '0 B', fmtMB(t.total)];
+  return `<div class="scroll" data-scroll><div class="tbar">${ib('arrow_back', 'Back', 'data-act="x1-back"')}<span class="tl">${c.title}</span></div>
+    <div class="sysapp"><div class="mark" aria-hidden="true">L</div><div class="tm mt12">${c.app}</div><div class="mt8"><span class="badge">${c.badge}</span></div></div>
+    <div class="sysacts"><button class="sysact" data-act="sys-clear-storage">${ic('delete')}${c.clearStorage}</button><button class="sysact" data-act="sys-clear-cache"${t.cache ? '' : ' aria-disabled="true"'}>${ic('delete_sweep')}${c.clearCache}</button></div>
+    <div class="sechead">${c.head}</div>${c.rows.map((r, i) => settingsRow(r, vals[i], '')).join('')}</div>`;
+}
+
 /* ===== frame registry: every static state ===== */
 /* f(id, name, note, build, extra): build(v) returns the screen's inner HTML; extra = {scrim, scroll, shift, shiftSheet, x2} */
 const f = (id, name, note, build, extra = {}) => ({ id, name, note, build, ...extra });
 const RD = { scrim: true, scroll: 'hl' };
+const NEW = { isNew: true };      // added 2026-10-24: the caption gets a "New" tag
 const rdExtra = (v, { chip = null, tip = '', top = false, state = 'expanded' } = {}) => reader(v, { state, chip, extra: tip + (top ? topBanner() : '') });
 const exportFrame = (over, opts) => (v) => reader(v) + playerSheet({ ...v, ...over }, { detent: '100%', page: 'export', ...opts });
 const FRAMES = {
@@ -1204,6 +1545,13 @@ const FRAMES = {
     f('L4', 'Import error', COPY.l4.others, (v) => L1(v) + importErrorSheet()),
     f('L5', 'Voice not installed', 'Banner between the header and the Continue card; reading works without the voice.', (v) => L1(v, { banner: voiceBanner() })),
     f('L6', 'Already in library', 'Snackbar over the reader after opening a known PDF.', (v) => reader(v) + snackbar(COPY.l6), RD),
+    f('L7', 'Book sheet', 'Long-press a row or the Continue card. TalkBack: "Remove from library" custom action on every row.', (v) => L1(v) + bookSheet(STORE.books[4]), NEW),
+    f('L7l', 'Book sheet · sizes loading', 'Sizes show "…" until the core answers (≤ 300 ms).', (v) => L1(v) + bookSheet(STORE.books[4], { loading: true }), NEW),
+    f('L7c', 'Remove · playing book', '"Playback stops." shows only when this book is playing; frees about 228 MB.', (v) => L1(v) + bookSheet(STORE.books[0]) + removeDialog(STORE.books[0], { playing: true }), NEW),
+    f('L7ce', 'Remove · with exports', 'Exported audiobooks are kept unless ticked; files in Audiobooks are never touched.', (v) => L1(v) + bookSheet(STORE.books[4]) + removeDialog(STORE.books[4], { exports: [storeExport('x3'), storeExport('x2')] }), NEW),
+    f('L7cx', 'Remove · export running', 'Its unfinished export is paused now and cancelled when the undo time is over.', (v) => L1(v) + bookSheet(STORE.books[1]) + removeDialog(STORE.books[1], { exportRunning: true }), NEW),
+    f('L7u', 'Removed · Undo', 'The row is gone at once; Undo for 8 s brings it back with its place.', (v) => L1(v, { books: BOOKS.slice(1, 4) }) + undoSnack(BOOKS[4].title), NEW),
+    f('L7z', 'Last book removed', 'Removing the last book shows the empty library under the snackbar.', () => L2() + undoSnack(BOOKS[0].title), NEW),
   ],
   reader: [
     f('R1', 'Reader, playing', 'Edge-to-edge text; the highlight sits at 35 % of the height. The pill status opens the Listen view.', (v) => reader(v), RD),
@@ -1253,14 +1601,28 @@ const FRAMES = {
     f('N4', 'Download notification', 'Progress with Pause.', N4),
   ],
   export: [
-    f('E1', 'Export page · defaults', 'Heart, Full quality, M4B, 1×; the estimate stays pinned at the bottom.', exportFrame({})),
+    f('E1', 'Export page · defaults', 'Heart, Full quality, 1×; the estimate stays pinned at the bottom.', exportFrame({})),
     f('E1v', 'Voice list open', 'Six voices with sample buttons, then "All 28 voices".', exportFrame({}, { xVoiceOpen: true })),
     f('E1q', 'Smaller model picked', 'Both models installed; the note explains the wait while listening; time becomes about 3 h.', exportFrame({ smallInstalled: true, xQuality: 'small' })),
-    f('E1x', 'MP3 at 1.5×', 'Length and size follow the speed; the smaller model is not downloaded.', exportFrame({ xFormat: 'MP3', xSpeed: 3 })),
+    f('E1x', '1.5× picked', 'Length and size follow the speed; the smaller model is not downloaded.', exportFrame({ xSpeed: 3 })),
     f('E2', 'Running', 'Listening comes first; the export slows down while you listen.', exportFrame({}, { exportState: 'E2' })),
     f('E3', 'Paused by Android', 'Background time limit; continues while charging or when opened.', exportFrame({}, { exportState: 'E3' })),
     f('E4', 'Done', 'Save to Audiobooks, Save as… or Share.', exportFrame({}, { exportState: 'E4' })),
     f('E5', 'Failed', 'Out of space; finished parts are kept.', exportFrame({}, { exportState: 'E5' })),
+    f('E6', 'Not enough space', 'The whole book needs about 585 MB; the phone has 320 MB. Export part of it, or free up space.', exportFrame({ freeMB: 320 }), NEW),
+    f('E6n', 'Nothing fits', 'Not even one chapter fits: only "Free up space".', exportFrame({ freeMB: 120 }), NEW),
+    f('E7', 'Export part of the book', 'The range that fits is already picked, from the chapter you’re in.', exportFrame({ freeMB: 320 }, { sub: 'part', range: { from: 7, to: 12 } }), NEW),
+    f('E7f', 'From list', 'Each chapter with its length and size at the chosen speed.', exportFrame({ freeMB: 320 }, { sub: 'part', range: { from: 7, to: 12 }, list: 'from' }), NEW),
+    f('E7t', 'To list', 'Picking a To before the From moves the From too.', exportFrame({ freeMB: 320 }, { sub: 'part', range: { from: 7, to: 12 }, list: 'to' }), NEW),
+    f('E7x', 'Range doesn’t fit', 'Start is disabled; "Pick what fits" restores the suggestion.', exportFrame({ freeMB: 320 }, { sub: 'part', range: { from: 7, to: 14 } }), NEW),
+    f('E7p', 'No chapters', `A book without chapters picks pages, in steps of about 10 minutes. (Book: "${PAGE_BOOK.title}", ${PAGE_BOOK.pages} pages.)`, exportFrame({ freeMB: 320 }, { sub: 'part', range: { pages: true, p1: 97, p2: 272, fromLabel: 'p. 97', toLabel: 'p. 265', min1x: 220, neededWhole: 486 } }), NEW),
+    f('E2p', 'Running · part', 'The summary line shows the range.', exportFrame({ xRange: { from: 7, to: 12 } }, { exportState: 'E2p' }), NEW),
+    f('E4p', 'Done · part', 'Chapter marks only for chapters 7–12, timed from the start of the file.', exportFrame({ xRange: { from: 7, to: 12 } }, { exportState: 'E4p' }), NEW),
+    f('E3h', 'Paused · hot', 'Pauses when the phone is critically hot; continues after it cools down.', exportFrame({}, { exportState: 'E3h' }), NEW),
+    f('E3p', 'Paused · battery', 'Pauses on battery saver or at 15 %; continues while charging.', exportFrame({}, { exportState: 'E3p' }), NEW),
+    f('E5n', 'Out of space · parts kept', 'Continue is enabled once there’s room; it also continues by itself.', exportFrame({ freeMB: 120 }, { exportState: 'E5n' }), NEW),
+    f('E5b', 'Out of space · assembling', 'All parts are kept; only putting them together waits for room.', exportFrame({ freeMB: 120 }, { exportState: 'E5b' }), NEW),
+    f('E4s', 'Saved to Audiobooks', 'The file moved to Audiobooks/Lectrice; it’s no longer counted in Lectrice’s storage.', exportFrame({}, { exportState: 'E4s' }), NEW),
   ],
   settings: [
     f('T1', 'Settings', 'Scrolled to the top; two new lock-screen switches under "Read ahead".', T1),
@@ -1268,6 +1630,24 @@ const FRAMES = {
     f('T2', 'Voice model', 'Full quality installed; the smaller one can be downloaded.', T2),
     f('T2b', 'Both installed', '"Use this" switches; "Delete" frees 126 MB.', (v) => T2(v, { both: true })),
     f('T2c', 'Delete confirm', 'Nothing is lost that cannot be downloaded again.', (v) => T2(v, { both: true, confirm: true })),
+    f('T1s', 'Settings · Storage row', 'One "Storage" row replaces T1b’s three storage rows.', (v) => T1(v, { scrolled: true, storageRow: true }), { ...NEW, scroll: 'end' }),
+    f('T3', 'Storage', 'Everything Lectrice keeps, largest books first.', (v) => T3(v, STORE), NEW),
+    f('T3e', 'Storage · end', 'Exported audiobooks, the phone’s storage page, and the full reset.', (v) => T3(v, STORE, { scrolled: true }), { ...NEW, scroll: 'end' }),
+    f('T3l', 'Storage · loading', 'Numbers show "…" until they’re measured (≤ 300 ms).', (v) => T3(v, STORE, { loading: true }), NEW),
+    f('T3z', 'Storage · empty', 'No books, no exports, no voice.', (v) => T3(v, STORE, { empty: true }), NEW),
+    f('T3g', 'Storage · 200 % font', 'Rows wrap; the bar and legend stay readable.', (v) => T3(v, STORE), { ...NEW, x2: true }),
+    f('T3b', 'Book sheet', 'Same sheet as the Library’s long-press.', (v) => T3(v, STORE) + bookSheet(STORE.books[0]), NEW),
+    f('T3c', 'Export file · in Lectrice', 'Save to Audiobooks moves the file; Lectrice’s total drops by its size.', (v) => T3(v, STORE) + exportFileSheet(storeExport('x3')), NEW),
+    f('T3ca', 'Export file · in Audiobooks', 'Lectrice can still open, share and delete what it saved.', (v) => T3(v, STORE) + exportFileSheet(storeExport('x1')), NEW),
+    f('T3cu', 'Export file · unfinished', 'An unfinished export is cancelled on its own page.', (v) => T3(v, STORE) + exportFileSheet(storeExport('x4')), NEW),
+    f('T3cd', 'Delete an audiobook', 'Asks first; frees 153 MB.', (v) => T3(v, STORE) + exportFileSheet(storeExport('x3')) + deleteDialog(storeExport('x3')), NEW),
+    f('T3d', 'Delete all data', 'The real reset; saved audiobooks stay.', (v) => T3(v, STORE, { scrolled: true }) + deleteAllDialog(), { ...NEW, scroll: 'end' }),
+    f('T3k', 'Cache cleared', 'No confirm: audio is made again when needed.', (v) => T3(v, clearedStore(STORE)) + snackOver(COPY.t3.clearedCache(storeTotals(STORE).cache)), NEW),
+    f('T3f', 'Free up (from an export)', 'Opened from the export’s "Free up space": the banner says how much.', (v) => T3({ ...v, freeMB: 320 }, STORE, { banner: { short: neededMB(wholeF(v)) - 320 } }), NEW),
+    f('T3r', 'Room now', 'After deleting two exports there’s room; back to the export.', (v) => T3({ ...v, freeMB: 588 }, { ...STORE, exports: STORE.exports.filter((x) => x.id !== 'x2' && x.id !== 'x3') }, { banner: { ok: true } }), NEW),
+    f('T3s', 'Opened from Android', 'Opened by Android’s "Clear storage": ✕ returns to Android’s Settings.', (v) => T3(v, STORE, { from: 'system' }), NEW),
+    f('X1', 'Android Settings · App storage', 'Android’s own screen (AOSP labels; Samsung’s wording UNVERIFIED). "Cache" is Lectrice’s audio cache, covers and voice samples. Lectrice declares manageSpaceActivity, so "Clear storage" opens Lectrice’s Storage screen (T3s) instead of wiping everything.', (v) => X1(v, STORE), NEW),
+    f('X1c', 'Android · after Clear cache', 'Nothing else is lost; audio is made again when needed.', (v) => X1(v, clearedStore(STORE)), NEW),
   ],
 };
 const allFrames = () => Object.values(FRAMES).flat();
@@ -1290,9 +1670,26 @@ class Live {
   constructor(host, env) {
     this.v = defaultView({ ...env, playing: false, screen: 'L1' });
     this.s = { sheet: null, page: null, detent: 'half', sleepOpen: false, voiceOpen: false, voiceAll: false, exportState: 'E1', exporting: null, xVoiceOpen: false, xVoiceAll: false, dl: null,
-      follow: true, collapsed: false, hint: true, stageHint: true, settings: null, scrub: false };
+      follow: true, collapsed: false, hint: true, stageHint: true, settings: null, scrub: false,
+      /* 2026-10-24 */
+      removed: null,     // { book, index, ticked, timer } during the undo window
+      dialog: null,      // 'remove' | 'x-delete' | 'delete-all'
+      ticked: false,     // remove dialog checkbox
+      target: null,      // the book or export of the open sheet / dialog
+      parked: null,      // the player-sheet overlay hidden while Storage is open from an export
+      request: null,     // { kind: 'start' | 'resume', needed } when Storage was opened from an export
+      range: null,       // E7 range
+      part: false,       // E7 page open
+      list: null,        // 'from' | 'to' while the E7 list is open
+      t3From: null,      // 'settings' | 'export' | 'system'
+      t3Sub: null,       // 'T2' when the model page is open over Storage
+      clearing: false };
+    this.store = structuredClone(STORE);
+    this.exportSeq = STORE.exports.length;
     this.timer = null;
     this.stageEl = null;
+    this.t3 = null;
+    this.x1 = null;
     this.animating = false;
     host.innerHTML = phone(this.v, '');
     this.screen = host.querySelector('.screen');
@@ -1301,6 +1698,7 @@ class Live {
     this.renderLib();
     this.screen.addEventListener('click', (e) => this.onClick(e));
     this.screen.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+    this.screen.addEventListener('contextmenu', (e) => { const lp = e.target.closest('[data-longpress]'); if (!lp) return; e.preventDefault(); this.openBookSheet(lp.dataset.title); });
     this.screen.addEventListener('wheel', (e) => this.onManualScroll(e), { passive: true });
     this.screen.addEventListener('touchmove', (e) => this.onManualScroll(e), { passive: true });
     this.screen.addEventListener('scroll', (e) => this.onScroll(e), true);
@@ -1313,7 +1711,14 @@ class Live {
   }
 
   /* ---- rendering ---- */
-  renderLib() { this.lib.innerHTML = L1(this.v); }
+  /* the Library follows the store: the card is The Long Book, else the fallback book (which then leaves Recent), else none */
+  libView() {
+    const has = (t) => this.store.books.some((b) => b.title === t);
+    const card = has(BOOKS[0].title) ? 'long' : has(CARD_FALLBACK.title) ? 'fallback' : null;
+    return { card, books: BOOKS.slice(1).filter((b) => has(b.title) && !(card === 'fallback' && b.title === CARD_FALLBACK.title)) };
+  }
+  renderLib() { this.lib.innerHTML = L1(this.v, this.libView()); }
+  renderSettings() { if (this.settings) this.settings.innerHTML = this.s.settings === 'T2' ? T2(this.v) : T1(this.v, { storageRow: true, store: this.store }); }
   openReader() {
     const layer = document.createElement('div');
     layer.className = 'layer push';
@@ -1343,7 +1748,7 @@ class Live {
   /* replaces the controls around the text without touching the text */
   renderChrome() {
     if (this.v.screen === 'L1') { this.renderLib(); return; }
-    if (this.v.screen === 'T') { this.settings.innerHTML = this.s.settings === 'T2' ? T2(this.v) : T1(this.v); return; }
+    if (this.v.screen === 'T') { this.renderSettings(); return; }
     if (!this.reader) return;
     const pillEl = this.reader.querySelector('.pill');
     if (pillEl) pillEl.outerHTML = pill(this.v, { cls: this.s.collapsed ? 'collapsed' : '', expanded: this.s.sheet === 'player' });
@@ -1361,6 +1766,8 @@ class Live {
       case 'speed': return speedSheet(v);
       case 'sleep': return sleepSheet(v);
       case 'scrub': return scrubber(v);
+      case 'book': return bookSheet(s.target);
+      case 'export-file': return exportFileSheet(s.target);
       default: return '';
     }
   }
@@ -1390,18 +1797,19 @@ class Live {
   }
   closeOverlay() {
     const wrap = this.topOverlay();
-    Object.assign(this.s, { sheet: null, page: null, sleepOpen: false, detent: 'half', xVoiceOpen: false, xVoiceAll: false });
+    Object.assign(this.s, { sheet: null, page: null, part: false, list: null, sleepOpen: false, detent: 'half', xVoiceOpen: false, xVoiceAll: false });
     if (!wrap) return;
     const sh = wrap.querySelector('.sheet');
     wrap.querySelector('.scrimL')?.classList.add('off');
     if (sh) { sh.classList.remove('drag'); sh.classList.add('off'); after(SPRING_MS, () => wrap.remove()); } else wrap.remove();
     this.renderChrome();
   }
-  closeOverlayNow() { this.screen.querySelectorAll('[data-overlay]').forEach((n) => n.remove()); this.s.sheet = null; this.s.page = null; }
+  closeOverlayNow() { this.screen.querySelectorAll('[data-overlay]').forEach((n) => n.remove()); Object.assign(this.s, { sheet: null, page: null, part: false, list: null, dialog: null }); }
   pushPage() {
     const sh = this.topOverlay()?.querySelector('.sheet');
     if (!sh) return;
-    Object.assign(this.s, { page: 'export', exportState: this.s.exporting === null ? 'E1' : 'E2', detent: 'full', xVoiceOpen: false, xVoiceAll: false });
+    const paused = this.s.exportState === 'E5n';   // an export paused for space is shown again as it was
+    Object.assign(this.s, { page: 'export', exportState: this.s.exporting === null ? 'E1' : paused ? 'E5n' : 'E2', detent: 'full', xVoiceOpen: false, xVoiceAll: false });
     sh.style.setProperty('--detent', '100%');
     sh.insertAdjacentHTML('beforeend', `<div class="page push"></div>`);
     this.renderPage();
@@ -1420,15 +1828,48 @@ class Live {
     if (!pg) return;
     const bd = pg.querySelector('.bd');
     const top = bd ? bd.scrollTop : 0;
-    pg.innerHTML = exportPage(this.v, this.s.exportState, { voiceOpen: this.s.xVoiceOpen, voiceAll: this.s.xVoiceAll, dl: this.s.dl });
+    const s = this.s;
+    pg.innerHTML = exportPage(this.v, s.exportState, { voiceOpen: s.xVoiceOpen, voiceAll: s.xVoiceAll, dl: s.dl, sub: s.part ? 'part' : null, range: s.range, list: s.list, pct: s.exporting ?? 42, snack: false });
     const nb = pg.querySelector('.bd');
     if (nb) nb.scrollTop = top;
-    if (!fadeIn) return;
-    const est = pg.querySelector('[data-est]');
-    if (!est) return;
-    est.classList.add('fade');
-    void est.offsetWidth;
-    est.classList.remove('fade');
+    this.partEl()?.querySelectorAll('[data-center-cur]').forEach(centreCur);
+    if (fadeIn) this.fadeIn(pg.querySelector('[data-est]'));
+  }
+  fadeIn(est) { if (!est) return; est.classList.add('fade'); void est.offsetWidth; est.classList.remove('fade'); }
+  /* ---- E7, the "export part of the book" page inside the export page ---- */
+  partEl() { return this.topOverlay()?.querySelector('.page .page'); }
+  pushPart() {
+    const outer = this.topOverlay()?.querySelector('.page');
+    if (!outer) return;
+    Object.assign(this.s, { part: true, list: null, range: suggestRange(this.v) });
+    outer.insertAdjacentHTML('beforeend', `<div class="page push">${partPage(this.v, { range: this.s.range })}</div>`);
+    const pg = this.partEl();
+    requestAnimationFrame(() => pg.classList.remove('push'));
+  }
+  popPart() {
+    const pg = this.partEl();
+    Object.assign(this.s, { part: false, list: null });
+    if (!pg) return;
+    pg.classList.add('push');
+    after(SPRING_MS, () => pg.remove());
+  }
+  /* re-renders the E7 page; fade = cross-fade its footer (a range change) */
+  renderPart(fade = false) {
+    const pg = this.partEl();
+    if (!pg) return;
+    const draw = () => { pg.innerHTML = partPage(this.v, { range: this.s.range, list: this.s.list }); pg.querySelectorAll('[data-center-cur]').forEach(centreCur); };
+    if (!fade) { draw(); return; }
+    pg.querySelector('[data-est]')?.classList.add('fade');
+    after(120, () => { draw(); this.fadeIn(pg.querySelector('[data-est]')); });
+  }
+  /* picking an end: the other end follows so the range stays in order */
+  pickRange(i) {
+    const r = this.s.range, end = this.s.list;
+    r[end] = i;
+    if (end === 'from' && r.to < i) r.to = i;
+    if (end === 'to' && r.from > i) r.from = i;
+    this.s.list = null;
+    this.renderPart(true);
   }
   /* applies an export choice; the footer cross-fades when its numbers change */
   changeExport(fn) {
@@ -1445,14 +1886,217 @@ class Live {
     const layer = document.createElement('div');
     layer.className = 'layer push';
     layer.dataset.layer = 'settings';
-    layer.innerHTML = which === 'T2' ? T2(this.v) : T1(this.v);
     this.screen.appendChild(layer);
     this.settings = layer;
     this.s.settings = which;
     this.v.screen = 'T';
+    this.renderSettings();
     requestAnimationFrame(() => layer.classList.remove('push'));
   }
   closeSettings() { this.settings?.remove(); this.settings = null; this.v.screen = this.reader ? 'R' : 'L1'; }
+
+  /* ---- Storage (T3) and Android's app-storage page (X1): layers above everything but sheets ---- */
+  pushLayer(name) {
+    const layer = document.createElement('div');
+    layer.className = 'layer above push';
+    layer.dataset.layer = name;
+    this.screen.appendChild(layer);
+    requestAnimationFrame(() => layer.classList.remove('push'));
+    return layer;
+  }
+  /* from: 'settings' | 'export' (the player sheet is parked and a request banner shows) | 'system' (✕ back to X1) */
+  openT3(from, request = null) {
+    this.closeDialog();
+    if (this.t3) this.closeT3();
+    if (from === 'export') this.park();
+    Object.assign(this.s, { t3From: from, t3Sub: null, request, clearing: false });
+    this.t3 = this.pushLayer('t3');
+    this.renderT3();
+  }
+  renderT3() {
+    if (!this.t3) return;
+    const top = this.t3.querySelector('.scroll')?.scrollTop || 0;
+    this.t3.innerHTML = this.s.t3Sub === 'T2' ? T2(this.v) : T3(this.v, this.store, { from: this.s.t3From === 'system' ? 'system' : 'settings', banner: this.bannerState(), clearing: this.s.clearing });
+    this.t3.querySelector('.scroll').scrollTop = top;
+  }
+  closeT3() {
+    this.t3?.remove();
+    this.t3 = null;
+    if (this.s.t3From === 'export') this.unpark();
+    Object.assign(this.s, { t3From: null, t3Sub: null, request: null });
+  }
+  openX1() {
+    this.closeOverlayNow();
+    if (this.s.t3From === 'export') { this.t3?.remove(); this.t3 = null; Object.assign(this.s, { parked: null, request: null, t3From: null }); }
+    if (this.x1) return;
+    this.x1 = this.pushLayer('x1');
+    this.renderX1();
+  }
+  renderX1() { if (this.x1) this.x1.innerHTML = X1(this.v, this.store); }
+  closeX1() { this.x1?.remove(); this.x1 = null; }
+  /* the player sheet (with its export page) is taken out of the DOM while Storage is open from it, and put back after */
+  park() {
+    const wrap = this.topOverlay();
+    if (!wrap) return;
+    wrap.remove();
+    const s = this.s;
+    s.parked = { wrap, sheet: s.sheet, page: s.page, detent: s.detent, part: s.part, list: s.list };
+    Object.assign(s, { sheet: null, page: null, part: false, list: null });
+  }
+  unpark() {
+    const p = this.s.parked;
+    if (!p) return;
+    this.s.parked = null;
+    Object.assign(this.s, { sheet: p.sheet, page: p.page, detent: p.detent, part: p.part, list: p.list });
+    this.overlayHost().appendChild(p.wrap);
+    this.renderPage();
+  }
+  /* the T3 banner while Storage is open from an export: how much is still missing, or "there's room now" */
+  bannerState() {
+    const r = this.s.request;
+    if (!r) return null;
+    const short = r.needed - this.v.freeMB;
+    return short > 0 ? { short } : { ok: true, resume: r.kind === 'resume' };
+  }
+  /* after every change to the store or the free space: every visible storage number, then the export request */
+  refreshStorage() {
+    this.renderT3();
+    this.renderX1();
+    if (this.v.screen === 'T') this.renderSettings();
+    if (this.v.screen === 'L1') this.renderLib();
+    const r = this.s.request;
+    if (r && r.kind === 'resume' && this.s.exportState === 'E5n' && r.needed <= this.v.freeMB) { this.s.exportState = 'E2'; this.runExport(this.s.exporting); }
+  }
+  openFreeUp() {
+    const F = finalMB(exportMin1x(this.v), this.v.xSpeed);
+    const resume = this.s.exportState === 'E5n';
+    this.openT3('export', { kind: resume ? 'resume' : 'start', needed: resume ? resumePartsMB(F, partsDone(this.s.exporting) / PARTS) : neededMB(F) });
+  }
+  /* the page-chrome "Phone space" toggle; a running export that no longer fits pauses with its parts kept */
+  setSpace(mb) {
+    this.v.freeMB = mb;
+    if (this.s.exportState === 'E2' && this.s.exporting !== null) {
+      const F = finalMB(exportMin1x(this.v), this.v.xSpeed);
+      if (resumePartsMB(F, partsDone(this.s.exporting) / PARTS) > mb) { clearInterval(this.exportTimer); this.s.exportState = 'E5n'; }
+    }
+    this.renderPage();
+    this.refreshStorage();
+  }
+
+  /* ---- dialogs (own wrap above an open sheet) and snackbars (one at a time) ---- */
+  dialogHtml() {
+    const s = this.s, book = s.target;
+    switch (s.dialog) {
+      case 'remove': return removeDialog(book, { playing: book.title === BOOKS[0].title && this.v.playing, exportRunning: this.store.exports.some((x) => x.title === book.title && x.state === 'running'),
+        exports: this.store.exports.filter((x) => x.title === book.title && x.state === 'done' && x.where === 'app'), ticked: s.ticked });
+      case 'x-delete': return deleteDialog(s.target);
+      case 'delete-all': return deleteAllDialog();
+      default: return '';
+    }
+  }
+  openDialog(kind) {
+    this.closeDialog();
+    this.s.dialog = kind;
+    this.screen.insertAdjacentHTML('beforeend', `<div data-overlay="dialog">${this.dialogHtml()}</div>`);
+  }
+  renderDialog() { const d = this.screen.querySelector('[data-overlay="dialog"]'); if (d) d.innerHTML = this.dialogHtml(); }
+  closeDialog() { this.screen.querySelector('[data-overlay="dialog"]')?.remove(); this.s.dialog = null; }
+  showSnack(html, ms) {
+    this.hideSnack(true);
+    this.screen.insertAdjacentHTML('beforeend', html);
+    this.snackEl = this.screen.lastElementChild;
+    if (this.t3 || this.x1 || this.s.sheet === 'player') this.snackEl.classList.add('over');
+    if (this.s.sheet === 'player') this.snackEl.classList.add('lift');
+    this.snackTimer = setTimeout(() => this.hideSnack(), ms);
+  }
+  hideSnack(now = false) {
+    clearTimeout(this.snackTimer);
+    const el = this.snackEl;
+    this.snackEl = null;
+    if (!el) return;
+    if (now) { el.remove(); return; }
+    el.classList.add('out');
+    after(FADE_MS, () => el.remove());
+  }
+
+  /* ---- remove from library: soft remove, undo window, purge ---- */
+  openBookSheet(title) {
+    this.s.target = this.store.books.find((b) => b.title === title);
+    if (this.s.target) this.openOverlay('book');
+  }
+  /* collapses a list row or card (200 ms) before the list is drawn again without it */
+  collapse(el, then) {
+    if (!el) { then(); return; }
+    el.style.height = `${el.offsetHeight}px`;
+    el.classList.add('gone');
+    void el.offsetWidth;
+    el.style.cssText += ';height:0;min-height:0;padding-top:0;padding-bottom:0;border-top-width:0;border-bottom-width:0;opacity:0';
+    after(ROW_MS, then);
+  }
+  removeBook(book) {
+    if (this.s.removed) this.purge();
+    this.closeDialog();
+    this.closeOverlay();
+    if (book.title === BOOKS[0].title && this.v.playing) { this.v.playing = false; this.stopTimer(); this.renderChrome(); }
+    const index = this.store.books.indexOf(book);
+    this.store.books.splice(index, 1);
+    const running = this.store.exports.find((x) => x.title === book.title && x.state === 'running');
+    if (running) running.state = 'paused';
+    this.s.removed = { book, index, ticked: this.s.ticked, timer: setTimeout(() => this.purge(), UNDO_MS) };
+    this.s.ticked = false;
+    const row = this.lib.querySelector(`[data-longpress][data-title="${CSS.escape(book.title)}"]`);
+    this.collapse(row, () => this.renderLib());
+    this.renderT3();
+    this.renderSettings();
+    this.showSnack(undoSnack(book.title), UNDO_MS);
+  }
+  undoRemove() {
+    const r = this.s.removed;
+    if (!r) return;
+    clearTimeout(r.timer);
+    this.s.removed = null;
+    this.store.books.splice(r.index, 0, r.book);
+    this.hideSnack();
+    this.refreshStorage();
+  }
+  /* the real delete: library bytes free up; ticked exports go too; a paused export of the book is dropped */
+  purge() {
+    const r = this.s.removed;
+    if (!r) return;
+    clearTimeout(r.timer);
+    this.s.removed = null;
+    this.v.freeMB += r.book.lib;
+    this.store.exports = this.store.exports.filter((x) => {
+      if (x.title !== r.book.title) return true;
+      if (x.state === 'paused') return false;
+      if (r.ticked && x.state === 'done' && x.where === 'app') { this.v.freeMB += x.mb; return false; }
+      return true;
+    });
+    this.hideSnack();
+    this.refreshStorage();
+  }
+  /* ---- Storage actions ---- */
+  clearCache() {
+    const mb = storeTotals(this.store).cache;
+    this.s.clearing = true;
+    this.renderT3();
+    after(CLEAR_MS, () => {
+      this.s.clearing = false;
+      this.store = clearedStore(this.store);
+      this.refreshStorage();
+      this.showSnack(snackbar(COPY.t3.clearedCache(mb)), SNACK_MS);
+    });
+  }
+  deleteExport(x) {
+    this.closeDialog();
+    this.closeOverlay();
+    const row = this.t3?.querySelector(`[data-act="t3-export"][data-id="${x.id}"]`);
+    this.collapse(row, () => {
+      this.store.exports = this.store.exports.filter((e) => e !== x);
+      this.v.freeMB += x.mb;
+      this.refreshStorage();
+    });
+  }
   centreCurrentChapter() {
     const wrap = this.topOverlay();
     const cur = wrap?.querySelector('[data-chapters] .cur');
@@ -1616,11 +2260,16 @@ class Live {
     this.s.exportState = 'E2';
     this.s.exporting = 42;
     this.renderPage();
-    const t0 = Date.now();
+    this.runExport(42);
+  }
+  /* runs the progress from `from` to 100 % at the same pace as 42 → 100 over 6 s; also used to continue a paused export */
+  runExport(from) {
+    this.renderPage();
+    const t0 = Date.now(), span = EXPORT_ANIM_MS * (100 - from) / 58;
     clearInterval(this.exportTimer);
     this.exportTimer = setInterval(() => {
-      const k = Math.min(1, (Date.now() - t0) / EXPORT_ANIM_MS);
-      const pct = Math.round(42 + 58 * k);
+      const k = Math.min(1, (Date.now() - t0) / span);
+      const pct = Math.round(from + (100 - from) * k);
       this.s.exporting = pct;
       const wrap = this.topOverlay();
       const set = (sel, fn) => { const el = wrap?.querySelector(sel); if (el) fn(el); };
@@ -1630,10 +2279,19 @@ class Live {
       set('[data-export-row] .pr > span', (el) => { el.style.width = `${pct}%`; });
       if (k < 1) return;
       clearInterval(this.exportTimer);
-      this.s.exportState = 'E4';
-      this.s.exporting = null;
-      if (this.s.page) this.renderPage(); else if (this.s.sheet === 'player') this.refreshOverlay();
+      this.finishExport();
     }, 100);
+  }
+  /* done: the file joins Storage's exports (in Lectrice) and the page shows E4 (E4p for a range) */
+  finishExport() {
+    const v = this.v;
+    const mb = v.xRange ? Math.round(shownMB(rangeMin(v.xRange), v.xSpeed)) : parseInt(EST[v.xSpeed][1].replace(/\D/g, ''), 10);   // the size the summary showed
+    this.s.lastExport = { id: `x${++this.exportSeq}`, title: BOOKS[0].title, voice: v.xVoice, quality: QUALITY_NAMES[v.xQuality], speed: SPEEDS[v.xSpeed], state: 'done', where: 'app', mb };
+    this.store.exports.unshift(this.s.lastExport);
+    this.s.exportState = v.xRange ? 'E4p' : 'E4';
+    this.s.exporting = null;
+    if (this.s.page) this.renderPage(); else if (this.s.sheet === 'player') this.refreshOverlay();
+    this.refreshStorage();
   }
   startDownload() {
     if (this.s.dl !== null) return;
@@ -1656,12 +2314,17 @@ class Live {
     }, 100);
   }
 
-  /* ---- system back: scrubber → export page → sheet → Listen view (with preview) → settings → reader (R11 preview) ---- */
+  /* ---- system back: scrubber → dialog → E7 list → E7 page → export page → sheet → Listen view (with preview) → Storage → Android's page → settings → reader (R11 preview) ---- */
   back() {
     if (this.s.scrub) { this.closeOverlay(); this.s.scrub = false; return; }
+    if (this.s.dialog) { this.closeDialog(); return; }
+    if (this.s.list) { this.s.list = null; this.renderPart(); return; }
+    if (this.s.part) { this.popPart(); return; }
     if (this.s.page) { this.popPage(); return; }
     if (this.s.sheet) { this.closeOverlay(); return; }
     if (this.stageEl) { this.stageEl.classList.add('peekb'); after(PEEK_MS, () => this.closeStage()); return; }
+    if (this.t3) { if (this.s.t3Sub) { this.s.t3Sub = null; this.renderT3(); return; } this.closeT3(); return; }
+    if (this.x1) { this.closeX1(); return; }
     if (this.v.screen === 'T') { if (this.s.settings === 'T2') { this.s.settings = 'T1'; this.renderChrome(); return; } this.closeSettings(); return; }
     if (this.v.screen === 'R') { this.reader.classList.add('peek'); after(PEEK_MS, () => this.closeReader()); }
   }
@@ -1681,7 +2344,7 @@ class Live {
       'open-pdf': () => { if (v.screen !== 'R') this.openReader(); else this.closeOverlay(); },
       'to-library': () => { this.closeOverlayNow(); this.closeReader(); },
       'settings': () => { this.closeOverlayNow(); this.openSettings('T1'); },
-      't2': () => { s.settings = 'T2'; this.renderChrome(); },
+      't2': () => { if (this.t3) { s.t3Sub = 'T2'; this.renderT3(); return; } s.settings = 'T2'; this.renderChrome(); },
       'back': () => this.back(),
       'toggle': () => this.togglePlay(),
       'prev': () => this.step(-1), 'next': () => this.step(1),
@@ -1706,10 +2369,46 @@ class Live {
       'x-voice-all': () => { s.xVoiceAll = true; this.renderPage(); },
       'x-pick-voice': () => this.changeExport(() => { v.xVoice = el.dataset.voice; s.xVoiceOpen = false; s.xVoiceAll = false; }),
       'x-quality': () => this.changeExport(() => { v.xQuality = el.dataset.q; }),
-      'x-format': () => this.changeExport(() => { v.xFormat = el.dataset.f; }),
       'x-speed': () => this.changeExport(() => { v.xSpeed = Number(el.dataset.speed); }),
       'dl-small': () => this.startDownload(),
       'start-export': () => this.startExport(),
+      /* 2026-10-24: export space */
+      'part-page': () => this.pushPart(),
+      'part-back': () => this.popPart(),
+      'range-list': () => { s.list = el.dataset.end; this.renderPart(); },
+      'list-close': () => { s.list = null; this.renderPart(); },
+      'range-pick': () => this.pickRange(Number(el.dataset.i)),
+      'pick-fits': () => { s.range = suggestRange(v); this.renderPart(true); },
+      'start-part': () => { v.xRange = { ...s.range }; this.partEl()?.remove(); Object.assign(s, { part: false, list: null }); this.startExport(); },
+      'free-up': () => this.openFreeUp(),
+      'resume-export': () => { s.exportState = 'E2'; this.runExport(s.exporting); },
+      'save-audiobooks': () => { s.exportState = 'E4s'; if (s.lastExport) s.lastExport.where = 'shared'; this.renderPage(); this.refreshStorage(); this.showSnack(snackbar(COPY.e4s.snack), SNACK_MS); },
+      'another-version': () => { Object.assign(s, { exportState: 'E1', exporting: null }); v.xRange = null; this.renderPage(); },
+      /* 2026-10-24: remove from library */
+      'clear-book-audio': () => { const b = s.target, mb = b.audio; this.closeOverlay(); b.audio = 0; this.refreshStorage(); this.showSnack(snackbar(COPY.l7.cleared(mb)), SNACK_MS); },
+      'remove-book': () => { s.ticked = false; this.openDialog('remove'); },
+      'toggle-del-exports': () => { s.ticked = !s.ticked; this.renderDialog(); },
+      'dlg-cancel': () => this.closeDialog(),
+      'remove-confirm': () => this.removeBook(s.target),
+      'undo-remove': () => this.undoRemove(),
+      /* 2026-10-24: storage */
+      't3': () => this.openT3('settings'),
+      't3-close': () => this.closeT3(),
+      't3-book': () => this.openBookSheet(el.dataset.title),
+      't3-export': () => { s.target = this.store.exports.find((x) => x.id === el.dataset.id); this.openOverlay('export-file'); },
+      'clear-cache': () => this.clearCache(),
+      'x-open': () => { this.closeOverlay(); this.showSnack(snackbar(COPY.mock.chooser), SNACK_MS); },
+      'x-share': () => { this.closeOverlay(); this.showSnack(snackbar(COPY.mock.chooser), SNACK_MS); },
+      'x-save': () => { this.closeOverlay(); s.target.where = 'shared'; this.refreshStorage(); this.showSnack(snackbar(COPY.e4s.snack), SNACK_MS); },
+      'x-delete': () => this.openDialog('x-delete'),
+      'x-delete-confirm': () => this.deleteExport(s.target),
+      'x-goto': () => { this.closeOverlay(); this.showSnack(snackbar(COPY.mock.gotoExport), SNACK_MS); },
+      'phone-storage': () => this.showSnack(snackbar(COPY.mock.phoneStorage), SNACK_MS),
+      'delete-all': () => this.openDialog('delete-all'),
+      'delete-all-confirm': () => { this.closeDialog(); this.showSnack(snackbar(COPY.mock.deleteAll), SNACK_MS); },
+      'x1-back': () => this.closeX1(),
+      'sys-clear-storage': () => this.openT3('system'),
+      'sys-clear-cache': () => { if (el.getAttribute('aria-disabled') === 'true') return; this.store = clearedStore(this.store); this.refreshStorage(); },
       'jump': () => { s.follow = true; this.setIdx(Number(el.dataset.first)); this.closeOverlay(); },
       'hint-ok': () => { s.hint = false; this.reader?.querySelector('.hintt')?.remove(); },
       'stage-hint-ok': () => { s.stageHint = false; this.stageEl?.querySelector('.hintt')?.remove(); },
@@ -1731,6 +2430,8 @@ class Live {
     const stageTopEl = e.target.closest('[data-drag="stage"]');
     const stagePlay = e.target.closest('[data-stage-play]');
     const tp = e.target.closest('[data-tp]');
+    const lp = e.target.closest('[data-longpress]');
+    if (lp) return this.pressLong(e, lp.dataset.title);
     if (handle) return this.dragSheet(e, handle.closest('.sheet'));
     if (pillEl) return this.dragPill(e, pillEl);
     if (stageTopEl) return this.dragStage(e);
@@ -1769,6 +2470,14 @@ class Live {
     this.track(e, {
       move: (dx, dy) => { const off = Math.max(48, startOffset + dy * zoom); sh.style.transform = `translateY(${off - 48}px)`; },
       up: (dx, dy) => { const off = Math.max(48, startOffset + dy * zoom); this.snapSheet(sh, this.screen.clientHeight - off); },
+    });
+  }
+  /* long-press (500 ms, under 8 dp of movement) on a Library row or the Continue card opens the book sheet; the tap is swallowed */
+  pressLong(e, title) {
+    const pressed = setTimeout(() => { this.suppressClick = true; this.openBookSheet(title); }, LONG_PRESS_MS);
+    this.track(e, {
+      move: (dx, dy) => { if (Math.abs(dx) + Math.abs(dy) > TAP_SLOP) clearTimeout(pressed); },
+      up: () => clearTimeout(pressed),
     });
   }
   /* long-press on a play button (500 ms, under 8 dp of movement) opens the speed scrubber; sliding picks, release applies */
@@ -1876,16 +2585,27 @@ function positionFrame(fig, fr) {
   const bd = fig.querySelector('.sheet .bd');
   const cur = bd?.querySelector('.cur');
   if (bd && cur) bd.scrollTop = cur.offsetTop - bd.offsetTop - (bd.clientHeight - cur.offsetHeight) / 2 + (fr.shiftSheet || 0);
+  fig.querySelectorAll('[data-center-cur]').forEach(centreCur);
   codeFades(fig);
   fitStage(fig);
+}
+/* scrolls a list so its .cur row is centred */
+function centreCur(bd) {
+  const cur = bd.querySelector('.cur');
+  if (cur) bd.scrollTop = cur.offsetTop - bd.offsetTop - (bd.clientHeight - cur.offsetHeight) / 2;
 }
 function buildPage() {
   Object.entries(FRAMES).forEach(([key, frames]) => {
     const host = document.querySelector(`[data-group="${key}"]`);
-    host.innerHTML = frames.map((fr) => `<figure class="frame" data-id="${fr.id}"><div class="zoom">${frameHtml(fr, ENV)}</div><figcaption>${fr.id} · ${esc(fr.name)}<small>${esc(fr.note)}</small></figcaption></figure>`).join('');
+    host.innerHTML = frames.map((fr) => `<figure class="frame" data-id="${fr.id}"><div class="zoom">${frameHtml(fr, ENV)}</div><figcaption>${fr.id} · ${esc(fr.name)}${fr.isNew ? ' <span class="newtag">New</span>' : ''}<small>${esc(fr.note)}</small></figcaption></figure>`).join('');
     host.querySelectorAll('figure.frame').forEach((fig) => positionFrame(fig, frames.find((fr) => fr.id === fig.dataset.id)));
   });
   live = new Live(document.querySelector('[data-live]'), ENV);
+  syncSpaceButtons();
+}
+/* the page-chrome "Phone space" toggle mirrors the live phone's free space */
+function syncSpaceButtons() {
+  document.querySelectorAll('[data-space]').forEach((b) => b.setAttribute('aria-pressed', STORE.free[b.dataset.space] === live.v.freeMB));
 }
 function saveHash() { history.replaceState(null, '', `#theme=${ENV.theme}&w=${ENV.w}`); }
 function applyTheme() {
@@ -1904,6 +2624,8 @@ function initPage() {
   document.querySelectorAll('[data-theme-btn]').forEach((b) => b.addEventListener('click', () => { ENV.theme = b.dataset.themeBtn; applyTheme(); }));
   document.querySelectorAll('[data-w-btn]').forEach((b) => b.addEventListener('click', () => { ENV.w = Number(b.dataset.wBtn); applyWidth(); }));
   document.querySelector('[data-sys="back"]').addEventListener('click', () => live.back());
+  document.querySelector('[data-sys="android"]').addEventListener('click', () => live.openX1());
+  document.querySelectorAll('[data-space]').forEach((b) => b.addEventListener('click', () => { live.setSpace(STORE.free[b.dataset.space]); syncSpaceButtons(); }));
   applyWidth();
   applyTheme();
 }

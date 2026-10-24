@@ -50,7 +50,7 @@ The page shows **this document's latest export** (`list_exports(docId)`, newest 
 | `paused` by `System` | **E3** | "Paused by Android. Long background jobs have a daily time limit. It continues while charging, or when you open Lectrice." · "Continue now" · "Samsung phones may stop it sooner: allow unrestricted battery" |
 | `paused` by `User` | E2 "paused" | **new** "Paused · 42 %" · primary "Continue" · "Cancel export" |
 | `paused` by `StorageFull`, stage `Parts` | **E5** | "The export stopped: the phone ran out of space. 21 of 49 parts are kept, so nothing is lost. Free up space and continue." + **new** line `body-s` "Needs about {needed} free · {free} free now" · "Continue" (disabled while free < needed) · text "Free up space" · "Cancel export" |
-| `paused` by `StorageFull`, stage `Assemble` | **E5b** | **new** "All 49 parts are made, but there isn't room to put them together. Free up about {needed} and continue." + the same needed/free line and buttons |
+| `paused` by `StorageFull`, stage `Assemble` | **E5b** | **new** "All 49 parts are made, but there isn't room to put them together. Free up about {needed − free} and continue." + the same needed/free line and buttons |
 | `paused` by `System` for heat or battery (§3.7) | E3 variant | **new** "Paused while the phone is hot. It continues when it cools down." / **new** "Paused to save battery. It continues while charging." · "Continue now" |
 | `failed` | E5 style (err banner) | **new** "The export stopped and can't continue. Start it again." · primary "Start again" (→ E1 with the same choices) |
 | `done` | **E4** | "Audiobook ready" · "8 h 10 min · 231 MB · M4B" |

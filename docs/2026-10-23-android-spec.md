@@ -230,7 +230,7 @@ Navigation 3 (where you also own the back stack) is the alternative if we later 
 ### 4.6 One error registry
 
 - **Source of truth: the Rust registry** (`lectrice-domain/src/error.rs`), including the new 4xxx names (C4).
-- `CoreError` crosses uniffi with `name`, `code`, `operational` and `message` (the registry's description, never book text).
+- `CoreError` crosses uniffi with `name`, `code`, `operational` and `user_message` (the registry's description, never book text).
 - Kotlin has `enum class ErrorName(val code: Int)` in `core:model`, with the same names and codes, and a `strings.xml` entry
   per name for the user-facing text (so it can be translated later). `core:data` maps a `CoreException` to
   `LectriceError(name)`. Errors that start in Kotlin (download, SAF copy, storage full) use the same enum.
@@ -303,9 +303,10 @@ forwards to Kotlin), `log_bridge.rs` (a `tracing` layer that forwards to `LogSin
     pub estimated_seconds_left: Option<u32>, pub file_path: Option<String>, pub error: Option<CoreErrorInfo> }
 
 // ---------- errors ----------
-#[derive(uniffi::Record)] pub struct CoreErrorInfo { pub name: String, pub code: u32, pub operational: bool, pub message: String }
+#[derive(uniffi::Record)] pub struct CoreErrorInfo { pub name: String, pub code: u32, pub operational: bool, pub user_message: String }
 #[derive(Debug, thiserror::Error, uniffi::Error)]
-pub enum CoreError { #[error("{name}")] Failed { name: String, code: u32, operational: bool, message: String } }  // Kotlin: CoreException.Failed
+pub enum CoreError { #[error("{name}")] Failed { name: String, code: u32, operational: bool, user_message: String } }  // Kotlin: CoreException.Failed
+// `user_message`, not `message`: uniffi makes CoreError a Kotlin exception, and a `message` field clashes with Throwable.message (found in S3).
 
 // ---------- callbacks (Kotlin implements) ----------
 #[uniffi::export(with_foreign)] pub trait LogSink: Send + Sync {
