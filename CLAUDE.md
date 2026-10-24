@@ -171,6 +171,17 @@ plan, and said **Fable may start designing and building the frontend now against
   and, if space is short, blocks the full export or offers a partial one; the cache and the
   exported files must show in Android's own Settings → Apps → Lectrice → Storage. "Save to
   Audiobooks" **moves** the export to `Audiobooks/Lectrice/` (not a copy).
+- **Downloads (user 2026-10-24):** Google blocks `dl.google.com/android/repository/` and
+  `developer.android.com` from this network. If an official download fails, **use a mirror,
+  as long as the files can be checked against a checksum** (the Android SDK came from
+  `https://mirrors.cloud.tencent.com/AndroidSDK/` via `SDK_TEST_BASE_URL`, sha1 checked).
+  cmdline-tools 23 ("latest") needs the blocked Android CLI, so keep build 13114758 in
+  `cmdline-tools/latest`. Installed: JDK 21 (`~/.local/opt/jdk-21`), SDK in `~/Android/Sdk`
+  (platform-tools 37.0.1, platforms 36 + 37.0, build-tools 36.1.0 + 37.0.0, NDK 29.0.14206865).
+  Google Maven (`maven.google.com`) and `repo.maven.apache.org` are blocked too: the Android
+  build uses `https://maven.aliyun.com/repository/google` (set in the gitignored
+  `local.properties`, PGP-verified; 63 unsigned files pinned by SHA-256 on first use) and
+  `repo1.maven.org` for Maven Central. Spike built 2026-10-24 (`lectrice-android`, S1/S3/S4).
 - **Chapters build (2026-10-23): option 1A** = rail take 1 (outline + filter) + label A (in the
   pill). My defaults: `C` = simple toggle; current chapter = nearest chapter-like title with the
   book's own number. Fable is building it on `feature/chapters`.
