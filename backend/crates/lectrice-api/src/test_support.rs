@@ -17,7 +17,9 @@ use lectrice_domain::{
     ExportTarget, ExportWriter, ExportedFile, OutlineItem, PdfContent, PdfTextSource, SentenceSplitter, SpeechEngine, SpeechRequest, TextSpan, Voice,
     VoiceGender, VoiceId, VoiceLanguage,
 };
-use lectrice_infra::{FsAudioCache, FsDocumentRepository, FsExportRecordStore, Sha256ContentHasher, SystemClock, WavDecoder, WavEncoder};
+use lectrice_infra::{
+    FsAudioCache, FsDocumentRepository, FsExportRecordStore, FsVoiceSampleCache, Sha256ContentHasher, SonicTimeStretch, SystemClock, WavDecoder, WavEncoder,
+};
 use serde_json::Value;
 use tempfile::TempDir;
 use tower::ServiceExt;
@@ -199,7 +201,7 @@ impl AudioExporter for TestExporter {
     }
 
     fn assemble(&self, target: &ExportTarget, parts: &[ExportPart], _chapters: &[ChapterMark]) -> AppResult<ExportedFile> {
-        let path = self.data_dir.join("exports").join(target.document_id.as_str()).join(format!("{}.{}", target.voice_id, target.format.extension()));
+        let path = self.data_dir.join("exports").join(target.document_id.as_str()).join(format!("{}.{}", target.file_stem, target.format.extension()));
         let bytes = format!("FAKE:{}", parts.iter().map(|part| part.samples).sum::<u64>()).into_bytes();
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(&path, &bytes).unwrap();
@@ -209,6 +211,14 @@ impl AudioExporter for TestExporter {
 
     fn discard_parts(&self, _export_id: &ExportId) -> AppResult<()> {
         Ok(())
+    }
+
+    fn parts_bytes(&self) -> AppResult<u64> {
+        Ok(0)
+    }
+
+    fn delete_file(&self, path: &Path) -> AppResult<()> {
+        std::fs::remove_file(path).map_err(|error| AppError::new(ErrorName::StorageFailed).with_source(error))
     }
 }
 
@@ -316,14 +326,18 @@ fn router_with(data_dir: &Path, engine: Option<Arc<dyn SpeechEngine>>, read_ahea
         writer: library,
         clock: Arc::new(SystemClock),
         speech_engine: engine,
+        speech_engine_load_ms: None,
         audio_cache: audio_cache.clone(),
         audio_retention: audio_cache,
         audio_encoder: Arc::new(WavEncoder),
         audio_decoder: Arc::new(WavDecoder),
+        voice_samples: Arc::new(FsVoiceSampleCache::new(data_dir)),
         exporter,
         export_records: Arc::new(FsExportRecordStore::new(data_dir)),
+        time_stretch: Some(Arc::new(SonicTimeStretch)),
     };
-    let settings = Settings { import_max_bytes: UPLOAD_MAX_BYTES, default_voice: VoiceId::new(DEFAULT_VOICE), read_ahead, export: ExportSettings::default() };
+    let export = ExportSettings { short_file_names: true, ..ExportSettings::default() };
+    let settings = Settings { import_max_bytes: UPLOAD_MAX_BYTES, default_voice: VoiceId::new(DEFAULT_VOICE), read_ahead, export };
     let services = assemble(adapters, settings).unwrap();
     build_app(AppState { services, upload_max_bytes: UPLOAD_MAX_BYTES }, HeaderValue::from_static(TEST_ORIGIN))
 }

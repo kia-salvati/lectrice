@@ -281,3 +281,86 @@ fn a_miss_racing_a_put_keeps_the_new_clip() {
     }
     assert!((cache.retain_around(&clip_key(1, "af_heart", 0), 1e9).unwrap().kept_seconds - 300.0).abs() < 1e-6);
 }
+
+/// C29: the system may delete clips at any time; a vanished clip is a miss and can be put again.
+#[test]
+fn clips_deleted_behind_the_caches_back_are_misses_and_refresh_forgets_them() {
+    let dir = TempDir::new().unwrap();
+    let cache = FsAudioCache::open(dir.path(), NO_CAP).unwrap();
+    let keys = put_clips(&cache, 1, "af_heart", 0..3);
+    std::fs::remove_dir_all(dir.path().join("audio")).unwrap();
+
+    assert_eq!(cache.get(&keys[0]).unwrap(), None);
+    assert_eq!(cache.usage().unwrap().clips, 2, "the index still has the clips nobody asked for");
+    cache.refresh().unwrap();
+    assert_eq!((cache.usage().unwrap().clips, cache.usage().unwrap().bytes), (0, 0));
+
+    cache.put(&keys[1], &one_second_clip(0.5)).unwrap();
+    assert!(cache.get(&keys[1]).unwrap().is_some(), "folders the system removed are made again");
+}
+
+/// C29: an empty clip (the system cleared it halfway) is never returned as audio.
+#[test]
+fn an_empty_clip_is_a_miss_and_is_deleted() {
+    let dir = TempDir::new().unwrap();
+    let cache = FsAudioCache::open(dir.path(), NO_CAP).unwrap();
+    let key = put_clips(&cache, 1, "af_heart", [0]).remove(0);
+    std::fs::write(clip_path(dir.path(), &key), b"").unwrap();
+
+    assert_eq!(cache.get(&key).unwrap(), None);
+    assert!(!cache.contains(&key).unwrap());
+    assert!(!clip_path(dir.path(), &key).exists());
+}
+
+/// C15: usage per document, and a clear deletes every clip.
+#[test]
+fn usage_is_counted_per_document_and_clear_empties_the_cache() {
+    let dir = TempDir::new().unwrap();
+    let cache = FsAudioCache::open(dir.path(), 5_000_000).unwrap();
+    put_clips(&cache, 1, "af_heart", 0..2);
+    put_clips(&cache, 2, "bm_lewis", [0]);
+
+    let usage = cache.usage().unwrap();
+
+    assert_eq!((usage.bytes, usage.clips, usage.cap_bytes), (3 * ONE_SECOND_CLIP as u64, 3, 5_000_000));
+    let mut per_document: Vec<(String, u64, usize)> = usage.documents.iter().map(|usage| (usage.document_id.to_string(), usage.bytes, usage.clips)).collect();
+    per_document.sort();
+    assert_eq!(per_document, [(format!("{:064x}", 1), 2 * ONE_SECOND_CLIP as u64, 2), (format!("{:064x}", 2), ONE_SECOND_CLIP as u64, 1)]);
+
+    let cleared = cache.clear().unwrap();
+
+    assert_eq!((cleared.evicted_clips(), cleared.freed_bytes, cleared.cache_bytes), (3, 3 * ONE_SECOND_CLIP as u64, 0));
+    assert!(cached_sentences(&cache, 1, "af_heart", 0..2).is_empty());
+}
+
+/// C28: removing a document's audio deletes every cleaner version, engine and voice of it, and only of it.
+#[test]
+fn removing_a_documents_audio_deletes_all_of_it_and_nothing_else() {
+    let dir = TempDir::new().unwrap();
+    let cache = FsAudioCache::open(dir.path(), NO_CAP).unwrap();
+    put_clips(&cache, 1, "af_heart", 0..2);
+    put_clips(&cache, 1, "bm_lewis", [0]);
+    let older = AudioKey { cleaner_version: 9, ..clip_key(1, "af_heart", 5) };
+    cache.put(&older, &one_second_clip(0.1)).unwrap();
+    put_clips(&cache, 2, "af_heart", [0]);
+    let document = DocumentId::parse(&format!("{:064x}", 1)).unwrap();
+
+    let eviction = cache.remove_document(&document).unwrap();
+
+    assert_eq!(eviction.evicted_clips(), 4);
+    assert!(!dir.path().join("audio").join(document.as_str()).exists());
+    assert_eq!(cached_sentences(&cache, 2, "af_heart", [0]), [0]);
+    assert_eq!(cache.usage().unwrap().clips, 1);
+}
+
+/// C29: the cache can live in its own folder, apart from the library.
+#[test]
+fn the_cache_root_is_its_own_folder() {
+    let dir = TempDir::new().unwrap();
+    let cache_dir = dir.path().join("cache");
+    let cache = FsAudioCache::open(&cache_dir, NO_CAP).unwrap();
+    let key = put_clips(&cache, 1, "af_heart", [0]).remove(0);
+
+    assert!(clip_path(&cache_dir, &key).is_file());
+    assert_eq!(FsAudioCache::open(&cache_dir, NO_CAP).unwrap().usage().unwrap().clips, 1);
+}

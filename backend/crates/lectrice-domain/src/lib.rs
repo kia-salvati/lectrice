@@ -14,17 +14,20 @@ pub mod pdf;
 pub mod ports;
 pub mod speech;
 
-pub use audio_retention::{AudioEviction, AudioRetention};
+pub use audio_retention::{AudioEviction, AudioRetention, CacheUsage, DocumentCacheUsage};
 pub use cleaned::{CleanedBlock, CleanedDocument, TextSpan};
 pub use clock::{Clock, Timestamp};
-pub use document::{Block, BlockKind, Document, DocumentMeta, DocumentSummary, PageLabel, ReadingPosition, Sentence, TocEntry};
+pub use document::{Block, BlockKind, Document, DocumentBytes, DocumentMeta, DocumentSummary, PageLabel, ReadingPosition, Sentence, TocEntry};
 pub use error::{AppError, AppResult, ErrorName, ErrorSpec};
-pub use export::{AudioExport, ChapterMark, ExportFormat, ExportPart, ExportRecord, ExportStatus, ExportTarget, ExportedFile};
+pub use export::{
+    AudioExport, ChapterMark, ExportFormat, ExportLocation, ExportPart, ExportRange, ExportRecord, ExportSpeed, ExportStage, ExportStatus, ExportTarget,
+    ExportedFile, PauseReason, export_file_stem,
+};
 pub use ids::{BlockId, DocumentId, ExportId, SentenceId, VoiceId};
 pub use paging::{ListOptions, Page};
 pub use pdf::{BoundingBox, OutlineItem, PdfContent, PdfPage, TextRun};
 pub use ports::{
     AudioCache, AudioDecoder, AudioEncoder, AudioExporter, ContentHasher, DocumentCleaner, DocumentReader, DocumentWriter, ExportRecordStore, ExportWriter,
-    PdfTextSource, SentenceSplitter, SpeechEngine,
+    PdfTextSource, SentenceSplitter, SpeechEngine, TimeStretch, TimeStretcher, VoiceSampleCache,
 };
-pub use speech::{Audio, AudioKey, SpeechRequest, Voice, VoiceGender, VoiceLanguage};
+pub use speech::{Audio, AudioKey, SpeechRequest, Voice, VoiceGender, VoiceLanguage, VoiceSampleKey};

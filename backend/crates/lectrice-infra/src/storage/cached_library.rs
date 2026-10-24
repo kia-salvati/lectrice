@@ -2,7 +2,8 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use lectrice_domain::{
-    AppResult, Document, DocumentId, DocumentMeta, DocumentReader, DocumentSummary, DocumentWriter, ListOptions, Page, ReadingPosition, Timestamp,
+    AppResult, Document, DocumentBytes, DocumentId, DocumentMeta, DocumentReader, DocumentSummary, DocumentWriter, ListOptions, Page, ReadingPosition,
+    Timestamp,
 };
 
 /// Keeps the last few parsed documents in memory in front of a library, because every audio request
@@ -86,6 +87,14 @@ impl<L: DocumentReader> DocumentReader for CachedLibrary<L> {
     fn list_recent(&self, options: ListOptions) -> AppResult<Page<DocumentSummary>> {
         self.inner.list_recent(options)
     }
+
+    fn list_removed(&self) -> AppResult<Vec<DocumentId>> {
+        self.inner.list_removed()
+    }
+
+    fn library_usage(&self) -> AppResult<Vec<DocumentBytes>> {
+        self.inner.library_usage()
+    }
 }
 
 impl<L: DocumentWriter> DocumentWriter for CachedLibrary<L> {
@@ -103,5 +112,20 @@ impl<L: DocumentWriter> DocumentWriter for CachedLibrary<L> {
 
     fn mark_opened(&self, id: &DocumentId, opened_at: Timestamp) -> AppResult<()> {
         self.inner.mark_opened(id, opened_at)
+    }
+
+    /// A removed document must not be served from memory.
+    fn set_removed(&self, id: &DocumentId, removed_at: Option<Timestamp>) -> AppResult<()> {
+        self.forget(id);
+        let changed = self.inner.set_removed(id, removed_at);
+        self.forget(id);
+        changed
+    }
+
+    fn delete(&self, id: &DocumentId) -> AppResult<()> {
+        self.forget(id);
+        let deleted = self.inner.delete(id);
+        self.forget(id);
+        deleted
     }
 }

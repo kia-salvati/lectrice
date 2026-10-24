@@ -1,11 +1,13 @@
 use axum::Json;
-use axum::extract::State;
+use axum::extract::{Path, State};
+use axum::http::header::CONTENT_TYPE;
+use axum::response::{IntoResponse, Response};
 use lectrice_app::UseCase;
 use lectrice_app::speech::VoiceList;
 use lectrice_domain::{Voice, VoiceId};
 use serde::Serialize;
 
-use super::extract::run_blocking;
+use super::extract::{CancelOnDrop, invalid, run_blocking};
 use crate::context::Ctx;
 use crate::error::ApiError;
 use crate::state::AppState;
@@ -28,6 +30,19 @@ pub async fn list_voices(State(state): State<AppState>, Ctx(ctx): Ctx) -> Result
     Ok(present(list))
 }
 
+/// `GET /api/voices/{voiceId}/sample`: the voice reading one fixed sentence (made once, then kept).
+pub async fn get_voice_sample(State(state): State<AppState>, Ctx(ctx): Ctx, Path(voice): Path<String>) -> Result<Response, ApiError> {
+    let voice = voice.trim();
+    if voice.is_empty() {
+        return Err(invalid("voiceId must not be empty"));
+    }
+    let voice_id = VoiceId::new(voice);
+    let speech = state.services.speech()?;
+    let _cancel_on_disconnect = CancelOnDrop(ctx.cancellation.clone());
+    let sample = run_blocking(move || speech.voice_sample.run(&ctx, voice_id)).await?;
+    Ok(([(CONTENT_TYPE, sample.mime_type)], sample.bytes).into_response())
+}
+
 #[cfg(test)]
 mod tests {
     use axum::http::StatusCode;
@@ -42,6 +57,21 @@ mod tests {
 
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body, json!({ "voices": [{ "id": "af_heart", "name": "Heart", "language": "en-US", "gender": "female" }], "defaultVoiceId": "af_heart" }));
+    }
+
+    #[tokio::test]
+    async fn a_voice_sample_is_made_once_and_then_read_from_disk() {
+        let app = TestApp::new();
+
+        let (status, headers, first) = app.send(get("/api/voices/af_heart/sample")).await;
+        let (_, _, second) = app.send(get("/api/voices/af_heart/sample")).await;
+
+        assert_eq!((status, headers[axum::http::header::CONTENT_TYPE].to_str().unwrap()), (StatusCode::OK, "audio/wav"));
+        assert_eq!(first, second);
+        assert_eq!(app.engine.calls(), 1);
+        assert!(app.data_dir.path().join("samples/fake-engine/af_heart.v1.wav").is_file());
+        let (status, body) = app.json(get("/api/voices/zz_nobody/sample")).await;
+        assert_eq!((status, error_name(&body)), (StatusCode::BAD_REQUEST, "VoiceUnknown"));
     }
 
     #[tokio::test]

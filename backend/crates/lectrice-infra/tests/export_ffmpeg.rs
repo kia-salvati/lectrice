@@ -3,8 +3,10 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use lectrice_domain::{Audio, AudioExporter, ChapterMark, DocumentId, ErrorName, ExportFormat, ExportId, ExportPart, ExportTarget, VoiceId};
-use lectrice_infra::FfmpegExporter;
+use lectrice_domain::{
+    Audio, AudioExporter, ChapterMark, DocumentId, ErrorName, ExportFormat, ExportId, ExportPart, ExportSpeed, ExportTarget, TimeStretch, VoiceId,
+};
+use lectrice_infra::{FfmpegExporter, SonicTimeStretch};
 use serde_json::Value;
 use tempfile::TempDir;
 
@@ -18,6 +20,10 @@ fn target(format: ExportFormat) -> ExportTarget {
         document_id: DocumentId::parse(&format!("{:064x}", 5)).unwrap(),
         voice_id: VoiceId::new("af_heart"),
         format,
+        engine_id: "engine-a".into(),
+        speed: ExportSpeed::NORMAL,
+        range: None,
+        file_stem: "af_heart".into(),
         title: "A Book; with = signs".into(),
         artist: "Heart".into(),
     }
@@ -129,6 +135,71 @@ fn leftover_partial_files_are_removed_and_finished_parts_stay() {
     assert_eq!(removed, 2);
     assert_eq!(files_in(&directory), ["af_heart.mp3"]);
     assert_eq!(files_in(&parts), ["part-0000.wav"]);
+}
+
+#[test]
+fn parts_bytes_count_every_part_and_only_export_files_are_deleted() {
+    let data_dir = TempDir::new().unwrap();
+    let exporter = FfmpegExporter::new("ffmpeg", data_dir.path());
+    let part = write_part(&exporter, ExportFormat::M4b, 0, &[tone(0.5)]);
+
+    assert_eq!(exporter.parts_bytes().unwrap(), std::fs::metadata(&part.path).unwrap().len());
+
+    let file = data_dir.path().join("exports").join(format!("{:064x}", 5)).join("af_heart.m4b");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, b"x").unwrap();
+    exporter.delete_file(&file).unwrap();
+    assert!(!file.exists());
+    exporter.delete_file(&file).unwrap();
+    let outside = data_dir.path().join("library.json");
+    std::fs::write(&outside, b"x").unwrap();
+    assert_eq!(exporter.delete_file(&outside).unwrap_err().primary(), ErrorName::Internal);
+    let climbing = data_dir.path().join("exports").join("..").join("library.json");
+    assert_eq!(exporter.delete_file(&climbing).unwrap_err().primary(), ErrorName::Internal);
+    assert!(outside.exists());
+}
+
+/// C22: ffmpeg reports a full disk only in its error text.
+#[cfg(unix)]
+#[test]
+fn an_ffmpeg_that_runs_out_of_space_is_storage_full() {
+    use std::os::unix::fs::PermissionsExt;
+    let data_dir = TempDir::new().unwrap();
+    let program = data_dir.path().join("full-ffmpeg");
+    std::fs::write(&program, "#!/bin/sh\necho 'af_heart.m4b: No space left on device' >&2\nexit 1\n").unwrap();
+    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let exporter = FfmpegExporter::new(&program, data_dir.path());
+    let part = write_part(&exporter, ExportFormat::M4b, 0, &[tone(0.1)]);
+
+    let error = exporter.assemble(&target(ExportFormat::M4b), &[part], &[]).unwrap_err();
+
+    assert_eq!(error.names(), [ErrorName::StorageFull, ErrorName::StorageFailed]);
+}
+
+/// C10 on the desktop: 3 s of 1x audio stretched to 1.5x in two parts lasts 2 s, and the file is named after it.
+#[test]
+#[ignore = "runs the system ffmpeg and ffprobe"]
+fn a_baked_in_speed_shortens_the_file() {
+    let data_dir = TempDir::new().unwrap();
+    let exporter = FfmpegExporter::new("ffmpeg", data_dir.path());
+    let fast = ExportSpeed::from_percent(150).unwrap();
+    let fast_target = ExportTarget { speed: fast, file_stem: "af_heart.engine-a.150".into(), ..target(ExportFormat::M4b) };
+    let stretched_part = |index: u32, seconds: f32| {
+        let mut stretcher = SonicTimeStretch.stretcher(SAMPLE_RATE, fast);
+        let mut samples = Vec::new();
+        stretcher.push(&tone(seconds).samples, &mut samples);
+        stretcher.flush(&mut samples);
+        let mut writer = exporter.begin_part(&fast_target, index, SAMPLE_RATE).unwrap();
+        writer.append(&Audio { samples, sample_rate: SAMPLE_RATE }).unwrap();
+        writer.finish().unwrap()
+    };
+    let parts = [stretched_part(0, 2.0), stretched_part(1, 1.0)];
+
+    let file = exporter.assemble(&fast_target, &parts, &[]).unwrap();
+
+    assert!(file.path.ends_with("af_heart.engine-a.150.m4b"));
+    let seconds = duration(&ffprobe(&file.path));
+    assert!((seconds - 2.0).abs() <= 2.0 * 0.02, "duration {seconds}");
 }
 
 #[test]

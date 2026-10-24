@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use hound::WavWriter;
@@ -29,10 +29,12 @@ const GENRE: &str = "Audiobook";
 const MILLIS_PER_SECOND: u64 = 1000;
 /// How much of ffmpeg's error output goes into an error detail.
 const STDERR_TAIL_BYTES: u64 = 2000;
+/// `strerror(ENOSPC)`, as ffmpeg prints it.
+const NO_SPACE_MESSAGE: &str = "No space left on device";
 
 /// Parts are 16-bit mono WAV files in `<data_dir>/exports/parts/<exportId>/part-<n>.wav`. `assemble` joins them with
 /// the system `ffmpeg` (concat demuxer) into MP3 (libmp3lame) or M4B (aac, with chapter marks) at
-/// `<data_dir>/exports/<docId>/<voiceId>.<ext>`. Every file is written to a partial file first and renamed when done.
+/// `<data_dir>/exports/<docId>/<fileStem>.<ext>`. Every file is written to a partial file first and renamed when done.
 pub struct FfmpegExporter {
     program: PathBuf,
     exports_dir: PathBuf,
@@ -67,9 +69,16 @@ impl FfmpegExporter {
         Ok(self.exports_dir.join(PARTS_DIR).join(safe_component(export_id.as_str())?))
     }
 
+    /// ffmpeg reports a full disk only in its error text, so that is where `StorageFull` is found.
     fn encoder_failed(&self, what: &str, status: Option<std::process::ExitStatus>, stderr_log: &mut NamedTempFile) -> AppError {
         let status = status.map_or_else(|| "unknown".to_string(), |status| status.to_string());
-        AppError::new(ErrorName::Internal).with_detail(format!("{} {what} (exit {status}): {}", self.program.display(), stderr_tail(stderr_log)))
+        let tail = stderr_tail(stderr_log);
+        let error = if tail.contains(NO_SPACE_MESSAGE) {
+            AppError::new(ErrorName::StorageFull).and(ErrorName::StorageFailed)
+        } else {
+            AppError::new(ErrorName::Internal)
+        };
+        error.with_detail(format!("{} {what} (exit {status}): {tail}", self.program.display()))
     }
 }
 
@@ -104,7 +113,7 @@ impl AudioExporter for FfmpegExporter {
         let total_ms = audible.iter().map(|part| part.samples).sum::<u64>() * MILLIS_PER_SECOND / u64::from(sample_rate.max(1));
 
         let directory = self.exports_dir.join(target.document_id.as_str());
-        let target_path = directory.join(format!("{}.{}", safe_component(target.voice_id.as_str())?, target.format.extension()));
+        let target_path = directory.join(format!("{}.{}", safe_component(&target.file_stem)?, target.format.extension()));
         fs::create_dir_all(&directory).map_err(|error| storage_failed("creating", &directory, error))?;
         let list = write_partial(&directory, LIST_EXTENSION, &concat_list(&audible)?)?;
         let mut stderr_log = partial_file(&directory, LOG_EXTENSION)?;
@@ -148,6 +157,41 @@ impl AudioExporter for FfmpegExporter {
             Ok(()) => Ok(()),
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
             Err(error) => Err(storage_failed("deleting", &directory, error)),
+        }
+    }
+
+    fn parts_bytes(&self) -> AppResult<u64> {
+        let mut bytes = 0;
+        // A finished or cancelled export deletes its parts while this counts; those are simply gone.
+        for directory in subdirectories(&self.exports_dir.join(PARTS_DIR))? {
+            let entries = match fs::read_dir(&directory) {
+                Ok(entries) => entries,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(storage_failed("listing", &directory, error)),
+            };
+            for entry in entries {
+                let entry = entry.map_err(|error| storage_failed("listing", &directory, error))?;
+                match entry.metadata() {
+                    Ok(metadata) if metadata.is_file() => bytes += metadata.len(),
+                    Ok(_) => {}
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(storage_failed("inspecting", &entry.path(), error)),
+                }
+            }
+        }
+        Ok(bytes)
+    }
+
+    /// Only files inside the exports folder are deleted.
+    fn delete_file(&self, path: &Path) -> AppResult<()> {
+        let climbs_out = path.components().any(|component| component == Component::ParentDir);
+        if climbs_out || !path.starts_with(&self.exports_dir) {
+            return Err(AppError::new(ErrorName::Internal).with_detail(format!("{} is not an export file", path.display())));
+        }
+        match fs::remove_file(path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(storage_failed("deleting", path, error)),
         }
     }
 }

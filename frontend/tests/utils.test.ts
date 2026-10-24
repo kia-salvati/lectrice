@@ -130,12 +130,17 @@ test('player state and status parts', () => {
 });
 
 test('export phase', () => {
-  const job = (status: ExportStatus): AudioExport => ({ id: 'e', documentId: 'd', voiceId: 'af_heart', format: 'mp3', status, sentencesDone: 0, sentencesTotal: 10, estimatedSecondsLeft: null });
+  const job = (status: ExportStatus): AudioExport => ({
+    id: 'e', documentId: 'd', voiceId: 'af_heart', format: 'mp3', speedPercent: 100, engineId: 'x', range: null, rangeLabel: null, title: 't', status,
+    pausedBy: null, stage: 'parts', error: null, sentencesDone: 0, sentencesTotal: 10, partsDone: 0, partsTotal: 1, estimatedSecondsLeft: null,
+    fileBytes: null, location: null, waitingForEngine: false,
+  });
   assert.equal(exportPhase(null, false), 'idle');
   assert.equal(exportPhase(null, true), 'starting');
   assert.equal(exportPhase(job('running'), true), 'starting');
   const statuses: ExportStatus[] = ['queued', 'running', 'done', 'failed', 'cancelled'];
   for (const status of statuses) assert.equal(exportPhase(job(status), false), status);
+  assert.equal(exportPhase(job('paused'), false), 'failed', 'a paused export shows as stopped, and Try again continues it');
 });
 
 test('safe file name', () => {

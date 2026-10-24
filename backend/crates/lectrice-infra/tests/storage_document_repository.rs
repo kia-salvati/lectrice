@@ -225,3 +225,73 @@ fn saving_again_drops_a_saved_position_the_new_document_lacks() {
 
     assert_eq!(repository.find_summary(&saved.id).unwrap().unwrap().last_sentence_id, None);
 }
+
+/// C28: a removed document is hidden everywhere but `list_removed`, keeps its files and comes back when restored.
+#[test]
+fn a_removed_document_is_hidden_until_restored() {
+    let data_dir = TempDir::new().unwrap();
+    let repository = FsDocumentRepository::new(data_dir.path());
+    let saved = document(id_for(1));
+    repository.save(&saved, PDF_BYTES, &meta(5)).unwrap();
+    repository.save(&document(id_for(2)), PDF_BYTES, &meta(6)).unwrap();
+
+    repository.set_removed(&saved.id, Some(at(9))).unwrap();
+
+    assert_eq!(repository.find(&saved.id).unwrap(), None);
+    assert_eq!(repository.find_summary(&saved.id).unwrap(), None);
+    assert_eq!(repository.list_recent(ListOptions::default()).unwrap().total, 1);
+    assert_eq!(repository.list_removed().unwrap(), std::slice::from_ref(&saved.id));
+    assert_eq!(repository.library_usage().unwrap().iter().map(|usage| usage.document_id.clone()).collect::<Vec<_>>(), [id_for(2)]);
+    repository.save(&saved, PDF_BYTES, &meta(7)).unwrap();
+    assert_eq!(repository.find_summary(&saved.id).unwrap(), None, "saving keeps it removed");
+
+    repository.set_removed(&saved.id, None).unwrap();
+
+    assert_eq!(repository.find(&saved.id).unwrap(), Some(saved.clone()));
+    assert!(repository.list_removed().unwrap().is_empty());
+}
+
+#[test]
+fn a_deleted_document_is_gone_with_its_folder() {
+    let data_dir = TempDir::new().unwrap();
+    let repository = FsDocumentRepository::new(data_dir.path());
+    let saved = document(id_for(1));
+    repository.save(&saved, PDF_BYTES, &meta(5)).unwrap();
+
+    repository.delete(&saved.id).unwrap();
+
+    assert!(!data_dir.path().join("library").join(saved.id.as_str()).exists());
+    assert_eq!(repository.find_summary(&saved.id).unwrap(), None);
+    repository.delete(&saved.id).unwrap();
+}
+
+/// C15: a document's disk use is its three files.
+#[test]
+fn library_usage_is_the_size_of_the_three_files() {
+    let data_dir = TempDir::new().unwrap();
+    let repository = FsDocumentRepository::new(data_dir.path());
+    let saved = document(id_for(1));
+    repository.save(&saved, PDF_BYTES, &meta(5)).unwrap();
+    let folder = data_dir.path().join("library").join(saved.id.as_str());
+    let expected: u64 = ["original.pdf", "document.json", "meta.json"].iter().map(|file| fs::metadata(folder.join(file)).unwrap().len()).sum();
+
+    assert_eq!(repository.library_usage().unwrap()[0].bytes, expected);
+}
+
+/// C27: the summary tells the cleaner version; a `meta.json` from before v1.1 gets it from `document.json`.
+#[test]
+fn the_summary_has_the_cleaner_version_also_for_old_meta_files() {
+    let data_dir = TempDir::new().unwrap();
+    let repository = FsDocumentRepository::new(data_dir.path());
+    let saved = Document { cleaner_version: 4, ..document(id_for(1)) };
+    repository.save(&saved, PDF_BYTES, &meta(5)).unwrap();
+    assert_eq!(repository.find_summary(&saved.id).unwrap().unwrap().cleaner_version, 4);
+
+    let meta_path = data_dir.path().join("library").join(saved.id.as_str()).join("meta.json");
+    let mut stored: serde_json::Value = serde_json::from_slice(&fs::read(&meta_path).unwrap()).unwrap();
+    stored.as_object_mut().unwrap().remove("cleanerVersion");
+    fs::write(&meta_path, serde_json::to_vec(&stored).unwrap()).unwrap();
+
+    assert_eq!(repository.find_summary(&saved.id).unwrap().unwrap().cleaner_version, 4);
+    assert_eq!(repository.list_recent(ListOptions::default()).unwrap().items[0].cleaner_version, 4);
+}

@@ -62,6 +62,7 @@ pub async fn get_sentence_audio(
         voice_id: query.voice_id,
         rate: query.rate,
         read_skipped: query.read_skipped,
+        plan_ahead: true,
     };
     let speech = state.services.speech()?;
     let _cancel_on_disconnect = CancelOnDrop(ctx.cancellation.clone());

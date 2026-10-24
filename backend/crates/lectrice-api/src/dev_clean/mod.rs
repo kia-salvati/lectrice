@@ -47,23 +47,21 @@ pub fn run(config: &PdfConfig, args: impl IntoIterator<Item = String>) -> Result
     let started = Instant::now();
     let cleaned = cleaner.clean(content)?;
     let clean_ms = started.elapsed().as_millis();
-    tracing::info!(service = SERVICE, file_name, pages = cleaned.page_count, blocks = cleaned.blocks.len(), read_ms, clean_ms, "PDF cleaned");
-
     let id = Sha256ContentHasher.document_id(&bytes)?;
+    tracing::info!(service = SERVICE, doc_id = %id, pages = cleaned.page_count, blocks = cleaned.blocks.len(), read_ms, clean_ms, "PDF cleaned");
+
     let document = DocumentPipeline::new(source, cleaner, Arc::new(SentencexSplitter)).process(&id, &file_name, &bytes)?;
 
     std::fs::create_dir_all(&args.out)?;
     let stem = args.pdf.file_stem().map_or_else(|| "document".to_string(), |stem| stem.to_string_lossy().into_owned());
-    let json_path = write(&args.out, &stem, JSON_SUFFIX, &serde_json::to_string_pretty(&document)?)?;
-    let dump_path = write(&args.out, &stem, DUMP_SUFFIX, &dump::render(&document, &cleaned, args.pages.as_ref()))?;
-    tracing::info!(service = SERVICE, doc_id = %id, json = %json_path.display(), dump = %dump_path.display(), "Cleaned document written");
+    write(&args.out, &stem, JSON_SUFFIX, &serde_json::to_string_pretty(&document)?)?;
+    write(&args.out, &stem, DUMP_SUFFIX, &dump::render(&document, &cleaned, args.pages.as_ref()))?;
+    tracing::info!(service = SERVICE, doc_id = %id, out_dir = %args.out.display(), "Cleaned document written");
     Ok(())
 }
 
-fn write(dir: &Path, stem: &str, suffix: &str, contents: &str) -> std::io::Result<PathBuf> {
-    let path = dir.join(format!("{stem}{suffix}"));
-    std::fs::write(&path, contents)?;
-    Ok(path)
+fn write(dir: &Path, stem: &str, suffix: &str, contents: &str) -> std::io::Result<()> {
+    std::fs::write(dir.join(format!("{stem}{suffix}")), contents)
 }
 
 fn parse(args: impl IntoIterator<Item = String>) -> Result<CleanArgs, String> {

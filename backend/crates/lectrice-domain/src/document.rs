@@ -157,9 +157,18 @@ pub struct DocumentSummary {
     pub source_file_name: String,
     pub page_count: u32,
     pub sentence_count: u32,
+    /// Older than the current cleaner's version: opening the document cleans it again first.
+    pub cleaner_version: u32,
     pub added_at: Timestamp,
     pub last_opened_at: Timestamp,
     pub last_sentence_id: Option<SentenceId>,
+}
+
+/// What one library document takes on disk (its PDF copy, cleaned text and bookkeeping).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DocumentBytes {
+    pub document_id: DocumentId,
+    pub bytes: u64,
 }
 
 #[cfg(test)]

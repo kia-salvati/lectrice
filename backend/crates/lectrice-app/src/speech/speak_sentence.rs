@@ -23,12 +23,17 @@ pub struct SpeakSentenceArgs {
     pub rate: f32,
     /// Whether read-ahead includes code, table and caption sentences instead of their cues.
     pub read_skipped: bool,
+    /// `false` makes only this sentence: no read-ahead plan, no cancelled jobs, no cache trim. A player that keeps
+    /// loading while paused uses it, so it can't restart a read-ahead the shell stopped.
+    pub plan_ahead: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SpokenSentence {
     pub bytes: Vec<u8>,
     pub mime_type: String,
+    /// Estimated 1x audio of the cached sentences right after this one, in playback order (a player's buffered part).
+    pub ready_ahead_ms: u32,
 }
 
 /// One sentence's audio: from the cache, or made by the speech worker at the highest priority, then cached.
@@ -39,7 +44,7 @@ pub struct SpeakSentence {
     reader: Arc<dyn DocumentReader>,
     cache: Arc<dyn AudioCache>,
     encoder: Arc<dyn AudioEncoder>,
-    read_ahead: ReadAhead,
+    read_ahead: Arc<ReadAhead>,
 }
 
 pub struct SpeakSentenceDeps {
@@ -48,7 +53,7 @@ pub struct SpeakSentenceDeps {
     pub reader: Arc<dyn DocumentReader>,
     pub cache: Arc<dyn AudioCache>,
     pub encoder: Arc<dyn AudioEncoder>,
-    pub read_ahead: ReadAhead,
+    pub read_ahead: Arc<ReadAhead>,
 }
 
 impl SpeakSentence {
@@ -70,12 +75,18 @@ impl SpeakSentence {
         document.ok_or_else(|| AppError::new(ErrorName::DocumentNotFound))
     }
 
-    fn silence(&self, key: &AudioKey) -> AppResult<SpokenSentence> {
+    fn silence(&self, key: &AudioKey) -> AppResult<Vec<u8>> {
         let sample_rate = self.engine.sample_rate();
         let samples = (SILENCE_SECONDS * f64::from(sample_rate)) as usize;
         let bytes = self.encoder.encode(&Audio { samples: vec![0.0; samples], sample_rate })?;
         info!(service = Self::NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, bytes = bytes.len(), "sentence has no speech text, sent silence");
-        Ok(self.spoken(bytes))
+        Ok(bytes)
+    }
+
+    fn follow(&self, position: ListenerPosition<'_>, plan_ahead: bool) {
+        if plan_ahead {
+            self.read_ahead.follow(position);
+        }
     }
 
     fn submit_now(&self, key: &AudioKey, text: &str) -> SpeechTicket {
@@ -106,8 +117,8 @@ impl SpeakSentence {
         Ok(bytes)
     }
 
-    fn spoken(&self, bytes: Vec<u8>) -> SpokenSentence {
-        SpokenSentence { bytes, mime_type: self.encoder.mime_type().to_string() }
+    fn spoken(&self, bytes: Vec<u8>, position: ListenerPosition<'_>) -> SpokenSentence {
+        SpokenSentence { bytes, mime_type: self.encoder.mime_type().to_string(), ready_ahead_ms: self.read_ahead.ready_ahead_ms(position) }
     }
 }
 
@@ -117,8 +128,8 @@ impl UseCase for SpeakSentence {
     type Output = SpokenSentence;
 
     fn run(&self, ctx: &RequestContext, args: SpeakSentenceArgs) -> AppResult<SpokenSentence> {
-        let SpeakSentenceArgs { document_id, sentence_id, voice_id, rate, read_skipped } = args;
-        info!(service = Self::NAME, request_id = %ctx.request_id, doc_id = %document_id, sentence_id = sentence_id.0, voice_id = %voice_id, rate, read_skipped, "speaking sentence");
+        let SpeakSentenceArgs { document_id, sentence_id, voice_id, rate, read_skipped, plan_ahead } = args;
+        info!(service = Self::NAME, request_id = %ctx.request_id, doc_id = %document_id, sentence_id = sentence_id.0, voice_id = %voice_id, rate, read_skipped, plan_ahead, "speaking sentence");
 
         check_rate(rate)?;
         self.check_voice(&voice_id)?;
@@ -132,23 +143,24 @@ impl UseCase for SpeakSentence {
 
         let text = sentence.spoken_text();
         if text.trim().is_empty() {
-            self.read_ahead.follow(position);
-            return self.silence(&key);
+            self.follow(position, plan_ahead);
+            let bytes = self.silence(&key)?;
+            return Ok(self.spoken(bytes, position));
         }
 
         let cached = self.cache.get(&key)?;
         debug!(service = Self::NAME, doc_id = %key.document_id, sentence_id = sentence_id.0, voice_id = %key.voice_id, cache_hit = cached.is_some(), "audio cache looked up");
         if let Some(bytes) = cached {
-            self.read_ahead.follow(position);
-            return Ok(self.spoken(bytes));
+            self.follow(position, plan_ahead);
+            return Ok(self.spoken(bytes, position));
         }
 
         // Queued before the read-ahead, so this sentence is made first even if the worker is idle.
         let started = Instant::now();
         let ticket = self.submit_now(&key, text);
-        self.read_ahead.follow(position);
+        self.follow(position, plan_ahead);
         let bytes = self.receive(ctx, &key, ticket, started)?;
-        Ok(self.spoken(bytes))
+        Ok(self.spoken(bytes, position))
     }
 }
 
@@ -171,7 +183,7 @@ mod tests {
     use super::*;
     use crate::documents::fakes::{InMemoryStore, Library, id_for};
     use crate::speech::fakes::{CountingEncoder, ENGINE_ID, GatedEngine, MemoryCache, SAMPLE_RATE};
-    use crate::speech::read_ahead::ReadAheadSettings;
+    use crate::speech::read_ahead::{ReadAheadDeps, ReadAheadSettings};
     use lectrice_domain::{Block, BlockKind, Clock, DocumentMeta, DocumentWriter, PageLabel};
     use std::time::Duration;
 
@@ -200,7 +212,9 @@ mod tests {
         let worker = Arc::new(SpeechWorker::start(engine.clone()).unwrap());
         let encoder = Arc::new(CountingEncoder);
         let settings = ReadAheadSettings { read_ahead_minutes, keep_minutes_per_document: KEEP_MINUTES };
-        let read_ahead = ReadAhead::new(worker.clone(), cache.clone(), cache.clone(), encoder.clone(), settings).unwrap();
+        let read_ahead_deps =
+            ReadAheadDeps { worker: worker.clone(), reader: library.reader(), cache: cache.clone(), retention: cache.clone(), encoder: encoder.clone() };
+        let read_ahead = Arc::new(ReadAhead::new(read_ahead_deps, settings).unwrap());
         let deps = SpeakSentenceDeps { engine: engine.clone(), worker, reader: library.reader(), cache: cache.clone(), encoder, read_ahead };
         Setup { library, engine, cache, service: SpeakSentence::new(deps) }
     }
@@ -209,9 +223,39 @@ mod tests {
         speak_with(setup, &RequestContext::new("test"), document_id, sentence, voice)
     }
 
+    fn args(document_id: DocumentId, sentence: u32, voice: &str) -> SpeakSentenceArgs {
+        SpeakSentenceArgs { document_id, sentence_id: SentenceId(sentence), voice_id: VoiceId::new(voice), rate: 1.0, read_skipped: false, plan_ahead: true }
+    }
+
     fn speak_with(setup: &Setup, ctx: &RequestContext, document_id: DocumentId, sentence: u32, voice: &str) -> AppResult<SpokenSentence> {
-        let args = SpeakSentenceArgs { document_id, sentence_id: SentenceId(sentence), voice_id: VoiceId::new(voice), rate: 1.0, read_skipped: false };
-        setup.service.run(ctx, args)
+        setup.service.run(ctx, args(document_id, sentence, voice))
+    }
+
+    /// C13: without planning, only the sentence itself is made and the cache window stays put.
+    #[test]
+    fn plan_ahead_off_makes_only_the_sentence_and_a_later_request_plans_again() {
+        let setup = setup_with_read_ahead(10);
+        let id = setup.library.add_book();
+
+        setup.service.run(&RequestContext::new("test"), SpeakSentenceArgs { plan_ahead: false, ..args(id.clone(), 1, "af_heart") }).unwrap();
+
+        std::thread::sleep(Duration::from_millis(50));
+        assert_eq!(setup.engine.spoken(), ["One."]);
+        assert!(setup.cache.retained().is_empty());
+        speak(&setup, id, 1, "af_heart").unwrap();
+        assert_eq!(setup.cache.retained().len(), 1);
+    }
+
+    /// C25: the sentences cached right after this one are reported as ready.
+    #[test]
+    fn the_answer_says_how_much_is_ready_ahead() {
+        let setup = setup();
+        let id = setup.library.add_book();
+        speak(&setup, id.clone(), 2, "af_heart").unwrap();
+
+        let spoken = speak(&setup, id, 1, "af_heart").unwrap();
+
+        assert_eq!(spoken.ready_ahead_ms, (f64::from("Two.".len() as u32) / 18.0 * 1000.0).round() as u32);
     }
 
     /// Review M1: a request the client gave up on must not keep its `Now` job ahead of later requests.
@@ -244,7 +288,7 @@ mod tests {
     fn a_request_queues_the_read_ahead_after_itself_and_moves_the_cache_window() {
         let setup = setup_with_read_ahead(10);
         let id = setup.library.add_book();
-        let args = SpeakSentenceArgs { document_id: id, sentence_id: SentenceId(1), voice_id: VoiceId::new("af_heart"), rate: 1.5, read_skipped: false };
+        let args = SpeakSentenceArgs { rate: 1.5, ..args(id, 1, "af_heart") };
 
         setup.service.run(&RequestContext::new("test"), args).unwrap();
 
@@ -351,7 +395,7 @@ mod tests {
         let setup = setup_with_read_ahead(10);
         let id = setup.library.add_book();
         for rate in [f32::NAN, f32::INFINITY, 0.0, -1.0] {
-            let args = SpeakSentenceArgs { document_id: id.clone(), sentence_id: SentenceId(1), voice_id: VoiceId::new("af_heart"), rate, read_skipped: false };
+            let args = SpeakSentenceArgs { rate, ..args(id.clone(), 1, "af_heart") };
             assert_eq!(setup.service.run(&RequestContext::new("test"), args).unwrap_err().primary(), ErrorName::RequestInvalid, "{rate}");
         }
         assert!(setup.engine.spoken().is_empty());

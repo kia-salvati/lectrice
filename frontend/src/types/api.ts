@@ -15,17 +15,40 @@ export interface Health { status: 'ok'; speechEngine: SpeechEngineState; }
 
 export interface ApiErrorBody { error: { name: string; code: number; message: string; }; }
 
-export type ExportStatus = 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+/** `paused` keeps the finished parts; starting the same export again continues it. */
+export type ExportStatus = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled';
+
+export type PauseReason = 'user' | 'system' | 'storageFull' | 'engineSwitch';
+
+export interface ExportRange { fromSentence: number; toSentence: number; }
+
+export type ExportLocation = { kind: 'appStorage'; path: string } | { kind: 'shared'; uri: string };
 
 export interface AudioExport {
   id: string;
   documentId: string;
   voiceId: string;
   format: ExportFormat;
+  /** The speed baked into the file: 75, 100, 125, 150, 175 or 200. */
+  speedPercent: number;
+  engineId: string;
+  range: ExportRange | null;
+  rangeLabel: string | null;
+  /** The book's title when the export started. */
+  title: string;
   status: ExportStatus;
+  pausedBy: PauseReason | null;
+  stage: 'parts' | 'assemble';
+  /** A registry error name, e.g. "StorageFull". */
+  error: string | null;
   sentencesDone: number;
   sentencesTotal: number;
+  partsDone: number;
+  partsTotal: number;
   estimatedSecondsLeft: number | null;
+  fileBytes: number | null;
+  location: ExportLocation | null;
+  waitingForEngine: boolean;
 }
 
 export interface AudioExportResponse { export: AudioExport; }

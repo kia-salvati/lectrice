@@ -2,16 +2,17 @@
 //! and services receive them as `Arc<dyn Trait>`.
 
 use std::ops::Range;
+use std::path::Path;
 
 use crate::cleaned::CleanedDocument;
 use crate::clock::Timestamp;
-use crate::document::{Document, DocumentMeta, DocumentSummary, ReadingPosition};
+use crate::document::{Document, DocumentBytes, DocumentMeta, DocumentSummary, ReadingPosition};
 use crate::error::AppResult;
-use crate::export::{ChapterMark, ExportPart, ExportRecord, ExportTarget, ExportedFile};
+use crate::export::{ChapterMark, ExportPart, ExportRecord, ExportSpeed, ExportTarget, ExportedFile};
 use crate::ids::{DocumentId, ExportId};
 use crate::paging::{ListOptions, Page};
 use crate::pdf::PdfContent;
-use crate::speech::{Audio, AudioKey, SpeechRequest, Voice};
+use crate::speech::{Audio, AudioKey, SpeechRequest, Voice, VoiceSampleKey};
 
 /// Names a PDF by its content, so the same file renamed is the same document (spec: the SHA-256 of the bytes).
 pub trait ContentHasher: Send + Sync {
@@ -47,20 +48,30 @@ pub trait AudioEncoder: Send + Sync {
     fn encode(&self, audio: &Audio) -> AppResult<Vec<u8>>;
 }
 
+/// A removed document (see [`DocumentWriter::set_removed`]) is invisible here: `find` and `find_summary` give `None`
+/// and the lists skip it, until it is restored or deleted.
 pub trait DocumentReader: Send + Sync {
     fn find(&self, id: &DocumentId) -> AppResult<Option<Document>>;
     fn find_summary(&self, id: &DocumentId) -> AppResult<Option<DocumentSummary>>;
     fn find_original_pdf(&self, id: &DocumentId) -> AppResult<Option<Vec<u8>>>;
     /// Newest `last_opened_at` first.
     fn list_recent(&self, options: ListOptions) -> AppResult<Page<DocumentSummary>>;
+    /// Documents marked removed and not deleted yet.
+    fn list_removed(&self) -> AppResult<Vec<DocumentId>>;
+    /// The disk use of every document that isn't removed.
+    fn library_usage(&self) -> AppResult<Vec<DocumentBytes>>;
 }
 
 pub trait DocumentWriter: Send + Sync {
     /// When the document is already saved, its stored meta is merged in ([`DocumentMeta::merged_with_saved`]),
-    /// atomically with position saves and opens.
+    /// atomically with position saves and opens. A removed document stays removed.
     fn save(&self, document: &Document, original_pdf: &[u8], meta: &DocumentMeta) -> AppResult<()>;
     fn save_position(&self, id: &DocumentId, position: ReadingPosition) -> AppResult<()>;
     fn mark_opened(&self, id: &DocumentId, opened_at: Timestamp) -> AppResult<()>;
+    /// Marks a document removed (hidden, nothing deleted yet), or restores it with `None`.
+    fn set_removed(&self, id: &DocumentId, removed_at: Option<Timestamp>) -> AppResult<()>;
+    /// Deletes a document for good. Its bookkeeping goes first, so a crash halfway never leaves a half-listed book.
+    fn delete(&self, id: &DocumentId) -> AppResult<()>;
 }
 
 /// Turns encoded clips (as cached) back into PCM, so an export can reuse them.
@@ -84,6 +95,29 @@ pub trait AudioExporter: Send + Sync {
     fn assemble(&self, target: &ExportTarget, parts: &[ExportPart], chapters: &[ChapterMark]) -> AppResult<ExportedFile>;
     /// Deletes every part of an export. Parts that are already gone are fine.
     fn discard_parts(&self, export_id: &ExportId) -> AppResult<()>;
+    /// The disk use of every export's parts.
+    fn parts_bytes(&self) -> AppResult<u64>;
+    /// Deletes a finished export's file. A file that is already gone is fine.
+    fn delete_file(&self, path: &Path) -> AppResult<()>;
+}
+
+/// Changes the speed of mono PCM without changing its pitch. One stretcher per export part (it keeps state between
+/// pushes).
+pub trait TimeStretcher: Send {
+    /// Feeds samples; appends whatever output is ready to `out`.
+    fn push(&mut self, samples: &[f32], out: &mut Vec<f32>);
+    /// Ends the stream; appends the remaining output.
+    fn flush(&mut self, out: &mut Vec<f32>);
+}
+
+pub trait TimeStretch: Send + Sync {
+    fn stretcher(&self, sample_rate: u32, speed: ExportSpeed) -> Box<dyn TimeStretcher>;
+}
+
+/// Encoded voice samples, kept apart from the sentence cache (no window, no cap).
+pub trait VoiceSampleCache: Send + Sync {
+    fn get(&self, key: &VoiceSampleKey) -> AppResult<Option<Vec<u8>>>;
+    fn put(&self, key: &VoiceSampleKey, bytes: &[u8]) -> AppResult<()>;
 }
 
 /// One part in progress: audio is streamed in sentence by sentence, so a book never sits in memory.

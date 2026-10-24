@@ -21,6 +21,7 @@ const summarize = (document: OpenedDocument, addedAt: string, lastOpenedAt: stri
   sourceFileName: document.sourceFileName,
   pageCount: document.pageCount,
   sentenceCount: countSentences(document),
+  cleanerVersion: document.cleanerVersion,
   addedAt,
   lastOpenedAt,
   lastSentenceId: document.lastSentenceId,
@@ -45,7 +46,7 @@ export const summaries: DocumentSummary[] = [
   summarize(big, new Date(Date.now() - 3 * DAY_MS).toISOString(), hoursAgo(26)),
   summarize(flat, new Date(Date.now() - 5 * DAY_MS).toISOString(), hoursAgo(50)),
   // Listed but not stored: opening it exercises the DocumentNotFound path.
-  { id: 'mock-missing', title: 'Quarterly Notes', sourceFileName: 'quarterly-notes.pdf', pageCount: 42, sentenceCount: 900, addedAt: new Date(Date.now() - 40 * DAY_MS).toISOString(), lastOpenedAt: new Date(Date.now() - 9 * DAY_MS).toISOString(), lastSentenceId: 310 },
+  { id: 'mock-missing', title: 'Quarterly Notes', sourceFileName: 'quarterly-notes.pdf', pageCount: 42, sentenceCount: 900, cleanerVersion: 3, addedAt: new Date(Date.now() - 40 * DAY_MS).toISOString(), lastOpenedAt: new Date(Date.now() - 9 * DAY_MS).toISOString(), lastSentenceId: 310 },
 ];
 
 /** A newly "imported" file gets the sample content under its own id and title. */

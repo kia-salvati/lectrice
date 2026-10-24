@@ -1,6 +1,8 @@
 use std::error::Error as StdError;
 use std::fmt;
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
 /// What the transport layer needs to turn an [`ErrorName`] into a response.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ErrorSpec {
@@ -28,8 +30,27 @@ macro_rules! error_registry {
                     $(ErrorName::$name => ErrorSpec { code: $code, status: $status, operational: $operational, description: $description }),+
                 }
             }
+
+            pub fn from_name(name: &str) -> Option<Self> {
+                Self::ALL.iter().copied().find(|candidate| candidate.as_str() == name)
+            }
         }
     };
+}
+
+/// Stored by name (in export records), so codes can be renumbered without breaking saved files.
+impl Serialize for ErrorName {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+/// A name a newer version saved and this one doesn't know reads as `Internal`, so the record still loads.
+impl<'de> Deserialize<'de> for ErrorName {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = String::deserialize(deserializer)?;
+        Ok(Self::from_name(&name).unwrap_or(Self::Internal))
+    }
 }
 
 error_registry! {
@@ -57,6 +78,7 @@ error_registry! {
     ModelChecksumMismatch   => (4003, 502, true,  "The downloaded voice model is damaged."),
     StorageFull             => (4004, 507, true,  "There isn't enough free space."),
     ExportPaused            => (4005, 409, true,  "Export paused; it will continue later."),
+    FileUnreadable          => (4006, 422, true,  "This file couldn't be opened."),
     StorageFailed           => (9001, 500, false, "Something went wrong saving data."),
     Internal                => (9999, 500, false, "Something went wrong."),
 }
@@ -149,8 +171,8 @@ mod tests {
     use std::collections::HashSet;
 
     /// Spec §8, plus `RequestInvalid` (B4), `RouteNotFound`, `MethodNotAllowed`, `RequestCancelled` (B-fixes)
-    /// and the five device-neutral 4xxx names (Android spec C4).
-    const SPEC_ERROR_COUNT: usize = 25;
+    /// the five device-neutral 4xxx names (Android spec C4) and `FileUnreadable` (C26).
+    const SPEC_ERROR_COUNT: usize = 26;
 
     #[test]
     fn every_name_has_a_unique_code() {
@@ -175,6 +197,19 @@ mod tests {
         assert_eq!(error.primary(), ErrorName::PdfInvalid);
         assert_eq!(error.names(), &[ErrorName::PdfInvalid, ErrorName::PdfEncrypted]);
         assert!(error.is(ErrorName::PdfEncrypted));
+    }
+
+    #[test]
+    fn file_unreadable_is_registered() {
+        let spec = ErrorName::FileUnreadable.spec();
+        assert_eq!((spec.code, spec.status, spec.operational), (4006, 422, true));
+    }
+
+    #[test]
+    fn names_are_stored_by_name_and_unknown_names_read_as_internal() {
+        assert_eq!(serde_json::to_value(ErrorName::StorageFull).unwrap(), "StorageFull");
+        assert_eq!(serde_json::from_value::<ErrorName>("StorageFull".into()).unwrap(), ErrorName::StorageFull);
+        assert_eq!(serde_json::from_value::<ErrorName>("SomethingNew".into()).unwrap(), ErrorName::Internal);
     }
 
     #[test]

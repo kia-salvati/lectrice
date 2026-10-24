@@ -77,3 +77,21 @@ fn only_the_most_recent_documents_are_kept() {
     assert!(library.find(&first).unwrap().is_none());
     assert_eq!(library.find(&second).unwrap().unwrap().title, "Second");
 }
+
+/// C28: a removed or deleted document is not served from memory.
+#[test]
+fn removing_or_deleting_drops_the_cached_copy() {
+    let dir = TempDir::new().unwrap();
+    let library = CachedLibrary::new(Arc::new(FsDocumentRepository::new(dir.path())), 2);
+    let id = id_for(1);
+    library.save(&document(id.clone(), "First"), PDF_BYTES, &meta()).unwrap();
+    assert!(library.find(&id).unwrap().is_some());
+
+    library.set_removed(&id, Some(Timestamp::from_timestamp(2, 0).unwrap())).unwrap();
+    assert!(library.find(&id).unwrap().is_none());
+
+    library.set_removed(&id, None).unwrap();
+    assert!(library.find(&id).unwrap().is_some());
+    library.delete(&id).unwrap();
+    assert!(library.find(&id).unwrap().is_none());
+}

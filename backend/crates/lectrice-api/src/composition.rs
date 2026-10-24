@@ -11,8 +11,8 @@ use lectrice_app::{RequestContext, UseCase};
 use lectrice_domain::cleaning::RuleBasedCleaner;
 use lectrice_domain::{AppResult, AudioExporter, SpeechEngine, VoiceId};
 use lectrice_infra::{
-    CachedLibrary, FfmpegExporter, FsAudioCache, FsDocumentRepository, FsExportRecordStore, KokoroSettings, KokoroSpeechEngine, PdfiumTextSource,
-    SentencexSplitter, Sha256ContentHasher, SystemClock, WavDecoder, WavEncoder,
+    CachedLibrary, FfmpegExporter, FsAudioCache, FsDocumentRepository, FsExportRecordStore, FsVoiceSampleCache, KokoroSettings, KokoroSpeechEngine,
+    KokoroVariant, PdfiumTextSource, SentencexSplitter, Sha256ContentHasher, SonicTimeStretch, SystemClock, WavDecoder, WavEncoder,
 };
 use tracing::{info, warn};
 
@@ -31,6 +31,7 @@ const DOCUMENT_CACHE_CAPACITY: usize = 4;
 pub fn build_state(config: &Config) -> AppResult<AppState> {
     let library = Arc::new(CachedLibrary::new(Arc::new(FsDocumentRepository::new(&config.storage.data_dir)), DOCUMENT_CACHE_CAPACITY));
     let audio_cache = Arc::new(open_audio_cache(config)?);
+    let (speech_engine, speech_engine_load_ms) = load_speech_engine(&config.speech);
     let adapters = Adapters {
         hasher: Arc::new(Sha256ContentHasher),
         pdf_source: Arc::new(PdfiumTextSource::new(&config.pdf.pdfium_library)?),
@@ -39,17 +40,25 @@ pub fn build_state(config: &Config) -> AppResult<AppState> {
         reader: library.clone(),
         writer: library,
         clock: Arc::new(SystemClock),
-        speech_engine: load_speech_engine(&config.speech),
+        speech_engine,
+        speech_engine_load_ms,
         audio_cache: audio_cache.clone(),
         audio_retention: audio_cache,
         audio_encoder: Arc::new(WavEncoder),
         audio_decoder: Arc::new(WavDecoder),
+        voice_samples: Arc::new(FsVoiceSampleCache::new(config.storage.cache_dir())),
         exporter: Arc::new(open_exporter(&config.export, &config.storage.data_dir)?),
         export_records: Arc::new(FsExportRecordStore::new(&config.storage.data_dir)),
+        time_stretch: Some(Arc::new(SonicTimeStretch)),
     };
     let read_ahead =
         ReadAheadSettings { read_ahead_minutes: config.audio.read_ahead_minutes, keep_minutes_per_document: config.audio.keep_minutes_per_document };
-    let export = ExportSettings { max_sentences: (config.export.max_sentences > 0).then_some(config.export.max_sentences), ..ExportSettings::default() };
+    // One engine on the desktop, so 1x exports keep their 1.0 file names.
+    let export = ExportSettings {
+        max_sentences: (config.export.max_sentences > 0).then_some(config.export.max_sentences),
+        short_file_names: true,
+        ..ExportSettings::default()
+    };
     let upload_max_bytes = megabytes_to_bytes(config.upload.max_mb);
     let settings = Settings { import_max_bytes: upload_max_bytes, default_voice: VoiceId::new(config.speech.default_voice.trim()), read_ahead, export };
     let services = assemble(adapters, settings)?;
@@ -61,13 +70,19 @@ pub fn build_state(config: &Config) -> AppResult<AppState> {
 pub fn build_speech_engine(config: &SpeechConfig) -> AppResult<Arc<dyn SpeechEngine>> {
     match config.engine {
         SpeechEngineKind::Kokoro => {
-            let settings = KokoroSettings { model_dir: config.model_dir.clone(), num_threads: config.num_threads, provider: config.provider.clone() };
+            let settings = KokoroSettings {
+                model_dir: config.model_dir.clone(),
+                variant: KokoroVariant::Fp32,
+                num_threads: config.num_threads,
+                provider: config.provider.clone(),
+            };
             Ok(Arc::new(KokoroSpeechEngine::load(&settings)?))
         }
     }
 }
 
-fn load_speech_engine(config: &SpeechConfig) -> Option<Arc<dyn SpeechEngine>> {
+/// The engine and how long it took to load.
+fn load_speech_engine(config: &SpeechConfig) -> (Option<Arc<dyn SpeechEngine>>, Option<u32>) {
     let started = Instant::now();
     match build_speech_engine(config) {
         Ok(engine) => {
@@ -81,11 +96,11 @@ fn load_speech_engine(config: &SpeechConfig) -> Option<Arc<dyn SpeechEngine>> {
                 load_seconds,
                 "Speech engine loaded"
             );
-            Some(engine)
+            (Some(engine), u32::try_from(started.elapsed().as_millis()).ok())
         }
         Err(error) => {
             warn!(service = SERVICE, engine = ?config.engine, error = %error, "Speech engine failed to load; speech is unavailable");
-            None
+            (None, None)
         }
     }
 }
@@ -119,7 +134,7 @@ fn open_exporter(config: &ExportConfig, data_dir: &std::path::Path) -> AppResult
 
 fn open_audio_cache(config: &Config) -> AppResult<FsAudioCache> {
     let started = Instant::now();
-    let cache = FsAudioCache::open(&config.storage.data_dir, config.audio.cache_max_mb.saturating_mul(BYTES_PER_MB))?;
+    let cache = FsAudioCache::open(config.storage.cache_dir(), config.audio.cache_max_mb.saturating_mul(BYTES_PER_MB))?;
     info!(service = SERVICE, cache_max_mb = config.audio.cache_max_mb, scan_ms = started.elapsed().as_millis() as u64, "Audio cache opened");
     Ok(cache)
 }

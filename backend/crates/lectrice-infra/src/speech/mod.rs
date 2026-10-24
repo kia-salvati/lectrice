@@ -7,7 +7,7 @@ mod voices;
 mod wav;
 
 #[cfg(feature = "kokoro")]
-pub use kokoro::{KokoroSettings, KokoroSpeechEngine};
+pub use kokoro::{KokoroSettings, KokoroSpeechEngine, KokoroVariant};
 pub use wav::{WavDecoder, WavEncoder};
 #[cfg(feature = "ffmpeg-export")]
 pub(crate) use wav::{pcm16_mono, to_pcm16};

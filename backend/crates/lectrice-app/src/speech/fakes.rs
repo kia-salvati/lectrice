@@ -1,12 +1,13 @@
 //! Fakes for the speech tests: an engine that can be held on one text, an in-memory cache and a tiny encoder.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex};
 
 use lectrice_domain::{
-    AppError, AppResult, Audio, AudioCache, AudioEncoder, AudioEviction, AudioKey, AudioRetention, DocumentId, ErrorName, SentenceId, SpeechEngine,
-    SpeechRequest, Voice, VoiceGender, VoiceId, VoiceLanguage,
+    AppError, AppResult, Audio, AudioCache, AudioEncoder, AudioEviction, AudioKey, AudioRetention, CacheUsage, Document, DocumentBytes, DocumentCacheUsage,
+    DocumentId, DocumentReader, DocumentSummary, ErrorName, ListOptions, Page, SentenceId, SpeechEngine, SpeechRequest, Timestamp, Voice, VoiceGender, VoiceId,
+    VoiceLanguage,
 };
 
 pub(crate) const ENGINE_ID: &str = "fake-engine";
@@ -108,17 +109,24 @@ impl SpeechEngine for GatedEngine {
     }
 }
 
-/// Also records every `retain_around` call (it never evicts).
+const MEMORY_CACHE_CAP_BYTES: u64 = 1 << 20;
+
+/// Also records every `retain_around` call (it never evicts) and counts refreshes.
 #[derive(Default)]
 pub(crate) struct MemoryCache {
     clips: Mutex<HashMap<AudioKey, Vec<u8>>>,
     puts: AtomicUsize,
+    refreshes: AtomicUsize,
     retained: Mutex<Vec<(AudioKey, f64)>>,
 }
 
 impl MemoryCache {
     pub fn puts(&self) -> usize {
         self.puts.load(Ordering::SeqCst)
+    }
+
+    pub fn refreshes(&self) -> usize {
+        self.refreshes.load(Ordering::SeqCst)
     }
 
     pub fn keys(&self) -> Vec<AudioKey> {
@@ -139,6 +147,38 @@ impl AudioRetention for MemoryCache {
         self.retained.lock().unwrap().push((position.clone(), keep_seconds));
         Ok(AudioEviction::default())
     }
+
+    fn usage(&self) -> AppResult<CacheUsage> {
+        let clips = self.clips.lock().unwrap();
+        let mut documents: HashMap<DocumentId, DocumentCacheUsage> = HashMap::new();
+        for (key, bytes) in clips.iter() {
+            let usage =
+                documents.entry(key.document_id.clone()).or_insert_with(|| DocumentCacheUsage { document_id: key.document_id.clone(), bytes: 0, clips: 0 });
+            usage.bytes += bytes.len() as u64;
+            usage.clips += 1;
+        }
+        let bytes = clips.values().map(|clip| clip.len() as u64).sum();
+        Ok(CacheUsage { bytes, clips: clips.len(), cap_bytes: MEMORY_CACHE_CAP_BYTES, documents: documents.into_values().collect() })
+    }
+
+    fn clear(&self) -> AppResult<AudioEviction> {
+        let mut clips = self.clips.lock().unwrap();
+        let eviction = AudioEviction { cap_clips: clips.len(), freed_bytes: clips.values().map(|clip| clip.len() as u64).sum(), ..AudioEviction::default() };
+        clips.clear();
+        Ok(eviction)
+    }
+
+    fn remove_document(&self, id: &DocumentId) -> AppResult<AudioEviction> {
+        let mut clips = self.clips.lock().unwrap();
+        let before = clips.len();
+        clips.retain(|key, _| key.document_id != *id);
+        Ok(AudioEviction { cap_clips: before - clips.len(), ..AudioEviction::default() })
+    }
+
+    fn refresh(&self) -> AppResult<()> {
+        self.refreshes.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
 }
 
 impl AudioCache for MemoryCache {
@@ -150,6 +190,58 @@ impl AudioCache for MemoryCache {
         self.puts.fetch_add(1, Ordering::SeqCst);
         self.clips.lock().unwrap().insert(key.clone(), bytes.to_vec());
         Ok(())
+    }
+}
+
+/// Lists every document until it is removed; holds no documents itself (the read-ahead only asks for summaries).
+#[derive(Default)]
+pub(crate) struct ListedReader {
+    removed: Mutex<HashSet<DocumentId>>,
+}
+
+impl ListedReader {
+    pub fn remove(&self, id: &DocumentId) {
+        self.removed.lock().unwrap().insert(id.clone());
+    }
+}
+
+impl DocumentReader for ListedReader {
+    fn find(&self, _id: &DocumentId) -> AppResult<Option<Document>> {
+        Ok(None)
+    }
+
+    fn find_summary(&self, id: &DocumentId) -> AppResult<Option<DocumentSummary>> {
+        if self.removed.lock().unwrap().contains(id) {
+            return Ok(None);
+        }
+        let at = Timestamp::UNIX_EPOCH;
+        Ok(Some(DocumentSummary {
+            id: id.clone(),
+            title: "T".into(),
+            source_file_name: "t.pdf".into(),
+            page_count: 1,
+            sentence_count: 0,
+            cleaner_version: 1,
+            added_at: at,
+            last_opened_at: at,
+            last_sentence_id: None,
+        }))
+    }
+
+    fn find_original_pdf(&self, _id: &DocumentId) -> AppResult<Option<Vec<u8>>> {
+        Ok(None)
+    }
+
+    fn list_recent(&self, options: ListOptions) -> AppResult<Page<DocumentSummary>> {
+        Ok(Page { items: Vec::new(), total: 0, limit: options.limit_or_default(), offset: 0 })
+    }
+
+    fn list_removed(&self) -> AppResult<Vec<DocumentId>> {
+        Ok(self.removed.lock().unwrap().iter().cloned().collect())
+    }
+
+    fn library_usage(&self) -> AppResult<Vec<DocumentBytes>> {
+        Ok(Vec::new())
     }
 }
 

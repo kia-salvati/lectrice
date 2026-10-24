@@ -6,7 +6,7 @@ import { EXPORT_FORMATS, EXPORT_POLL_INTERVAL_MS } from '../config/constants';
 import type { AudioExport, ExportFormat, ExportStatus } from '../types/api';
 import type { DocumentId } from '../types/document';
 
-const IN_PROGRESS: Record<ExportStatus, boolean> = { queued: true, running: true, done: false, failed: false, cancelled: false };
+const IN_PROGRESS: Record<ExportStatus, boolean> = { queued: true, running: true, paused: false, done: false, failed: false, cancelled: false };
 
 export interface AudioExportState {
   /** The latest known job, or null before the first export in this session. */

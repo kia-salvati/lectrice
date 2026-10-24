@@ -25,6 +25,11 @@ impl DocumentPipeline {
         document.cleaner_version < self.cleaner.version()
     }
 
+    /// A summary with an older `cleaner_version` is cleaned again when it is opened.
+    pub fn cleaner_version(&self) -> u32 {
+        self.cleaner.version()
+    }
+
     pub fn process(&self, id: &DocumentId, source_file_name: &str, pdf: &[u8]) -> AppResult<Document> {
         let started = Instant::now();
 
@@ -61,6 +66,7 @@ pub(crate) fn summarize(document: &Document, meta: &DocumentMeta) -> DocumentSum
         source_file_name: document.source_file_name.clone(),
         page_count: document.page_count,
         sentence_count: document.sentence_count(),
+        cleaner_version: document.cleaner_version,
         added_at: meta.added_at,
         last_opened_at: meta.last_opened_at,
         last_sentence_id: meta.last_sentence_id,

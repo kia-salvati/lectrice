@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use lectrice_domain::{ErrorName, SpeechEngine, SpeechRequest, VoiceId};
-use lectrice_infra::{KokoroSettings, KokoroSpeechEngine};
+use lectrice_infra::{KokoroSettings, KokoroSpeechEngine, KokoroVariant};
 
 const NUM_THREADS: u32 = 4;
 const CPU_PROVIDER: &str = "cpu";
@@ -14,7 +14,22 @@ fn bundled_model_dir() -> PathBuf {
 }
 
 fn settings(model_dir: PathBuf) -> KokoroSettings {
-    KokoroSettings { model_dir, num_threads: NUM_THREADS, provider: CPU_PROVIDER.into() }
+    KokoroSettings { model_dir, variant: KokoroVariant::Fp32, num_threads: NUM_THREADS, provider: CPU_PROVIDER.into() }
+}
+
+/// C11: fp32 keeps v1.0's id (the desktop cache stays valid); int8 clips are kept apart.
+#[test]
+fn each_bundle_has_its_own_engine_id() {
+    assert_eq!(KokoroVariant::Fp32.engine_id(), "kokoro-v1.0");
+    assert_eq!(KokoroVariant::Int8.engine_id(), "kokoro-v1.0-int8");
+}
+
+/// The fp32 bundle has no int8 model, so asking it for int8 fails before sherpa-onnx is created.
+#[test]
+fn the_int8_variant_needs_its_own_model_file() {
+    let error = KokoroSpeechEngine::load(&KokoroSettings { variant: KokoroVariant::Int8, ..settings(bundled_model_dir()) }).err().unwrap();
+
+    assert_eq!(error.primary(), ErrorName::SpeechEngineUnavailable);
 }
 
 fn load(model_dir: PathBuf) -> KokoroSpeechEngine {

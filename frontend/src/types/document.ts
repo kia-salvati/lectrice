@@ -61,6 +61,8 @@ export interface DocumentSummary {
   sourceFileName: string;
   pageCount: number;
   sentenceCount: number;
+  /** Older than the server's cleaner: opening the document cleans it again first. */
+  cleanerVersion: number;
   /** ISO 8601 timestamps in UTC: "2026-10-21T18:04:00Z". */
   addedAt: string;
   lastOpenedAt: string;

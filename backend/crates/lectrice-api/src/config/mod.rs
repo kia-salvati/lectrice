@@ -48,6 +48,15 @@ pub struct ServerConfig {
 #[serde(deny_unknown_fields)]
 pub struct StorageConfig {
     pub data_dir: PathBuf,
+    /// Where the sentence audio and voice samples go; `data_dir` when not set.
+    #[serde(default)]
+    pub cache_dir: Option<PathBuf>,
+}
+
+impl StorageConfig {
+    pub fn cache_dir(&self) -> &Path {
+        self.cache_dir.as_deref().unwrap_or(&self.data_dir)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -115,6 +124,9 @@ pub fn load(path: &Path, env: impl IntoIterator<Item = (String, String)>, home: 
 
     let base_dir = path.parent().unwrap_or(Path::new(""));
     config.storage.data_dir = paths::resolve(&config.storage.data_dir, base_dir, home)?;
+    if let Some(cache_dir) = &config.storage.cache_dir {
+        config.storage.cache_dir = Some(paths::resolve(cache_dir, base_dir, home)?);
+    }
     config.pdf.pdfium_library = paths::resolve(&config.pdf.pdfium_library, base_dir, home)?;
     config.speech.model_dir = paths::resolve(&config.speech.model_dir, base_dir, home)?;
 
@@ -169,6 +181,7 @@ mod tests {
         assert_eq!(config.server.port, 7878);
         assert_eq!(config.server.allowed_origin, "http://localhost:5173");
         assert_eq!(config.storage.data_dir, Path::new("/home/reader/.local/share/lectrice"));
+        assert_eq!(config.storage.cache_dir(), config.storage.data_dir, "the cache lives in the data dir unless set");
         assert_eq!((config.audio.read_ahead_minutes, config.audio.keep_minutes_per_document, config.audio.cache_max_mb), (10, 60, 2048));
         assert_eq!(config.upload.max_mb, 200);
         assert!(config.pdf.pdfium_library.ends_with("vendor/pdfium/lib/libpdfium.so"));
@@ -197,6 +210,19 @@ mod tests {
         assert_eq!(config.server.port, 9000);
         assert_eq!(config.speech.default_voice, "af_bella");
         assert_eq!(config.storage.data_dir, Path::new("/srv/books"));
+    }
+
+    #[test]
+    fn a_cache_dir_in_the_file_is_resolved_like_the_data_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let shipped = std::fs::read_to_string(shipped_config_path()).unwrap();
+        let with_cache = shipped.replace("[storage]\n", "[storage]\ncache_dir = \"~/.cache/lectrice\"\n");
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, with_cache).unwrap();
+
+        let config = load(&path, Vec::new(), Some(Path::new("/home/reader"))).unwrap();
+
+        assert_eq!(config.storage.cache_dir(), Path::new("/home/reader/.cache/lectrice"));
     }
 
     #[test]

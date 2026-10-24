@@ -50,6 +50,14 @@ pub struct AudioKey {
     pub sentence_id: SentenceId,
 }
 
+/// One stored voice sample. Raising `version` (when the sample text changes) makes older samples unused.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct VoiceSampleKey {
+    pub engine_id: String,
+    pub voice_id: VoiceId,
+    pub version: u32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -21,7 +21,7 @@ async fn main() -> ExitCode {
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let config_path = std::env::var_os(CONFIG_PATH_ENV).map_or_else(|| PathBuf::from(DEFAULT_CONFIG_PATH), PathBuf::from);
     let config = config::load(&config_path, std::env::vars(), std::env::home_dir().as_deref())?;
-    tracing::info!(service = SERVICE, config_path = %config_path.display(), port = config.server.port, data_dir = %config.storage.data_dir.display(), "Config loaded");
+    tracing::info!(service = SERVICE, core_version = lectrice_app::CORE_VERSION, config_path = %config_path.display(), port = config.server.port, data_dir = %config.storage.data_dir.display(), "Config loaded");
 
     let mut args = std::env::args().skip(1);
     match args.next().as_deref() {

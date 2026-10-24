@@ -5,6 +5,12 @@ use lectrice_domain::{Block, Document, Sentence, SentenceId};
 /// Speaking rate at 1x (spec §4, measured): text length → estimated audio length.
 pub(crate) const CHARS_PER_SECOND: f64 = 18.0;
 pub(crate) const SECONDS_PER_MINUTE: f64 = 60.0;
+pub(crate) const MILLIS_PER_SECOND: f64 = 1000.0;
+
+/// Estimated 1x audio of `chars` spoken characters, in whole milliseconds.
+pub(crate) fn chars_to_ms(chars: u64) -> u64 {
+    (chars as f64 / CHARS_PER_SECOND * MILLIS_PER_SECOND).round() as u64
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct ReadAheadInput<'a> {
@@ -54,6 +60,27 @@ pub fn plan_read_ahead(input: ReadAheadInput<'_>) -> ReadAheadPlan<'_> {
         plan.sentences.push(sentence);
     }
     plan
+}
+
+/// Estimated 1x audio of the sentences right after `from` in playback order that are ready, up to the first one that
+/// isn't (sentences with nothing to say are always ready).
+pub(crate) fn ready_ahead_seconds(document: &Document, from: SentenceId, read_skipped: bool, mut is_cached: impl FnMut(SentenceId) -> bool) -> f64 {
+    let order = playable_in_order(document, read_skipped);
+    let Some(start) = start_position(document, &order, from) else {
+        return 0.0;
+    };
+    let mut seconds = 0.0;
+    for &(_, sentence) in &order[start..] {
+        let text = sentence.spoken_text();
+        if text.trim().is_empty() {
+            continue;
+        }
+        if !is_cached(sentence.id) {
+            break;
+        }
+        seconds += estimated_seconds(text);
+    }
+    seconds
 }
 
 fn estimated_seconds(text: &str) -> f64 {
@@ -201,6 +228,18 @@ mod tests {
 
         let plan = plan_read_ahead(ReadAheadInput { document: &document, from: SentenceId(3), rate: 2.0, read_skipped: false, minutes: 10 });
         assert_eq!(plan.ids(), [SentenceId(4)]);
+    }
+
+    /// C25: only the unbroken run of cached sentences after the current one counts.
+    #[test]
+    fn ready_ahead_counts_the_cached_run_after_the_sentence() {
+        let document = uniform_document(10, 2);
+        let cached = [1, 2, 3, 5];
+
+        let seconds = ready_ahead_seconds(&document, SentenceId(0), false, |id| cached.contains(&id.0));
+
+        assert!((seconds - 6.0).abs() < 1e-9);
+        assert!(ready_ahead_seconds(&document, SentenceId(3), false, |id| cached.contains(&id.0)).abs() < 1e-9);
     }
 
     #[test]

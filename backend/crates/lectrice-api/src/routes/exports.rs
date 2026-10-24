@@ -11,7 +11,7 @@ use axum::response::{IntoResponse, Response};
 use futures_core::Stream;
 use lectrice_app::UseCase;
 use lectrice_app::exports::{ExportDownload, StartAudioExportArgs};
-use lectrice_domain::{AppError, AudioExport, DocumentId, ErrorName, ExportFormat, ExportId, VoiceId};
+use lectrice_domain::{AppError, AudioExport, DocumentId, ErrorName, ExportFormat, ExportId, ExportSpeed, VoiceId};
 use serde::Deserialize;
 use serde_json::json;
 use tokio::io::{AsyncRead, ReadBuf};
@@ -46,7 +46,16 @@ impl StartExportBody {
         let Some(format) = ExportFormat::from_extension(&format) else {
             return Err(ApiError(AppError::new(ErrorName::ExportFormatUnsupported).with_detail(format!("format {format:?}"))));
         };
-        Ok(StartAudioExportArgs { document_id, voice_id: VoiceId::new(voice), format, read_skipped: self.read_skipped.unwrap_or(false) })
+        Ok(StartAudioExportArgs {
+            document_id,
+            voice_id: VoiceId::new(voice),
+            format,
+            read_skipped: self.read_skipped.unwrap_or(false),
+            speed: ExportSpeed::NORMAL,
+            engine_id: None,
+            range: None,
+            range_label: None,
+        })
     }
 }
 

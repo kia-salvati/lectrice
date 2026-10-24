@@ -5,8 +5,11 @@ use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsKoko
 
 use super::voices;
 
-const ENGINE_ID: &str = "kokoro-v1.0";
-const MODEL_FILE: &str = "model.onnx";
+const FP32_ENGINE_ID: &str = "kokoro-v1.0";
+const INT8_ENGINE_ID: &str = "kokoro-v1.0-int8";
+const FP32_MODEL_FILE: &str = "model.onnx";
+/// The name in sherpa-onnx's int8 Kokoro bundle (to be confirmed by the Android spike).
+const INT8_MODEL_FILE: &str = "model.int8.onnx";
 const VOICES_FILE: &str = "voices.bin";
 const TOKENS_FILE: &str = "tokens.txt";
 /// British voices use the US lexicon too in v1 (spec §10); the lexicon is fixed per engine.
@@ -17,9 +20,35 @@ const NUL: char = '\0';
 
 type NoProgress = fn(&[f32], f32) -> bool;
 
+/// Which model bundle `model_dir` holds. Each has its own engine id, so their cached clips never mix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum KokoroVariant {
+    #[default]
+    Fp32,
+    Int8,
+}
+
+impl KokoroVariant {
+    /// Fp32 keeps v1.0's id, so the desktop's cached clips stay valid.
+    pub const fn engine_id(self) -> &'static str {
+        match self {
+            Self::Fp32 => FP32_ENGINE_ID,
+            Self::Int8 => INT8_ENGINE_ID,
+        }
+    }
+
+    const fn model_file(self) -> &'static str {
+        match self {
+            Self::Fp32 => FP32_MODEL_FILE,
+            Self::Int8 => INT8_MODEL_FILE,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct KokoroSettings {
     pub model_dir: PathBuf,
+    pub variant: KokoroVariant,
     pub num_threads: u32,
     /// The onnxruntime execution provider: "cpu", or e.g. "xnnpack" / "nnapi" on Android. sherpa-onnx falls back to
     /// the CPU (and logs it) when the provider isn't in its onnxruntime build.
@@ -30,6 +59,7 @@ pub struct KokoroSettings {
 pub struct KokoroSpeechEngine {
     tts: OfflineTts,
     sample_rate: u32,
+    variant: KokoroVariant,
 }
 
 impl KokoroSpeechEngine {
@@ -44,13 +74,13 @@ impl KokoroSpeechEngine {
             return Err(unavailable(format!("the model has {speakers} voices, expected at least {}", voices::count())));
         }
         let sample_rate = u32::try_from(tts.sample_rate()).map_err(|_| unavailable("the model reports an invalid sample rate"))?;
-        Ok(Self { tts, sample_rate })
+        Ok(Self { tts, sample_rate, variant: settings.variant })
     }
 }
 
 impl SpeechEngine for KokoroSpeechEngine {
     fn id(&self) -> &str {
-        ENGINE_ID
+        self.variant.engine_id()
     }
 
     fn voices(&self) -> Vec<Voice> {
@@ -95,7 +125,7 @@ fn engine_config(settings: &KokoroSettings) -> AppResult<OfflineTtsConfig> {
     }
 
     let kokoro = OfflineTtsKokoroModelConfig {
-        model: Some(existing_file(&dir.join(MODEL_FILE))?),
+        model: Some(existing_file(&dir.join(settings.variant.model_file()))?),
         voices: Some(existing_file(&dir.join(VOICES_FILE))?),
         tokens: Some(existing_file(&dir.join(TOKENS_FILE))?),
         lexicon: Some(existing_file(&dir.join(LEXICON_FILE))?),

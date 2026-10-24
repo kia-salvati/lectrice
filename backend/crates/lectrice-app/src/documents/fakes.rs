@@ -6,9 +6,9 @@ use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use lectrice_domain::{
-    AppError, AppResult, BlockKind, CleanedBlock, CleanedDocument, Clock, ContentHasher, Document, DocumentCleaner, DocumentId, DocumentMeta, DocumentReader,
-    DocumentSummary, DocumentWriter, ErrorName, ListOptions, Page, PdfContent, PdfTextSource, ReadingPosition, SentenceId, SentenceSplitter, TextSpan,
-    Timestamp,
+    AppError, AppResult, BlockKind, CleanedBlock, CleanedDocument, Clock, ContentHasher, Document, DocumentBytes, DocumentCleaner, DocumentId, DocumentMeta,
+    DocumentReader, DocumentSummary, DocumentWriter, ErrorName, ListOptions, Page, PdfContent, PdfTextSource, ReadingPosition, SentenceId, SentenceSplitter,
+    TextSpan, Timestamp,
 };
 
 use super::pipeline::{DocumentPipeline, summarize};
@@ -144,6 +144,7 @@ struct Stored {
     document: Document,
     pdf: Vec<u8>,
     meta: DocumentMeta,
+    removed_at: Option<Timestamp>,
 }
 
 #[derive(Default)]
@@ -156,12 +157,21 @@ impl InMemoryStore {
         self.documents.lock().unwrap().get(id).map(|stored| stored.pdf.clone())
     }
 
+    /// Removed documents too (the reader hides them).
     pub fn document(&self, id: &DocumentId) -> Option<Document> {
         self.documents.lock().unwrap().get(id).map(|stored| stored.document.clone())
     }
 
     pub fn summary(&self, id: &DocumentId) -> Option<DocumentSummary> {
         self.documents.lock().unwrap().get(id).map(|stored| summarize(&stored.document, &stored.meta))
+    }
+
+    pub fn contains(&self, id: &DocumentId) -> bool {
+        self.documents.lock().unwrap().contains_key(id)
+    }
+
+    fn listed<T>(&self, id: &DocumentId, read: impl FnOnce(&Stored) -> T) -> Option<T> {
+        self.documents.lock().unwrap().get(id).filter(|stored| stored.removed_at.is_none()).map(read)
     }
 
     pub fn set_position(&self, id: &DocumentId, sentence_id: u32) {
@@ -178,11 +188,11 @@ impl InMemoryStore {
 
 impl DocumentReader for InMemoryStore {
     fn find(&self, id: &DocumentId) -> AppResult<Option<Document>> {
-        Ok(self.document(id))
+        Ok(self.listed(id, |stored| stored.document.clone()))
     }
 
     fn find_summary(&self, id: &DocumentId) -> AppResult<Option<DocumentSummary>> {
-        Ok(self.summary(id))
+        Ok(self.listed(id, |stored| summarize(&stored.document, &stored.meta)))
     }
 
     fn find_original_pdf(&self, id: &DocumentId) -> AppResult<Option<Vec<u8>>> {
@@ -192,21 +202,34 @@ impl DocumentReader for InMemoryStore {
     fn list_recent(&self, options: ListOptions) -> AppResult<Page<DocumentSummary>> {
         let limit = options.limit_or_default();
         let offset = options.offset.unwrap_or(0);
-        let mut items: Vec<DocumentSummary> = self.documents.lock().unwrap().values().map(|stored| summarize(&stored.document, &stored.meta)).collect();
+        let documents = self.documents.lock().unwrap();
+        let mut items: Vec<DocumentSummary> =
+            documents.values().filter(|stored| stored.removed_at.is_none()).map(|stored| summarize(&stored.document, &stored.meta)).collect();
         items.sort_by_key(|item| std::cmp::Reverse(item.last_opened_at));
         let total = items.len();
         Ok(Page { items: items.into_iter().skip(offset).take(limit).collect(), total, limit, offset })
+    }
+
+    fn list_removed(&self) -> AppResult<Vec<DocumentId>> {
+        Ok(self.documents.lock().unwrap().iter().filter(|(_, stored)| stored.removed_at.is_some()).map(|(id, _)| id.clone()).collect())
+    }
+
+    /// The PDF's size stands in for the folder.
+    fn library_usage(&self) -> AppResult<Vec<DocumentBytes>> {
+        let documents = self.documents.lock().unwrap();
+        let listed = documents.iter().filter(|(_, stored)| stored.removed_at.is_none());
+        Ok(listed.map(|(id, stored)| DocumentBytes { document_id: id.clone(), bytes: stored.pdf.len() as u64 }).collect())
     }
 }
 
 impl DocumentWriter for InMemoryStore {
     fn save(&self, document: &Document, original_pdf: &[u8], meta: &DocumentMeta) -> AppResult<()> {
         let mut documents = self.documents.lock().unwrap();
-        let meta = match documents.get(&document.id) {
-            Some(saved) => meta.clone().merged_with_saved(&saved.meta, document.sentence_count()),
-            None => meta.clone(),
+        let (meta, removed_at) = match documents.get(&document.id) {
+            Some(saved) => (meta.clone().merged_with_saved(&saved.meta, document.sentence_count()), saved.removed_at),
+            None => (meta.clone(), None),
         };
-        documents.insert(document.id.clone(), Stored { document: document.clone(), pdf: original_pdf.to_vec(), meta });
+        documents.insert(document.id.clone(), Stored { document: document.clone(), pdf: original_pdf.to_vec(), meta, removed_at });
         Ok(())
     }
 
@@ -216,6 +239,18 @@ impl DocumentWriter for InMemoryStore {
 
     fn mark_opened(&self, id: &DocumentId, opened_at: Timestamp) -> AppResult<()> {
         self.update_meta(id, |meta| meta.last_opened_at = opened_at)
+    }
+
+    fn set_removed(&self, id: &DocumentId, removed_at: Option<Timestamp>) -> AppResult<()> {
+        let mut documents = self.documents.lock().unwrap();
+        let stored = documents.get_mut(id).ok_or_else(|| AppError::new(ErrorName::DocumentNotFound))?;
+        stored.removed_at = removed_at;
+        Ok(())
+    }
+
+    fn delete(&self, id: &DocumentId) -> AppResult<()> {
+        self.documents.lock().unwrap().remove(id);
+        Ok(())
     }
 }
 

@@ -211,9 +211,12 @@ deleting the sentences **farthest behind** the reading position first. A global 
 ~/.local/share/lectrice/                      (configurable: storage.data_dir)
   library/<docId>/original.pdf
   library/<docId>/document.json               (§5)
-  library/<docId>/meta.json                   { addedAt, lastOpenedAt, lastSentenceId }
-  audio/<docId>/c<cleanerVersion>/<engineId>/<voiceId>/<sentenceId>.wav
-  exports/<docId>/<voiceId>.<ext>
+  library/<docId>/meta.json                   { addedAt, lastOpenedAt, lastSentenceId, cleanerVersion, removedAt? }
+  audio/<docId>/c<cleanerVersion>/<engineId>/<voiceId>/<sentenceId>.wav   (under storage.cache_dir, v1.1)
+  samples/<engineId>/<voiceId>.v<n>.wav                                   (under storage.cache_dir, v1.1)
+  exports/<docId>/<voiceId>.<ext>             (1x whole book; else <voiceId>.<engineId>.<speed>[.s<from>-<to>].<ext>)
+  exports/parts/<exportId>/part-NNNN.wav      (an unfinished export's parts)
+  exports/jobs/<exportId>.json                (export records)
 ```
 
 - Writes go to a temp file and are then renamed, so a crash never leaves half a document.
@@ -241,10 +244,14 @@ Dates are ISO 8601 strings in UTC (`"2026-10-21T18:04:00Z"`).
 | `GET /api/exports/{exportId}` | | `200 { export: AudioExport }` |
 | `DELETE /api/exports/{exportId}` | | `204` (cancels) |
 | `GET /api/exports/{exportId}/file` | | `200` the audio file (download) |
+| `DELETE /api/documents/{id}` (v1.1) | | `204`: the book, its position and its audio are deleted at once (no undo on the web); its finished export files stay |
+| `GET /api/voices/{voiceId}/sample` (v1.1) | | `200 audio/wav`: the voice reading one fixed sentence, made once and then kept |
 
-`AudioExport = { id, documentId, voiceId, format, status: "queued" | "running" | "done" | "failed" | "cancelled", sentencesDone, sentencesTotal, estimatedSecondsLeft | null }`
+`AudioExport = { id, documentId, voiceId, format, speedPercent, engineId, range: { fromSentence, toSentence } | null, rangeLabel | null, title, status: "queued" | "running" | "paused" | "done" | "failed" | "cancelled", pausedBy: "user" | "system" | "storageFull" | "engineSwitch" | null, stage: "parts" | "assemble", error | null, sentencesDone, sentencesTotal, partsDone, partsTotal, estimatedSecondsLeft | null, fileBytes | null, location: { kind: "appStorage", path } | { kind: "shared", uri } | null, waitingForEngine }`
+(the web page only starts whole-book 1x exports; a `paused` one, e.g. after the disk filled up, continues when the
+same export is started again)
 
-`DocumentSummary = { id, title, sourceFileName, pageCount, sentenceCount, addedAt, lastOpenedAt, lastSentenceId | null }`
+`DocumentSummary = { id, title, sourceFileName, pageCount, sentenceCount, cleanerVersion, addedAt, lastOpenedAt, lastSentenceId | null }`
 
 - In development the Vite dev server proxies `/api` to the backend, so no CORS setup is needed.
   CORS for `server.allowed_origin` stays available for other setups.
@@ -256,15 +263,15 @@ Dates are ISO 8601 strings in UTC (`"2026-10-21T18:04:00Z"`).
 
 | Name | Code | HTTP | Operational | User-facing message |
 |---|---|---|---|---|
-| `RequestInvalid` | 1000 | 400 | yes | The request isn't valid. |
+| `RequestInvalid` | 1000 | 400 | yes | This request isn't valid. |
 | `UploadMissingFile` | 1001 | 400 | yes | No file was uploaded. |
-| `RouteNotFound` | 1006 | 404 | yes | Not found. |
-| `MethodNotAllowed` | 1007 | 405 | yes | Method not allowed. |
-| `RequestCancelled` | 1008 | 499 | yes | (only for clients that already disconnected) |
 | `UploadTooLarge` | 1002 | 413 | yes | This file is too large. |
 | `PdfInvalid` | 1003 | 422 | yes | This file isn't a readable PDF. |
 | `PdfEncrypted` | 1004 | 422 | yes | This PDF is password-protected. |
 | `PdfNoText` | 1005 | 422 | yes | This PDF has no selectable text. |
+| `RouteNotFound` | 1006 | 404 | yes | There is nothing at this address. |
+| `MethodNotAllowed` | 1007 | 405 | yes | This address doesn't accept that method. |
+| `RequestCancelled` | 1008 | 499 | yes | The request was cancelled. (only for clients that already disconnected) |
 | `DocumentNotFound` | 1101 | 404 | yes | Document not found. |
 | `SentenceNotFound` | 1102 | 404 | yes | Sentence not found. |
 | `VoiceUnknown` | 2001 | 400 | yes | Unknown voice. |
@@ -273,12 +280,21 @@ Dates are ISO 8601 strings in UTC (`"2026-10-21T18:04:00Z"`).
 | `ExportNotFound` | 3001 | 404 | yes | Export not found. |
 | `ExportNotReady` | 3002 | 409 | yes | The audio file isn't ready yet. |
 | `ExportFormatUnsupported` | 3003 | 400 | yes | That audio format isn't supported. |
-| `ExporterUnavailable` | 3004 | 503 | yes | Audio export isn't available (ffmpeg is missing). |
+| `ExporterUnavailable` | 3004 | 503 | yes | Audio export isn't available. (the ffmpeg detail is only logged) |
+| `ModelMissing` | 4001 | 503 | yes | The voice model isn't installed. |
+| `ModelDownloadFailed` | 4002 | 502 | yes | The voice model couldn't be downloaded. |
+| `ModelChecksumMismatch` | 4003 | 502 | yes | The downloaded voice model is damaged. |
+| `StorageFull` | 4004 | 507 | yes | There isn't enough free space. |
+| `ExportPaused` | 4005 | 409 | yes | Export paused; it will continue later. |
+| `FileUnreadable` | 4006 | 422 | yes | This file couldn't be opened. |
 | `StorageFailed` | 9001 | 500 | no | Something went wrong saving data. |
 | `Internal` | 9999 | 500 | no | Something went wrong. |
 
 Services raise by name (`ErrorName::PdfNoText`). Only `lectrice-api` turns a name into HTTP. Messages
-for non-operational errors are generic, and the full cause is logged.
+for non-operational errors are generic, and the full cause is logged. The 4xxx names (v1.1) are shared with the
+Android app: model download and import errors are raised by the Kotlin side, `StorageFull` by the core's storage
+adapters (a full disk comes first, with `StorageFailed` behind it) and by the exporter; an export that hits it
+pauses instead of failing.
 
 ## 9. Logging
 
@@ -312,12 +328,16 @@ This replaces the rules' "log the whole returned value" for this project.
 
 ```toml
 [server]   port = 7878            allowed_origin = "http://localhost:5173"
-[storage]  data_dir = "~/.local/share/lectrice"
+[storage]  data_dir = "~/.local/share/lectrice"   # cache_dir = … (optional, v1.1; default data_dir)
 [audio]    read_ahead_minutes = 10   keep_minutes_per_document = 60   cache_max_mb = 2048
 [upload]   max_mb = 200
 [pdf]      pdfium_library = "vendor/pdfium/lib/libpdfium.so"
-[speech]   engine = "kokoro"   model_dir = "../models/kokoro-multi-lang-v1_0"   default_voice = "af_heart"   num_threads = 4
+[export]   ffmpeg = "ffmpeg"   max_sentences = 0
+[speech]   engine = "kokoro"   model_dir = "../models/kokoro-multi-lang-v1_0"   default_voice = "af_heart"   num_threads = 4   provider = "cpu"
 ```
+
+`storage.cache_dir` is not in the shipped file, so it can only be set there (an env override needs the key in the
+file).
 
 ## 12. Frontend
 

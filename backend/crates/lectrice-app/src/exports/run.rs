@@ -1,6 +1,7 @@
 //! One export from start (or from its first unfinished part) to finish: sentences in playback order, cached clips
 //! reused, the rest made by the speech worker at export priority and streamed straight into the part being written
-//! (never into the cache). Finished parts are reported one by one, then joined into the book's file.
+//! (never into the cache). A baked-in speed goes through a time-stretcher between the clip and the part. Finished
+//! parts are reported one by one, then joined into the book's file.
 
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -9,13 +10,14 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
 use lectrice_domain::{
-    AppError, AppResult, Audio, AudioCache, AudioDecoder, AudioExporter, AudioKey, ChapterMark, Document, DocumentReader, ErrorName, ExportPart, ExportRecord,
-    ExportTarget, ExportWriter, ExportedFile, Sentence, SpeechEngine, SpeechRequest, VoiceId,
+    AppError, AppResult, Audio, AudioCache, AudioDecoder, AudioExport, AudioExporter, AudioKey, ChapterMark, Document, DocumentReader, ErrorName, ExportPart,
+    ExportRecord, ExportSpeed, ExportTarget, ExportWriter, ExportedFile, Sentence, SpeechEngine, SpeechRequest, TimeStretch, TimeStretcher, VoiceId,
+    export_file_stem,
 };
 use tracing::{info, warn};
 
 use super::jobs::ExportSettings;
-use super::plan::{ExportPlan, ExportStep, PartPlan, export_plan, spoken_chars};
+use super::plan::{ExportPlan, ExportStep, PartPlan, PlanOptions, export_plan, spoken_chars};
 use super::progress::{SynthesisRate, checkpoint, percent};
 use crate::speech::{CancelHandle, SpeechJob, SpeechOutcome, SpeechPriority, SpeechWorker, elapsed_ms};
 
@@ -24,7 +26,7 @@ const NAME: &str = "ExportRunner";
 const PIPELINE_DEPTH: usize = 4;
 /// How often a wait for speech checks whether the export was stopped.
 const STOP_POLL: Duration = Duration::from_millis(200);
-const MILLIS_PER_SECOND: u64 = 1000;
+const MILLIS_PER_SECOND: f64 = 1000.0;
 
 pub(crate) struct ExportRunnerDeps {
     pub worker: Arc<SpeechWorker>,
@@ -33,6 +35,8 @@ pub(crate) struct ExportRunnerDeps {
     pub cache: Arc<dyn AudioCache>,
     pub decoder: Arc<dyn AudioDecoder>,
     pub exporter: Arc<dyn AudioExporter>,
+    /// `None` when the shell has none; exports are then refused any speed but 1x.
+    pub time_stretch: Option<Arc<dyn TimeStretch>>,
 }
 
 pub(crate) struct ExportRunner {
@@ -55,11 +59,20 @@ pub(crate) struct Progress {
     pub checkpoint: bool,
 }
 
+/// A part as the runner hands it to the registry: the file, its chapter marks and the 1x samples written so far.
+pub(crate) struct FinishedPart {
+    pub part: ExportPart,
+    pub chapters: Vec<ChapterMark>,
+    pub source_samples: u64,
+}
+
 /// What the runner tells the job registry while it works.
 pub(crate) trait RunReport {
     fn progress(&mut self, progress: Progress);
     /// Saved before the next part starts, so a restart continues after this part.
-    fn part_finished(&mut self, part: ExportPart, chapters: Vec<ChapterMark>);
+    fn part_finished(&mut self, finished: FinishedPart);
+    /// Every part is written; joining them starts.
+    fn assembling(&mut self);
 }
 
 enum Clip {
@@ -88,7 +101,10 @@ enum Prepared {
 /// Counters across the whole run, including the parts finished before a resume.
 struct RunState {
     started: Instant,
-    samples_written: u64,
+    /// What the files hold (fewer samples than the 1x audio when the speed is baked in).
+    output_samples: u64,
+    /// The 1x audio so far; chapter marks are timed from it, which avoids the stretcher's delay.
+    source_samples: u64,
     sentences_done: u32,
     done_chars: u64,
     last_checkpoint: u64,
@@ -125,33 +141,32 @@ impl ExportRunner {
     fn try_run(&self, record: &ExportRecord, stop: &AtomicBool, report: &mut dyn RunReport) -> AppResult<Option<ExportedFile>> {
         let export = &record.export;
         let document = self.deps.reader.find(&export.document_id)?.ok_or_else(|| AppError::new(ErrorName::DocumentNotFound))?;
-        let plan = export_plan(&document, record.read_skipped, self.settings.max_sentences, self.settings.part_minutes);
+        let options = PlanOptions {
+            read_skipped: record.read_skipped,
+            max_sentences: self.settings.max_sentences,
+            part_minutes: self.settings.part_minutes,
+            range: export.range,
+        };
+        let plan = export_plan(&document, options);
         let first_part = record.parts.len();
         if plan.sentences != export.sentences_total || first_part > plan.parts.len() {
             let detail = format!("the document changed since export {} started ({} sentences, was {})", export.id, plan.sentences, export.sentences_total);
             return Err(AppError::new(ErrorName::Internal).with_detail(detail));
         }
+        if !export.speed.is_normal() && self.deps.time_stretch.is_none() {
+            return Err(AppError::new(ErrorName::Internal).with_detail(format!("export {} needs a time-stretch and there is none", export.id)));
+        }
         let chapters = plan.steps.len() - plan.sentences as usize;
-        info!(service = NAME, export_id = %export.id, doc_id = %export.document_id, voice_id = %export.voice_id, format = export.format.extension(), read_skipped = record.read_skipped, sentences = plan.sentences, chapters, spoken_chars = plan.spoken_chars, parts_total = plan.parts.len(), first_part, "export started");
+        info!(service = NAME, export_id = %export.id, doc_id = %export.document_id, voice_id = %export.voice_id, format = export.format.extension(), engine_id = %export.engine_id, speed_percent = export.speed.percent(), ranged = export.range.is_some(), read_skipped = record.read_skipped, sentences = plan.sentences, chapters, spoken_chars = plan.spoken_chars, parts_total = plan.parts.len(), first_part, "export started");
 
-        let run = Run {
-            record,
-            document: &document,
-            plan: &plan,
-            target: ExportTarget {
-                export_id: export.id.clone(),
-                document_id: export.document_id.clone(),
-                voice_id: export.voice_id.clone(),
-                format: export.format,
-                title: document.title.clone(),
-                artist: voice_name(self.deps.engine.as_ref(), &export.voice_id),
-            },
-            sample_rate: self.deps.engine.sample_rate(),
-        };
+        let run = Run { record, document: &document, plan: &plan, target: self.target(export, &document), sample_rate: self.deps.engine.sample_rate() };
         let finished = &plan.parts[..first_part];
+        let output_samples: u64 = record.parts.iter().map(|part| part.samples).sum();
         let mut state = RunState {
             started: Instant::now(),
-            samples_written: record.parts.iter().map(|part| part.samples).sum(),
+            output_samples,
+            // Records saved before v1.1 have no count; they were all made at 1x.
+            source_samples: if record.source_samples == 0 { output_samples } else { record.source_samples },
             sentences_done: finished.iter().map(|part| part.sentences).sum(),
             done_chars: finished.iter().map(|part| part.spoken_chars).sum(),
             last_checkpoint: 0,
@@ -172,15 +187,16 @@ impl ExportRunner {
             info!(service = NAME, export_id = %export.id, part_index, samples = part.samples, chapters = marks.len(), sentences_done = state.sentences_done, elapsed_ms = elapsed_ms(state.started), "export part written");
             parts.push(part.clone());
             chapter_marks.extend(marks.iter().cloned());
-            report.part_finished(part, marks);
+            report.part_finished(FinishedPart { part, chapters: marks, source_samples: state.source_samples });
         }
 
-        if state.samples_written == 0 {
+        if state.output_samples == 0 {
             return Err(AppError::new(ErrorName::Internal).with_detail("the export has no audio (no sentence to speak)"));
         }
         if stop.load(Ordering::SeqCst) {
             return Ok(None);
         }
+        report.assembling();
         let file = self.deps.exporter.assemble(&run.target, &parts, &chapter_marks)?;
         info!(service = NAME, export_id = %export.id, path = %file.path.display(), bytes = file.size_bytes, parts = parts.len(), chapters = chapter_marks.len(), cached = state.cached, synthesized = state.synthesized, elapsed_ms = elapsed_ms(state.started), "export file written");
         Ok(Some(file))
@@ -197,7 +213,13 @@ impl ExportRunner {
         report: &mut dyn RunReport,
     ) -> AppResult<Option<(ExportPart, Vec<ChapterMark>)>> {
         let export = &run.record.export;
-        let mut writer: Box<dyn ExportWriter> = self.deps.exporter.begin_part(&run.target, part_index, run.sample_rate)?;
+        let mut writer = PartWriter {
+            writer: self.deps.exporter.begin_part(&run.target, part_index, run.sample_rate)?,
+            stretcher: self.stretcher(export.speed, run.sample_rate),
+            sample_rate: run.sample_rate,
+        };
+        // Marks are timed from what the earlier parts really hold, so a stretcher's small error per part never adds up.
+        let part_start = PartStart { output_samples: state.output_samples, source_samples: state.source_samples };
         let mut marks = Vec::new();
         let mut window: VecDeque<Prepared> = VecDeque::new();
         let mut steps = run.plan.steps[part.steps.clone()].iter();
@@ -213,7 +235,7 @@ impl ExportRunner {
             }
             let (clip, chars) = match prepared {
                 Prepared::Chapter(title) => {
-                    marks.push(ChapterMark { title, start_ms: to_millis(state.samples_written, run.sample_rate) });
+                    marks.push(ChapterMark { title, start_ms: part_start.mark_ms(state.source_samples, run.sample_rate, export.speed) });
                     continue;
                 }
                 Prepared::Sentence { clip, chars } => (clip, chars),
@@ -223,8 +245,8 @@ impl ExportRunner {
                 Received::Stopped => return Ok(None),
                 Received::Silent => {}
                 Received::Audio(audio) => {
-                    writer.append(&audio)?;
-                    state.samples_written += audio.samples.len() as u64;
+                    state.output_samples += writer.append(&audio)?;
+                    state.source_samples += audio.samples.len() as u64;
                 }
             }
 
@@ -245,7 +267,7 @@ impl ExportRunner {
             };
             if progress.checkpoint {
                 state.last_checkpoint = reached;
-                info!(service = NAME, export_id = %export.id, sentences_done = state.sentences_done, sentences_total = total, percent = percent(state.sentences_done, total), cached = state.cached, synthesized = state.synthesized, silent = state.silent, audio_seconds = state.samples_written as f64 / f64::from(run.sample_rate.max(1)), estimated_seconds_left = progress.estimated_seconds_left, elapsed_ms = elapsed_ms(state.started), "export progress");
+                info!(service = NAME, export_id = %export.id, sentences_done = state.sentences_done, sentences_total = total, percent = percent(state.sentences_done, total), cached = state.cached, synthesized = state.synthesized, silent = state.silent, audio_seconds = state.source_samples as f64 / f64::from(run.sample_rate.max(1)), estimated_seconds_left = progress.estimated_seconds_left, elapsed_ms = elapsed_ms(state.started), "export progress");
             }
             report.progress(progress);
         }
@@ -253,7 +275,34 @@ impl ExportRunner {
         if stop.load(Ordering::SeqCst) {
             return Ok(None);
         }
-        Ok(Some((writer.finish()?, marks)))
+        let (part, flushed) = writer.finish()?;
+        state.output_samples += flushed;
+        Ok(Some((part, marks)))
+    }
+
+    /// No stretcher at 1x, so the output is the clips' samples unchanged. A new one per part: a part is a whole stream.
+    fn stretcher(&self, speed: ExportSpeed, sample_rate: u32) -> Option<Box<dyn TimeStretcher>> {
+        if speed.is_normal() {
+            return None;
+        }
+        self.deps.time_stretch.as_ref().map(|time_stretch| time_stretch.stretcher(sample_rate, speed))
+    }
+
+    fn target(&self, export: &AudioExport, document: &Document) -> ExportTarget {
+        let short_names = self.settings.short_file_names;
+        let book_title = if export.title.is_empty() { document.title.clone() } else { export.title.clone() };
+        ExportTarget {
+            export_id: export.id.clone(),
+            document_id: export.document_id.clone(),
+            voice_id: export.voice_id.clone(),
+            format: export.format,
+            engine_id: export.engine_id.clone(),
+            speed: export.speed,
+            range: export.range,
+            file_stem: export_file_stem(&export.voice_id, &export.engine_id, export.speed, export.range, short_names),
+            title: export.range_label.as_ref().map_or_else(|| book_title.clone(), |label| format!("{book_title} ({label})")),
+            artist: voice_name(self.deps.engine.as_ref(), &export.voice_id),
+        }
     }
 
     fn prepare(&self, document: &Document, voice_id: VoiceId, step: &ExportStep<'_>) -> Prepared {
@@ -338,8 +387,58 @@ fn receive(clip: Clip, stop: &AtomicBool, state: &mut RunState) -> AppResult<Rec
     }
 }
 
-fn to_millis(samples: u64, sample_rate: u32) -> u64 {
-    samples * MILLIS_PER_SECOND / u64::from(sample_rate.max(1))
+/// Where a part starts, in output samples (what the earlier parts hold) and in 1x samples.
+struct PartStart {
+    output_samples: u64,
+    source_samples: u64,
+}
+
+impl PartStart {
+    /// Where the 1x sample `source_samples` lands in the output: the earlier parts' real length, plus this part's 1x
+    /// audio so far ÷ speed (timed from the input, which avoids the stretcher's delay).
+    fn mark_ms(&self, source_samples: u64, sample_rate: u32, speed: ExportSpeed) -> u64 {
+        let in_part = source_samples.saturating_sub(self.source_samples) as f64 / f64::from(speed.as_factor());
+        ((self.output_samples as f64 + in_part) * MILLIS_PER_SECOND / f64::from(sample_rate.max(1))).round() as u64
+    }
+}
+
+/// The part being written, with its stretcher when the speed is baked in. Each call returns the samples it wrote.
+struct PartWriter {
+    writer: Box<dyn ExportWriter>,
+    stretcher: Option<Box<dyn TimeStretcher>>,
+    sample_rate: u32,
+}
+
+impl PartWriter {
+    fn append(&mut self, audio: &Audio) -> AppResult<u64> {
+        let Some(stretcher) = self.stretcher.as_mut() else {
+            self.writer.append(audio)?;
+            return Ok(audio.samples.len() as u64);
+        };
+        let mut stretched = Vec::with_capacity(audio.samples.len());
+        stretcher.push(&audio.samples, &mut stretched);
+        self.write(stretched)
+    }
+
+    fn write(&mut self, samples: Vec<f32>) -> AppResult<u64> {
+        if samples.is_empty() {
+            return Ok(0);
+        }
+        let written = samples.len() as u64;
+        self.writer.append(&Audio { samples, sample_rate: self.sample_rate })?;
+        Ok(written)
+    }
+
+    /// Drains the stretcher into the part, then finishes it. Returns the part and the samples the drain added.
+    fn finish(mut self) -> AppResult<(ExportPart, u64)> {
+        let mut flushed = 0;
+        if let Some(mut stretcher) = self.stretcher.take() {
+            let mut rest = Vec::new();
+            stretcher.flush(&mut rest);
+            flushed = self.write(rest)?;
+        }
+        Ok((self.writer.finish()?, flushed))
+    }
 }
 
 /// The voice's display name ("Heart"), or its id if the engine doesn't know it.

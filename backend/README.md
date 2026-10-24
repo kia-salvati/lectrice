@@ -13,8 +13,9 @@ adapters from its config. `lectrice-infra` features, all on by default:
 | `kokoro` | `KokoroSpeechEngine` (sherpa-onnx) | on |
 | `sherpa-static` | links sherpa-onnx statically (implies `kokoro`) | on |
 | `ffmpeg-export` | `FfmpegExporter` (the system ffmpeg) | on |
+| `time-stretch` | `SonicTimeStretch` (exports with a baked-in speed; pure Rust) | on |
 
-Android builds with `default-features = false, features = ["pdfium", "kokoro"]`.
+Android builds with `default-features = false, features = ["pdfium", "kokoro", "time-stretch"]`.
 
 ## Needs
 - Rust ≥ 1.91 (rustup stable), `g++` (sherpa-onnx links libstdc++).
@@ -38,6 +39,7 @@ curl localhost:7878/api/health       # {"status":"ok","speechEngine":"..."}
 cargo test
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
+./build-release.sh                   # release build without /home/<user>/... paths in the binary
 ```
 `cargo test -- --ignored` also runs tests that read the user's books in `~/Desktop`. They never write
 into the repo: `pdf_fixtures` only checks that `test-data/books/*.jsonl` still match the books.

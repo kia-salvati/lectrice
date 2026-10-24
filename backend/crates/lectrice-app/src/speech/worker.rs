@@ -10,7 +10,7 @@
 //! - A panic in a waiter's callback is caught and logged, so the worker thread keeps running.
 
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap};
+use std::collections::{BinaryHeap, HashMap, VecDeque};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
@@ -26,6 +26,11 @@ const NAME: &str = "SpeechWorker";
 const THREAD_NAME: &str = "speech-worker";
 /// How often a waiting caller checks whether it was cancelled.
 const CANCEL_POLL: Duration = Duration::from_millis(100);
+/// Synthesized jobs kept for the real-time factor (spec 19, C17).
+const RECENT_TIMINGS: usize = 50;
+/// Fewer measured jobs give no real-time factor.
+const MIN_TIMINGS_FOR_RTF: usize = 10;
+const MILLIS_PER_SECOND: f64 = 1000.0;
 
 /// Declared lowest first, so the derived order makes `Now` the greatest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -160,10 +165,22 @@ pub struct CancelHandle {
 impl CancelHandle {
     /// True if the waiter was withdrawn before its result was delivered.
     pub fn cancel(&self) -> bool {
+        self.withdraw(true)
+    }
+
+    /// Like [`Self::cancel`], but leaves a job that is already running alone, so its result is still delivered.
+    pub fn cancel_if_queued(&self) -> bool {
+        self.withdraw(false)
+    }
+
+    fn withdraw(&self, even_if_running: bool) -> bool {
         let mut queue = self.shared.lock();
         let Some(pending) = queue.jobs.get_mut(&self.key) else {
             return false;
         };
+        if pending.running && !even_if_running {
+            return false;
+        }
         let before = pending.waiters.len();
         pending.waiters.retain(|waiter| waiter.id != self.waiter_id);
         let withdrawn = pending.waiters.len() < before;
@@ -189,12 +206,55 @@ impl CancelHandle {
 struct Shared {
     queue: Mutex<QueueState>,
     wake: Condvar,
+    recent: Mutex<VecDeque<Timing>>,
 }
 
 impl Shared {
     /// Waiter callbacks never run under the lock, so a poisoned lock still holds a consistent queue.
     fn lock(&self) -> MutexGuard<'_, QueueState> {
         self.queue.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn recent(&self) -> MutexGuard<'_, VecDeque<Timing>> {
+        self.recent.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn record(&self, timing: Timing) {
+        let mut recent = self.recent();
+        if recent.len() == RECENT_TIMINGS {
+            recent.pop_front();
+        }
+        recent.push_back(timing);
+    }
+}
+
+/// One synthesized job: how much audio it made and how long that took.
+#[derive(Debug, Clone, Copy)]
+struct Timing {
+    audio_ms: u64,
+    synth_ms: u64,
+}
+
+/// The real-time factor (synthesis time ÷ audio length) over the last synthesized jobs. Cache hits are not jobs.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SynthesisTimings {
+    /// `None` until enough jobs were measured to be meaningful.
+    pub rtf_median: Option<f32>,
+    pub samples: u32,
+}
+
+impl SpeechWorker {
+    pub fn timings(&self) -> SynthesisTimings {
+        let recent = self.shared.recent();
+        let mut factors: Vec<f32> = recent.iter().filter(|timing| timing.audio_ms > 0).map(|timing| timing.synth_ms as f32 / timing.audio_ms as f32).collect();
+        let samples = u32::try_from(factors.len()).unwrap_or(u32::MAX);
+        if factors.len() < MIN_TIMINGS_FOR_RTF {
+            return SynthesisTimings { rtf_median: None, samples };
+        }
+        factors.sort_by(f32::total_cmp);
+        let middle = factors.len() / 2;
+        let median = if factors.len().is_multiple_of(2) { (factors[middle - 1] + factors[middle]) / 2.0 } else { factors[middle] };
+        SynthesisTimings { rtf_median: Some(median), samples }
     }
 }
 
@@ -284,6 +344,9 @@ fn run_loop(shared: &Shared, engine: &dyn SpeechEngine) {
         let started = Instant::now();
         let outcome = synthesize(engine, request);
         let synth_ms = elapsed_ms(started);
+        if let Ok(audio) = &outcome {
+            shared.record(Timing { audio_ms: (audio_seconds(audio) * MILLIS_PER_SECOND).round() as u64, synth_ms });
+        }
 
         let waiters = shared.lock().jobs.remove(&key).map(|pending| pending.waiters).unwrap_or_default();
         log_outcome(&key, priority, &outcome, synth_ms, waiters.len());
@@ -545,6 +608,36 @@ mod tests {
         wanted.wait_unless_cancelled(&Cancellation::default()).unwrap();
 
         assert_eq!(engine.spoken(), ["s0", "s4"]);
+    }
+
+    #[test]
+    fn cancel_if_queued_leaves_a_running_job_alone() {
+        let (engine, worker, first) = blocked_worker();
+        let queued = worker.submit(job(1, SpeechPriority::ReadAhead));
+
+        assert!(!first.cancel_handle().cancel_if_queued(), "the running job is not withdrawn");
+        assert!(queued.cancel_handle().cancel_if_queued());
+        engine.release();
+
+        assert!(first.wait().is_ok());
+        assert!(queued.wait().is_err());
+        assert_eq!(engine.spoken(), ["s0"]);
+    }
+
+    /// C17: the median real-time factor appears after ten synthesized jobs.
+    #[test]
+    fn timings_report_the_median_real_time_factor_after_enough_jobs() {
+        let worker = SpeechWorker::start(Arc::new(GatedEngine::open())).unwrap();
+        for sentence in 0..9 {
+            worker.submit(job(sentence, SpeechPriority::Now)).wait().unwrap();
+        }
+        assert_eq!(worker.timings(), SynthesisTimings { rtf_median: None, samples: 9 });
+
+        worker.submit(job(9, SpeechPriority::Now)).wait().unwrap();
+
+        let timings = worker.timings();
+        assert_eq!(timings.samples, 10);
+        assert!(timings.rtf_median.is_some_and(|rtf| rtf >= 0.0));
     }
 
     /// Review L7: a panic in a callback used to kill the worker thread, so every later wait hung.

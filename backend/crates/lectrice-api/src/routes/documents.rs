@@ -4,6 +4,7 @@ use axum::extract::{Multipart, Path, State};
 use axum::http::StatusCode;
 use lectrice_app::UseCase;
 use lectrice_app::documents::{GetDocumentArgs, ImportPdfArgs, ImportedPdf, OpenedDocument, SaveReadingPositionArgs};
+use lectrice_app::library::PurgeRemovedDocumentsArgs;
 use lectrice_domain::{AppError, Document, DocumentId, DocumentSummary, ErrorName, ListOptions, Page, SentenceId};
 use serde::{Deserialize, Serialize};
 
@@ -107,6 +108,19 @@ pub async fn get_document(State(state): State<AppState>, Ctx(ctx): Ctx, Path(id)
     let documents = state.services.documents.clone();
     let opened = run_blocking(move || documents.get_document.run(&ctx, GetDocumentArgs { id })).await?;
     Ok(present_opened(opened))
+}
+
+/// `DELETE /api/documents/{id}` → 204. The web page has no undo, so the book is removed and deleted at once; its
+/// finished export files are kept.
+pub async fn remove_document(State(state): State<AppState>, Ctx(ctx): Ctx, Path(id): Path<String>) -> Result<StatusCode, ApiError> {
+    let id = DocumentId::parse(&id)?;
+    let library = state.services.library.clone();
+    run_blocking(move || {
+        library.remove.run(&ctx, id)?;
+        library.purge_removed.run(&ctx, PurgeRemovedDocumentsArgs::default())
+    })
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// `PUT /api/documents/{id}/position` with `{ sentenceId }`
@@ -300,5 +314,35 @@ mod tests {
             let (status, body) = app.json(put_json(&position_path(&id), bad)).await;
             assert_error(status, &body, StatusCode::BAD_REQUEST, "RequestInvalid");
         }
+    }
+
+    fn delete(path: &str) -> axum::http::Request<axum::body::Body> {
+        axum::http::Request::builder().method("DELETE").uri(path).body(axum::body::Body::empty()).unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_removed_document_is_gone_from_the_library_and_the_disk() {
+        let app = TestApp::new();
+        let id = app.import_book().await;
+        assert_eq!(app.send(get(&format!("{}/sentences/1/audio?voice=af_heart", document_path(&id)))).await.0, StatusCode::OK);
+
+        let (status, _, bytes) = app.send(delete(&document_path(&id))).await;
+
+        assert_eq!((status, bytes.len()), (StatusCode::NO_CONTENT, 0));
+        let (status, body) = app.json(get(&document_path(&id))).await;
+        assert_error(status, &body, StatusCode::NOT_FOUND, "DocumentNotFound");
+        assert_eq!(app.json(get(DOCUMENTS_PATH)).await.1["total"], 0);
+        assert!(!app.data_dir.path().join("library").join(&id).exists());
+        assert!(!app.data_dir.path().join("audio").join(&id).exists());
+        let (status, body) = app.json(delete(&document_path(&id))).await;
+        assert_error(status, &body, StatusCode::NOT_FOUND, "DocumentNotFound");
+    }
+
+    #[tokio::test]
+    async fn summaries_carry_the_cleaner_version() {
+        let app = TestApp::new();
+        app.import_book().await;
+
+        assert_eq!(app.json(get(DOCUMENTS_PATH)).await.1["items"][0]["cleanerVersion"], 1);
     }
 }

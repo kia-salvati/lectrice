@@ -19,6 +19,7 @@ use crate::state::AppState;
 
 pub const HEALTH_PATH: &str = "/api/health";
 pub const VOICES_PATH: &str = "/api/voices";
+pub const VOICE_SAMPLE_PATH: &str = "/api/voices/{voiceId}/sample";
 pub const DOCUMENTS_PATH: &str = "/api/documents";
 pub const DOCUMENT_PATH: &str = "/api/documents/{id}";
 pub const POSITION_PATH: &str = "/api/documents/{id}/position";
@@ -33,8 +34,9 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route(HEALTH_PATH, get(health::get_health))
         .route(VOICES_PATH, get(voices::list_voices))
+        .route(VOICE_SAMPLE_PATH, get(voices::get_voice_sample))
         .route(DOCUMENTS_PATH, documents)
-        .route(DOCUMENT_PATH, get(documents::get_document))
+        .route(DOCUMENT_PATH, get(documents::get_document).delete(documents::remove_document))
         .route(POSITION_PATH, put(documents::save_position))
         .route(SENTENCE_AUDIO_PATH, get(audio::get_sentence_audio))
         .route(DOCUMENT_EXPORTS_PATH, get(exports::list_exports).post(exports::start_export))

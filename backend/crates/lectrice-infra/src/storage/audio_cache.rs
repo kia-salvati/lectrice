@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::io::{self, BufReader, Cursor, Read};
 use std::path::{Path, PathBuf};
@@ -6,7 +6,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::SystemTime;
 
 use hound::WavReader;
-use lectrice_domain::{AppResult, AudioCache, AudioEviction, AudioKey, AudioRetention, DocumentId, SentenceId, VoiceId};
+use lectrice_domain::{AppResult, AudioCache, AudioEviction, AudioKey, AudioRetention, CacheUsage, DocumentCacheUsage, DocumentId, SentenceId, VoiceId};
 
 use super::atomic_file::write_atomically;
 use super::path_component::safe_component;
@@ -16,7 +16,8 @@ const AUDIO_DIR: &str = "audio";
 const CLIP_EXTENSION: &str = "wav";
 const CLEANER_VERSION_PREFIX: &str = "c";
 
-/// Sentence clips at `<data_dir>/audio/<docId>/c<cleanerVersion>/<engineId>/<voiceId>/<sentenceId>.wav` (spec §6).
+/// Sentence clips at `<cache_dir>/audio/<docId>/c<cleanerVersion>/<engineId>/<voiceId>/<sentenceId>.wav` (spec §6;
+/// the desktop's `cache_dir` is its `data_dir`).
 ///
 /// An in-memory index (built by one scan in [`FsAudioCache::open`], then kept up to date by `put` and evictions)
 /// answers `contains` and sizes the eviction without touching the disk. Each clip's length comes from its WAV
@@ -73,6 +74,8 @@ struct CacheState {
     total_bytes: u64,
     /// Clips being read or written, with how many callers use each.
     in_use: HashMap<AudioKey, usize>,
+    /// Clips of a removed document that were in use; deleted when the last user lets go.
+    doomed: HashSet<AudioKey>,
 }
 
 impl CacheState {
@@ -99,9 +102,11 @@ impl CacheState {
 }
 
 impl FsAudioCache {
-    /// Scans the existing clips once. `max_bytes` is the global cap (`audio.cache_max_mb`).
-    pub fn open(data_dir: &Path, max_bytes: u64) -> AppResult<Self> {
-        let root = data_dir.join(AUDIO_DIR);
+    /// Scans the existing clips under `<cache_dir>/audio` once. `max_bytes` is the global cap (`audio.cache_max_mb`).
+    /// `cache_dir` may be a folder the system clears on its own (Android's `cacheDir`): a missing, empty or unreadable
+    /// clip is a miss, and [`AudioRetention::refresh`] re-reads the folder.
+    pub fn open(cache_dir: &Path, max_bytes: u64) -> AppResult<Self> {
+        let root = cache_dir.join(AUDIO_DIR);
         let mut state = CacheState::default();
         for (key, clip) in scan(&root)? {
             state.insert(&key, clip);
@@ -136,17 +141,52 @@ impl FsAudioCache {
         let key = scope.key(sentence_id);
         let path = self.clip_path(&key)?;
         let freed = state.clips.get(scope).and_then(|clips| clips.get(&sentence_id)).map_or(0, |clip| clip.file_bytes);
-        match fs::remove_file(&path) {
-            Ok(()) => {}
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) => return Err(storage_failed("deleting", &path, error)),
-        }
+        remove_if_present(&path)?;
         state.remove(scope, sentence_id);
         Ok(freed)
     }
+
+    /// Deletes every clip of the scopes `matches` picks, except the ones in use: those are `doomed` when `defer` is set.
+    fn delete_scopes(&self, matches: impl Fn(&Scope) -> bool, defer: bool) -> AppResult<AudioEviction> {
+        let mut state = self.lock();
+        let victims: Vec<(Scope, u32)> =
+            state.clips.iter().filter(|(scope, _)| matches(scope)).flat_map(|(scope, clips)| clips.keys().map(move |&id| (scope.clone(), id))).collect();
+        let mut eviction = AudioEviction::default();
+        for (scope, sentence_id) in victims {
+            let key = scope.key(sentence_id);
+            if state.is_in_use(&key) {
+                if defer {
+                    state.doomed.insert(key);
+                }
+                continue;
+            }
+            eviction.freed_bytes += self.delete(&mut state, &scope, sentence_id)?;
+            eviction.cap_clips += 1;
+        }
+        eviction.cache_bytes = state.total_bytes;
+        Ok(eviction)
+    }
+
+    /// A clip that turned out empty or unreadable is forgotten and deleted, unless a `put` replaced it meanwhile.
+    fn forget_broken(&self, key: &AudioKey, path: &Path) {
+        let mut state = self.lock();
+        let replaced = fs::metadata(path).is_ok_and(|metadata| metadata.len() > 0);
+        if !replaced {
+            let _ = fs::remove_file(path);
+            state.remove(&Scope::of(key), key.sentence_id.0);
+        }
+    }
 }
 
-/// Unmarks a clip as in use when dropped.
+fn remove_if_present(path: &Path) -> AppResult<()> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(storage_failed("deleting", path, error)),
+    }
+}
+
+/// Unmarks a clip as in use when dropped; the last user of a doomed clip deletes it.
 struct InUse<'a> {
     cache: &'a FsAudioCache,
     key: AudioKey,
@@ -155,11 +195,15 @@ struct InUse<'a> {
 impl Drop for InUse<'_> {
     fn drop(&mut self) {
         let mut state = self.cache.lock();
-        if let Some(count) = state.in_use.get_mut(&self.key) {
-            *count -= 1;
-            if *count == 0 {
-                state.in_use.remove(&self.key);
-            }
+        let Some(count) = state.in_use.get_mut(&self.key) else { return };
+        *count -= 1;
+        if *count > 0 {
+            return;
+        }
+        state.in_use.remove(&self.key);
+        if state.doomed.remove(&self.key) {
+            // A failed delete leaves the file to the next clear, refresh or removal.
+            let _ = self.cache.delete(&mut state, &Scope::of(&self.key), self.key.sentence_id.0);
         }
     }
 }
@@ -169,7 +213,11 @@ impl AudioCache for FsAudioCache {
         let path = self.clip_path(key)?;
         let _in_use = self.mark_in_use(key);
         match fs::read(&path) {
-            Ok(bytes) => Ok(Some(bytes)),
+            Ok(bytes) if !bytes.is_empty() => Ok(Some(bytes)),
+            Ok(_) => {
+                self.forget_broken(key, &path);
+                Ok(None)
+            }
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
                 // A `put` may have written the clip since the read failed; only forget it if it's still gone.
                 let mut state = self.lock();
@@ -178,21 +226,36 @@ impl AudioCache for FsAudioCache {
                 }
                 Ok(None)
             }
-            Err(error) => Err(storage_failed("reading", &path, error)),
+            // The clip can be made again, so an unreadable file is a miss rather than an error.
+            Err(_) => {
+                self.forget_broken(key, &path);
+                Ok(None)
+            }
         }
     }
 
     fn put(&self, key: &AudioKey, bytes: &[u8]) -> AppResult<()> {
         let path = self.clip_path(key)?;
-        if let Some(directory) = path.parent() {
-            fs::create_dir_all(directory).map_err(|error| storage_failed("creating", &path, error))?;
-        }
         let in_use = self.mark_in_use(key);
-        write_atomically(&path, bytes).map_err(|error| storage_failed("writing", &path, error))?;
+        write_creating_folders(&path, bytes)?;
         let audio_seconds = wav_seconds(Cursor::new(bytes)).unwrap_or_default();
         self.lock().insert(key, Clip { file_bytes: bytes.len() as u64, audio_seconds, written: SystemTime::now() });
         drop(in_use);
         Ok(())
+    }
+}
+
+/// Creates the clip's folders, and once more if the system deleted them between that and the write.
+fn write_creating_folders(path: &Path, bytes: &[u8]) -> AppResult<()> {
+    let directory = path.parent().unwrap_or(path);
+    let mut retried = false;
+    loop {
+        fs::create_dir_all(directory).map_err(|error| storage_failed("creating", directory, error))?;
+        match write_atomically(path, bytes) {
+            Ok(()) => return Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound && !retried => retried = true,
+            Err(error) => return Err(storage_failed("writing", path, error)),
+        }
     }
 }
 
@@ -223,6 +286,49 @@ impl AudioRetention for FsAudioCache {
         eviction.kept_seconds = state.clips.get(&scope).map_or(0.0, |clips| clips.values().map(|clip| clip.audio_seconds).sum());
         eviction.cache_bytes = state.total_bytes;
         Ok(eviction)
+    }
+
+    fn usage(&self) -> AppResult<CacheUsage> {
+        let state = self.lock();
+        let mut documents: HashMap<&DocumentId, DocumentCacheUsage> = HashMap::new();
+        for (scope, clips) in &state.clips {
+            let usage =
+                documents.entry(&scope.document_id).or_insert_with(|| DocumentCacheUsage { document_id: scope.document_id.clone(), bytes: 0, clips: 0 });
+            usage.bytes += clips.values().map(|clip| clip.file_bytes).sum::<u64>();
+            usage.clips += clips.len();
+        }
+        let clips = documents.values().map(|usage| usage.clips).sum();
+        Ok(CacheUsage { bytes: state.total_bytes, clips, cap_bytes: self.max_bytes, documents: documents.into_values().collect() })
+    }
+
+    fn clear(&self) -> AppResult<AudioEviction> {
+        self.delete_scopes(|_| true, false)
+    }
+
+    /// Also deletes the document's folder when nothing in it is in use, so files the index never knew go too.
+    fn remove_document(&self, id: &DocumentId) -> AppResult<AudioEviction> {
+        let eviction = self.delete_scopes(|scope| scope.document_id == *id, true)?;
+        let state = self.lock();
+        if !state.in_use.keys().any(|key| key.document_id == *id) {
+            let directory = self.root.join(id.as_str());
+            match fs::remove_dir_all(&directory) {
+                Ok(()) => {}
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                Err(error) => return Err(storage_failed("deleting", &directory, error)),
+            }
+        }
+        Ok(eviction)
+    }
+
+    fn refresh(&self) -> AppResult<()> {
+        let found = scan(&self.root)?;
+        let mut state = self.lock();
+        state.clips.clear();
+        state.total_bytes = 0;
+        for (key, clip) in found {
+            state.insert(&key, clip);
+        }
+        Ok(())
     }
 }
 
@@ -297,7 +403,12 @@ fn scan_clips(directory: &Path, scope: &Scope, found: &mut Vec<(AudioKey, Clip)>
         let path = entry.path();
         let is_clip = path.extension().is_some_and(|extension| extension == CLIP_EXTENSION);
         let Some(sentence_id) = path.file_stem().and_then(|stem| stem.to_str()).and_then(|stem| stem.parse().ok()).filter(|_| is_clip) else { continue };
-        let metadata = entry.metadata().map_err(|error| storage_failed("scanning", &path, error))?;
+        let metadata = match entry.metadata() {
+            Ok(metadata) => metadata,
+            // The system cleared it between the listing and now.
+            Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+            Err(error) => return Err(storage_failed("scanning", &path, error)),
+        };
         if !metadata.is_file() {
             continue;
         }

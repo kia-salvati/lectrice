@@ -48,7 +48,12 @@ export const startMockExport = (documentId: string, request: StartExportRequest)
   if (active) return active;
   const sentencesTotal = countExportSentences(document, request.readSkipped);
   const id = `mock-export-${nextJobNumber++}`;
-  const job: MockJob = { startedAt: Date.now(), info: { id, documentId, voiceId: request.voiceId, format: request.format, status: 'queued', sentencesDone: 0, sentencesTotal, estimatedSecondsLeft: null } };
+  const info: AudioExport = {
+    id, documentId, voiceId: request.voiceId, format: request.format, speedPercent: 100, engineId: 'mock-engine', range: null, rangeLabel: null,
+    title: document.title, status: 'queued', pausedBy: null, stage: 'parts', error: null, sentencesDone: 0, sentencesTotal, partsDone: 0, partsTotal: 1,
+    estimatedSecondsLeft: null, fileBytes: null, location: null, waitingForEngine: false,
+  };
+  const job: MockJob = { startedAt: Date.now(), info };
   jobs.set(id, job);
   return snapshot(job);
 };

@@ -1,5 +1,6 @@
 use lectrice_domain::{
-    AudioExport, ChapterMark, DocumentId, ErrorName, ExportFormat, ExportId, ExportPart, ExportRecord, ExportRecordStore, ExportStatus, Timestamp, VoiceId,
+    AudioExport, ChapterMark, DocumentId, ErrorName, ExportFormat, ExportId, ExportPart, ExportRange, ExportRecord, ExportRecordStore, ExportSpeed,
+    ExportStage, ExportStatus, PauseReason, SentenceId, Timestamp, VoiceId,
 };
 use lectrice_infra::FsExportRecordStore;
 use tempfile::TempDir;
@@ -11,18 +12,30 @@ fn record(id: &str, status: ExportStatus) -> ExportRecord {
             document_id: DocumentId::parse(&format!("{:064x}", 3)).unwrap(),
             voice_id: VoiceId::new("af_heart"),
             format: ExportFormat::M4b,
+            speed: ExportSpeed::from_percent(150).unwrap(),
+            engine_id: "engine-a".into(),
+            range: Some(ExportRange { from_sentence: SentenceId(2), to_sentence: SentenceId(8) }),
+            range_label: Some("Ch. 2".into()),
+            title: "Book".into(),
             status,
+            paused_by: Some(PauseReason::StorageFull),
+            stage: ExportStage::Assemble,
+            error: Some(ErrorName::StorageFull),
             sentences_done: 4,
             sentences_total: 9,
             parts_done: 0,
             parts_total: 2,
             estimated_seconds_left: None,
+            file_bytes: None,
+            location: None,
+            waiting_for_engine: false,
         },
         read_skipped: true,
         created_at: Timestamp::from_timestamp(1_000, 0).unwrap(),
         file: None,
         parts: Vec::new(),
         chapters: Vec::new(),
+        source_samples: 12_000,
     }
 }
 

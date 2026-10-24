@@ -94,12 +94,18 @@ impl UseCase for ImportPdf {
 
     fn run(&self, ctx: &RequestContext, args: ImportPdfArgs) -> AppResult<ImportedPdf> {
         let file_name = normalize_file_name(&args.file_name);
-        info!(service = Self::NAME, request_id = %ctx.request_id, file_name = %file_name, bytes = args.bytes.len(), "importing pdf");
+        info!(service = Self::NAME, request_id = %ctx.request_id, bytes = args.bytes.len(), "importing pdf");
 
         self.check_pdf(&args.bytes)?;
         let id = self.hasher.document_id(&args.bytes)?;
         let now = self.clock.now();
         info!(service = Self::NAME, doc_id = %id, "pdf accepted");
+
+        // Removed but not deleted yet (the undo window): it comes back as it was, without cleaning it again.
+        if self.reader.list_removed()?.contains(&id) {
+            self.writer.set_removed(&id, None)?;
+            info!(service = Self::NAME, doc_id = %id, "removed document restored by its import");
+        }
 
         if let Some(summary) = self.reopen(&id, &args.bytes, now)? {
             info!(service = Self::NAME, doc_id = %id, already_in_library = true, "pdf import finished");
@@ -190,6 +196,29 @@ mod tests {
         assert_eq!(library.store.document(&first.summary.id).unwrap().cleaner_version, 2);
         assert_eq!((again.summary.added_at, again.summary.last_opened_at), (at(100), at(300)));
         assert_eq!(again.summary.last_sentence_id.map(|id| id.0), Some(2));
+    }
+
+    /// C28: importing a book that is removed but not deleted yet restores it, with its position, without cleaning.
+    #[test]
+    fn importing_a_removed_book_restores_it() {
+        let library = Library::new(1);
+        let first = import(&library, "Book.pdf", PDF_BYTES).unwrap();
+        library.store.set_position(&first.summary.id, 2);
+        library.store.set_removed(&first.summary.id, Some(at(150))).unwrap();
+
+        let again = import(&library, "Book.pdf", PDF_BYTES).unwrap();
+
+        assert!(again.already_in_library);
+        assert_eq!(again.summary.last_sentence_id.map(|id| id.0), Some(2));
+        assert_eq!(library.cleaner.calls(), 1);
+        assert!(library.store.list_removed().unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_summary_carries_the_cleaner_version() {
+        let library = Library::new(3);
+
+        assert_eq!(import(&library, "Book.pdf", PDF_BYTES).unwrap().summary.cleaner_version, 3);
     }
 
     #[test]
