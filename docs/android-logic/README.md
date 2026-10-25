@@ -1,14 +1,14 @@
 # Lectrice for Android: feature logic spec (index)
 
 Status: **written 2026-10-23 by Opus, for the user's review; updated 2026-10-24 with the user's decisions of that day**
-(remove from library, core `v1.1.0`, the read-ahead stop rule, the voice sample, export space checks and partial export,
+(remove from library, core `v0.2.0`, the read-ahead stop rule, the voice sample, export space checks and partial export,
 storage visible in Android's Settings). Nothing here is built yet.
 This folder is the exact behaviour of every feature of the Android app. A build agent gets **one feature file plus this
 README** and must be able to build that feature from them alone.
 
 Sources, newest first (when two disagree, the newer one wins and the conflict is listed in "Changes vs spec" below):
 
-1. The user's decisions of 2026-10-24 ("Remove from library" in v1; every core change in `v1.1.0`; a concrete read-ahead
+1. The user's decisions of 2026-10-24 ("Remove from library" in v1; every core change in `v0.2.0`; a concrete read-ahead
    stop rule; one fixed voice-sample sentence; predict export size and offer a partial export; pause and keep parts when
    space runs out; cache and exports visible in Android's Settings) and of 2026-10-23 (export M4B only, Listen view over
    the lock screen as an off-by-default setting, chapters access "do the best practice", Quiet v2 approved). Recorded in
@@ -52,7 +52,7 @@ Status: **decided** = fully specified, nothing waits on anyone · **open** = a q
 | 16 | [16-voices-and-speed.md](16-voices-and-speed.md) | Voice list with samples (one fixed sentence, made on demand, cached), per-book voice and speed, defaults | decided | core C16 |
 | 17 | [17-permissions-and-system-integration.md](17-permissions-and-system-integration.md) | Notifications, foreground services, battery page, show-when-locked, intents, `manageSpaceActivity`, backup rules | decided | — |
 | 18 | [18-about-licenses-and-updates.md](18-about-licenses-and-updates.md) | Version line, licenses screen, source link, updates via GitHub Releases, data kept across updates | spike (GPL or not depends on sherpa 2.0) | — |
-| 19 | [19-core-and-ffi-changes.md](19-core-and-ffi-changes.md) | Every new core (main repo) and `lectrice-ffi` change these features need (C10–C30), incl. **baked-in speed (time-stretch)**; all ship in core **`v1.1.0`** | decided | — |
+| 19 | [19-core-and-ffi-changes.md](19-core-and-ffi-changes.md) | Every new core (main repo) and `lectrice-ffi` change these features need (C10–C30), incl. **baked-in speed (time-stretch)**; all ship in core **`v0.2.0`** | decided | — |
 | 20 | [20-storage.md](20-storage.md) | Where every file lives, what Android's Settings → Apps → Lectrice → Storage shows ("Cache", "Clear storage" → our screen), the Storage screen | decided (3 UNVERIFIED device checks) | core C15, C19, C28, C29 |
 | 21 | [21-remove-from-library.md](21-remove-from-library.md) | "Remove from library": book sheet, confirm, 8 s undo, what's deleted (exports kept by default), playing/exporting books | decided | core C28 |
 
@@ -92,9 +92,9 @@ The milestones are the spec's (§16), filled with the features.
 
 | Milestone | Features | Done when |
 |---|---|---|
-| **M0** core C1–C9 (spec, on `feature/core-v1.1`; **not tagged**: `v1.1.0` is tagged at the end of M1.5) | — | spec §16 |
+| **M0** core C1–C9 (spec, on `feature/core-v1.1`; **not tagged**: `v0.2.0` is tagged at the end of M1.5) | — | spec §16 |
 | **M1** go/no-go spike | — | the spike report is read and the user decided GO / Prepare-first |
-| **M1.5** the rest of core **`v1.1.0`** (file 19: C11, C13–C17, C22, C25–C29 first; C10, C12, C18, C19, C23, C24, C30 for export) | 19 | main-repo tests green, **tag `v1.1.0`**, Android pin set to it |
+| **M1.5** the rest of core **`v0.2.0`** (file 19: C11, C13–C17, C22, C25–C29 first; C10, C12, C18, C19, C23, C24, C30 for export) | 19 | main-repo tests green, **tag `v0.2.0`**, Android pin set to it |
 | **M2** design system, library (incl. remove), open PDF, reader, chapters, position, settings shell, fake playback | 02, 03, 04, 07, 13, 21, 11 (theme, text size), 12 (their states) | the M2 line of spec §16 |
 | **M3** real playback | 05, 06, 08, 09, 15, 16, 17 (notifications, media), 12 (slow phone) | a whole chapter with the screen off, earbuds work, Listen view works over the lock screen when the setting is on |
 | **M4** model download, export, storage, release | 01, 10, 11 (model page, Storage row), 20, 14 (only if conditional is true), 17 (battery page, `manageSpaceActivity`), 18 | the M4 line of spec §16 |
@@ -345,7 +345,7 @@ Where the spec (`docs/2026-10-23-android-spec.md`), the mockup and the newest us
 | 18 | Export chapter marks | Core: headings of level ≤ 2 | Proposed C23: from the `toc` (levels ≤ 2), headings only when the TOC is empty, so the M4B chapters match the chapters sheet | Opus (proposed) | 10, 19 |
 | 19 | Per-book voice and speed | Spec: "default voice and speed" in Settings only | The player's voice and speed are remembered **per book**; Settings sets the defaults for new books | Opus | 16 |
 | 20 | Export files on the phone | Spec: the private copy stays after "Save to Audiobooks" | The Storage screen lists, opens, shares and deletes exports (C19); **"Save to Audiobooks" moves** the file (no double space) | Opus (README open question 1) | 10, 20 |
-| 21 | Core version | Spec: everything in `v1.1.0`; this README asked whether to tag `v2.0.0` | **All file-19 changes go into `v1.1.0`** (closed) | user 2026-10-24 | 19 |
+| 21 | Core version | Spec: everything in `v0.2.0`; this README asked whether to tag a major version | **All file-19 changes go into `v0.2.0`** (closed) | user 2026-10-24 | 19 |
 | 22 | Player sheet rows | Spec §11.3: "Open another PDF…" | Quiet's sheet: "Library" row instead; opening PDFs is the Library's button | design | 03, 05 |
 | 23 | Chapter line in the player sheet | Mockup R4: a text button with no icon | Gets a visible `toc` icon + "Chapters" label (part of the chapters-access decision) | Opus | 05, 07 |
 | 24 | Export speed baked in | Core: audio always 1×; ffmpeg/encoder get 1× PCM | Core change **C10**: a `TimeStretch` port with a Sonic adapter, applied in the export runner before each part is written; record, args and file name gain the speed | Opus (from the approved v2 brief) | 10, 19 |
@@ -359,7 +359,7 @@ Where the spec (`docs/2026-10-23-android-spec.md`), the mockup and the newest us
 
 ## 6. Open questions for the user (few)
 
-Closed 2026-10-24: deleting books (in v1, file 21), the core version (everything in `v1.1.0`, file 19) and
+Closed 2026-10-24: deleting books (in v1, file 21), the core version (everything in `v0.2.0`, file 19) and
 "Save to Audiobooks" (**move**, not copy, to `Audiobooks/Lectrice/`; user, file 20 §3.4).
 
 None open. Everything else has a default recorded in the files' §8 that the user can overrule during review.

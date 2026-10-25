@@ -2,7 +2,7 @@
 
 Status: **decided** (C20, C21 conditional on the spike; C23 proposed). Numbering continues the spec's C1–C9
 (`docs/2026-10-23-android-spec.md` §3.5, done on `feature/core-v1.1`, not tagged). **Release: every change in this file
-goes into core `v1.1.0`** together with C1–C9 (user 2026-10-24); nothing waits for a `v2.0.0`.
+goes into core `v0.2.0`** together with C1–C9 (user 2026-10-24); nothing waits for a later release.
 
 ## 1. Goal
 
@@ -17,9 +17,9 @@ None directly. The flow for the developer:
 1. Make the core change on a `feature/<name>` branch of the main repo, with domain/app/infra tests; the desktop still builds
    and its tests pass (`cargo test`, `clippy -D warnings`, `fmt --check`).
 2. Add a CHANGELOG "Core" entry (Added / Changed / Migration).
-3. Tag **`v1.1.0`** once every non-conditional row of §3.0 is merged (user 2026-10-24: all of them go into `v1.1.0`; the
+3. Tag **`v0.2.0`** once every non-conditional row of §3.0 is merged (user 2026-10-24: all of them go into `v0.2.0`; the
    breaking ones are listed under the CHANGELOG's Migration heading). A conditional change that is needed later (C20, C21,
-   C6b) ships as `v1.1.x`/`v1.2.0` by the CHANGELOG's semver rule.
+   C6b) ships as `v0.2.x`/`v0.3.0` by the CHANGELOG's semver rule.
 4. In `lectrice-android`: bump the tag, `cargo update -p lectrice-app -p lectrice-domain -p lectrice-infra`, update
    `lectrice-ffi`, regenerate the Kotlin bindings, build, run the JVM tests (spec §3.4).
 
@@ -84,7 +84,7 @@ refused with `RequestInvalid`. `ExportSpeed::NORMAL = 100`. `as_factor() -> f32`
 
 **Record and args:**
 
-- `AudioExport.speed: ExportSpeed` (serde field `speedPercent`, default 100 so 1.0/1.1 records load).
+- `AudioExport.speed: ExportSpeed` (serde field `speedPercent`, default 100 so 0.1/0.2 records load).
 - `StartAudioExportArgs.speed: ExportSpeed`.
 - `ExportTarget.speed: ExportSpeed`.
 - The **same-target rule** in `ExportJobs::enqueue` (today: same document + voice + format) adds **speed** and **engine id**
@@ -274,7 +274,7 @@ sheet and skip front matter the TOC already drops. Desktop exports change the sa
 ### 3.15 C24 · Pause reasons; out of space pauses
 
 - `AudioExport.paused_by: Option<PauseReason>` with `PauseReason { User, System, StorageFull, EngineSwitch }` (serde,
-  default `None`; a 1.1 `paused` record loads as `System`).
+  default `None`; a 0.2 `paused` record loads as `System`).
 - `AudioExport.error: Option<ErrorName>`: the error that stopped it (`StorageFull` while paused; any name when `failed`).
 - `PauseAudioExport(id, reason)`. `ResumeAudioExports` (the worker's "continue what you can") resumes only `System` and
   `EngineSwitch` pauses. New `ResumeAudioExport(id)` resumes any paused job (the user's "Continue").
@@ -283,7 +283,7 @@ sheet and skip front matter the TOC already drops. Desktop exports change the sa
   or finishing a part (the open `.partial` is dropped), saving the record, `assemble` (the partly written target is deleted;
   `stage = Assemble`), writing the chapter box. In `ExportJobs::complete`, a `RunOutcome::Failed` whose primary name is
   `StorageFull` (C22) becomes `Paused` and **does not call `discard_parts`**. This fixes the contradiction where E5 said
-  "nothing is lost" but the 1.1 runner failed the job and deleted its parts on any error.
+  "nothing is lost" but the 0.2 runner failed the job and deleted its parts on any error.
 - Other errors still fail it (failed is final; parts deleted).
 - Resuming an `Assemble`-stage job skips straight to assemble (all parts are recorded).
 - Tests: a fake writer that returns `StorageFull` on part 3 → paused, parts 1–2 kept on disk and in the record; resume →
@@ -412,7 +412,7 @@ Not applicable (no UI). Each change's error behaviour is in §3.
 ## 5. Edge cases
 
 - **Old records:** every new field has a serde default (speed 100, engine `kokoro-v1.0`, no pause reason → `System` for a
-  stored `paused`, stage `Parts`, no range, location `AppStorage` with the existing path), so 1.0/1.1 export records load;
+  stored `paused`, stage `Parts`, no range, location `AppStorage` with the existing path), so 0.1/0.2 export records load;
   `meta.json` without `removedAt` loads as not removed.
 - **A clip deleted by Android while it's being read:** `get` already holds the bytes or misses; never a half clip (atomic
   writes, C29 empty-clip rule).
@@ -452,7 +452,7 @@ defaults to `data_dir`).
 | int8 gets its own engine id; fp32 keeps `kokoro-v1.0` | Opus | 2026-10-24 |
 | `StorageFull` pauses an export **at every stage** (keeps parts) | Opus, from the approved E5 copy + user | 2026-10-24 |
 | C23 chapter marks from the TOC | Opus, **proposed** | 2026-10-24 |
-| **All changes in this file ship in core `v1.1.0`** (closes the earlier open question) | user | 2026-10-24 |
+| **All changes in this file ship in core `v0.2.0`** (closes the earlier open question) | user | 2026-10-24 |
 | Remove a document: soft remove + restore + purge (C28) | user (feature) + Opus (shape) | 2026-10-24 |
 | Audio cache root separate (C29), Android's `cacheDir` | user (visible in Settings) + Opus | 2026-10-24 |
 | Voice sample: one fixed sentence, made on demand, disk-cached (C16) | user (fixed sentence) + Opus (on demand) | 2026-10-24 |
@@ -470,7 +470,7 @@ No open questions in this file.
 - [ ] CHANGELOG has the entries with a Migration note for the breaking ones.
 - [ ] The C24, C28, C29 and C30 tests listed in their sections pass.
 - [ ] `lectrice-ffi` exposes §3.22; the Kotlin `ErrorRegistryTest` passes with `FileUnreadable`.
-- [ ] Tagged `v1.1.0`; the Android repo pins it.
+- [x] Tagged `v0.2.0`; the Android repo pins it.
 - [ ] `grep` finds no Kokoro/sherpa names outside `lectrice-infra/src/speech/`.
 
 ## 10. Design screens

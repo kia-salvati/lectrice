@@ -110,17 +110,18 @@ implements them, and only `app` knows the concrete classes.
 
 ```toml
 [dependencies]
-lectrice-domain = { git = "https://github.com/kia-salvati/lectrice", tag = "v1.1.0" }
-lectrice-app    = { git = "https://github.com/kia-salvati/lectrice", tag = "v1.1.0" }
-lectrice-infra  = { git = "https://github.com/kia-salvati/lectrice", tag = "v1.1.0", default-features = false, features = ["pdfium", "kokoro"] }
+lectrice-domain = { git = "https://github.com/kia-salvati/lectrice", tag = "v0.2.0" }
+lectrice-app    = { git = "https://github.com/kia-salvati/lectrice", tag = "v0.2.0" }
+lectrice-infra  = { git = "https://github.com/kia-salvati/lectrice", tag = "v0.2.0", default-features = false, features = ["pdfium", "kokoro"] }
 uniffi = "=0.32.2"
 ```
 
 - Cargo finds each crate by name inside the git repo, and reads the core's `[workspace.dependencies]` for the
   `workspace = true` lines. So the Android build gets the same exact (`=`) versions as the desktop.
-- Both repos are on GitHub and public: `kia-salvati/lectrice` (tag `v1.0.0` pushed) and `kia-salvati/lectrice-android`
-  (local clone at `../lectrice-android`, branch `main`). Tag `v1.0.0` doesn't have the changes in §3.5 yet, so **until
-  `v1.1.0` exists the spike builds through the path override below.**
+- Both repos are on GitHub and public: `kia-salvati/lectrice` (tag `v0.1.0` pushed) and `kia-salvati/lectrice-android`
+  (local clone at `../lectrice-android`, branch `main`). Tag `v0.1.0` doesn't have the changes in §3.5 yet, so **until
+  `v0.2.0` exists the spike builds through the path override below.** (Versions were renumbered to beta 0.x on
+  2026-10-24: `v1.0.0` → `v0.1.0`, `v1.1.0` → `v0.2.0`.)
 
 ### 3.3 Developing both side by side
 
@@ -139,9 +140,9 @@ With it, a core change is picked up at once, with no tag needed. Remove it (or b
 
 1. **The core is a library with a public contract.** That contract is the public items of `lectrice-domain`, `lectrice-app` and
    the `lectrice-infra` adapters, plus the saved formats (`document.json`, `meta.json`, the audio cache layout, export records).
-2. **Semver tags on the main repo** (`v1.1.0`, `v1.2.0`, `v2.0.0`), with the version in `[workspace.package]` kept equal to
-   the tag. A breaking change to a trait, a public type or a saved format raises the major version. New features raise the
-   minor version, and fixes raise the patch version.
+2. **Semver tags on the main repo** (`v0.2.0`, `v0.3.0`, …), with the version in `[workspace.package]` kept equal to
+   the tag. While in beta (0.x), a breaking change to a trait, a public type or a saved format raises the minor version, and
+   everything else raises the patch version.
 3. **`CHANGELOG.md` in the main repo**, with a "Core" section per release. Breaking changes get a "Migration" note.
 4. **Core changes go to the main repo first**, with their tests: domain/app/infra tests, and the desktop still builds. Then
    tag. Then the Android repo bumps `tag = "…"`, runs `cargo update -p lectrice-app -p lectrice-domain -p lectrice-infra`,
@@ -151,9 +152,9 @@ With it, a core change is picked up at once, with no tag needed. Remove it (or b
    encoder sink, logging) and Kotlin.
 6. **`cleanerVersion` and `engine_id` belong to the core.** Both apps produce the same saved document for the same PDF and
    cleaner version.
-7. Each Android release notes the core tag it was built with (`lectrice-android` `CHANGELOG.md`, "Core: v1.1.0").
+7. Each Android release notes the core tag it was built with (`lectrice-android` `CHANGELOG.md`, "Core: v0.2.0").
 
-### 3.5 Core changes needed for a clean split (all in the main repo, released as `v1.1.0`)
+### 3.5 Core changes needed for a clean split (all in the main repo, released as `v0.2.0`)
 
 | # | Change | Why |
 |---|---|---|
@@ -165,7 +166,7 @@ With it, a core change is picked up at once, with no tag needed. Remove it (or b
 | C6 | `KokoroSpeechEngine` gets a **provider** setting (`"cpu"` default; `"xnnpack"` and `"nnapi"` to try, §15) and accepts a model dir **without `espeak-ng-data`** when built against sherpa-onnx 2.x (§14). | Spike measurements; the GPL question. |
 | C7 | `PdfiumTextSource::new` takes a library **name or path** (it already takes `&Path`; document that a bare `libpdfium.so` means "let the system linker find it"). | On Android the native libs may stay inside the APK (§5.3). |
 | C8 | Export `playback_order(document, read_skipped) -> Vec<SentenceId>` as a public service function (it exists in `read_ahead_plan.rs`). | The Media3 playlist uses the same order as the read-ahead, from one source. |
-| C9 | `CHANGELOG.md`, `[workspace.package] version = "1.1.0"`, tag `v1.1.0`. | §3.4. |
+| C9 | `CHANGELOG.md`, `[workspace.package] version = "0.2.0"`, tag `v0.2.0`. | §3.4. |
 
 ---
 
@@ -890,7 +891,7 @@ amber/red, or the battery drain per hour of listening is bad.
 
 | # | Milestone | Done when |
 |---|---|---|
-| **M0** | Core release `v1.1.0` (C1–C9) in the main repo (the `lectrice-android` repo already exists) | Desktop tests pass with the features on; the ffi crate builds for the host and for `aarch64-linux-android` |
+| **M0** | Core release `v0.2.0` (C1–C9) in the main repo (the `lectrice-android` repo already exists) | Desktop tests pass with the features on; the ffi crate builds for the host and for `aarch64-linux-android` |
 | **M1** | **Go/no-go spike** (`docs/2026-10-23-android-m1-spike-plan.md`) | The measurements are written down and the user has decided |
 | M2 | Library + reader + chapters sheet + design system, playback faked | Smooth scroll on the 400-page benchmark book, light and dark, no main-thread core calls |
 | M3 | Background playback (Media3, DataSource, read-ahead, lock screen, Bluetooth) | A whole chapter with the screen off, controlled from earbuds |

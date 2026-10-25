@@ -127,7 +127,7 @@ stateDiagram-v2
 - **Cancel** asks first: **new** dialog "Cancel this export?" / "The parts made so far are deleted." / "Keep exporting" ·
   "Cancel export". Cancel deletes the parts (core).
 - **Parts:** the core writes ~10 listening-minutes (at 1×) per part and records each finished part, so at most one part's
-  work is lost on any stop (core C5, done in v1.1).
+  work is lost on any stop (core C5, done in v0.2).
 
 ### 3.6 One engine, two bundles (core C12)
 

@@ -479,7 +479,7 @@ Option 3 uses the same but row titles are 16 / 20 500 and meta 14 / 18 (denser).
   default "Heart"). Sample line (ours): "This is how I sound when I read your books aloud."
 - **Times/sizes:** download 370 MB / 126 MB; downloaded 142 MB of 370 MB, 38 %, 2.1 MB/s, about 2 min left; free space
   23.4 GB; audio cache 312 MB of 1 GB; library 3 books · 48 MB; export about 8 h 10 min of audio, about 231 MB, about
-  2 h to make, running at 42 %, part 21 of 49, about 1 h 10 min left. App version "1.0.0 · core 1.1.0".
+  2 h to make, running at 42 %, part 21 of 49, about 1 h 10 min left. App version "0.1.0 · core 0.2.0".
 
 ### 10.1 Copy (use verbatim)
 
@@ -719,7 +719,7 @@ secondary "Save as…", text "Share" with `ios_share`. E5: E2 with the err banne
 - *Storage:* "Audio cache" with a 4 px bar "312 MB of 1 GB" and text button "Clear audio cache" + under it `body-s` `fg2`
   "Your books and reading places stay." · "Library: 3 books · 48 MB"
 - *Battery:* "Keep exports running" / "Allow unrestricted battery use" › (opens the system page)
-- *About:* "Version 1.0.0 · core 1.1.0" · "Open-source licenses" › · "Source code on GitHub" ›
+- *About:* "Version 0.1.0 · core 0.2.0" · "Open-source licenses" › · "Source code on GitHub" ›
 Show T1 scrolled to the top, and a second frame scrolled to the bottom.
 
 **T2 Voice model:** two cards like S2 but with state: Full quality "Installed · in use" (no button); Smaller "Not

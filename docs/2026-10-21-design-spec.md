@@ -212,8 +212,8 @@ deleting the sentences **farthest behind** the reading position first. A global 
   library/<docId>/original.pdf
   library/<docId>/document.json               (§5)
   library/<docId>/meta.json                   { addedAt, lastOpenedAt, lastSentenceId, cleanerVersion, removedAt? }
-  audio/<docId>/c<cleanerVersion>/<engineId>/<voiceId>/<sentenceId>.wav   (under storage.cache_dir, v1.1)
-  samples/<engineId>/<voiceId>.v<n>.wav                                   (under storage.cache_dir, v1.1)
+  audio/<docId>/c<cleanerVersion>/<engineId>/<voiceId>/<sentenceId>.wav   (under storage.cache_dir, v0.2)
+  samples/<engineId>/<voiceId>.v<n>.wav                                   (under storage.cache_dir, v0.2)
   exports/<docId>/<voiceId>.<ext>             (1x whole book; else <voiceId>.<engineId>.<speed>[.s<from>-<to>].<ext>)
   exports/parts/<exportId>/part-NNNN.wav      (an unfinished export's parts)
   exports/jobs/<exportId>.json                (export records)
@@ -244,8 +244,8 @@ Dates are ISO 8601 strings in UTC (`"2026-10-21T18:04:00Z"`).
 | `GET /api/exports/{exportId}` | | `200 { export: AudioExport }` |
 | `DELETE /api/exports/{exportId}` | | `204` (cancels) |
 | `GET /api/exports/{exportId}/file` | | `200` the audio file (download) |
-| `DELETE /api/documents/{id}` (v1.1) | | `204`: the book, its position and its audio are deleted at once (no undo on the web); its finished export files stay |
-| `GET /api/voices/{voiceId}/sample` (v1.1) | | `200 audio/wav`: the voice reading one fixed sentence, made once and then kept |
+| `DELETE /api/documents/{id}` (v0.2) | | `204`: the book, its position and its audio are deleted at once (no undo on the web); its finished export files stay |
+| `GET /api/voices/{voiceId}/sample` (v0.2) | | `200 audio/wav`: the voice reading one fixed sentence, made once and then kept |
 
 `AudioExport = { id, documentId, voiceId, format, speedPercent, engineId, range: { fromSentence, toSentence } | null, rangeLabel | null, title, status: "queued" | "running" | "paused" | "done" | "failed" | "cancelled", pausedBy: "user" | "system" | "storageFull" | "engineSwitch" | null, stage: "parts" | "assemble", error | null, sentencesDone, sentencesTotal, partsDone, partsTotal, estimatedSecondsLeft | null, fileBytes | null, location: { kind: "appStorage", path } | { kind: "shared", uri } | null, waitingForEngine }`
 (the web page only starts whole-book 1x exports; a `paused` one, e.g. after the disk filled up, continues when the
@@ -291,7 +291,7 @@ same export is started again)
 | `Internal` | 9999 | 500 | no | Something went wrong. |
 
 Services raise by name (`ErrorName::PdfNoText`). Only `lectrice-api` turns a name into HTTP. Messages
-for non-operational errors are generic, and the full cause is logged. The 4xxx names (v1.1) are shared with the
+for non-operational errors are generic, and the full cause is logged. The 4xxx names (v0.2) are shared with the
 Android app: model download and import errors are raised by the Kotlin side, `StorageFull` by the core's storage
 adapters (a full disk comes first, with `StorageFailed` behind it) and by the exporter; an export that hits it
 pauses instead of failing.
@@ -328,7 +328,7 @@ This replaces the rules' "log the whole returned value" for this project.
 
 ```toml
 [server]   port = 7878            allowed_origin = "http://localhost:5173"
-[storage]  data_dir = "~/.local/share/lectrice"   # cache_dir = … (optional, v1.1; default data_dir)
+[storage]  data_dir = "~/.local/share/lectrice"   # cache_dir = … (optional, v0.2; default data_dir)
 [audio]    read_ahead_minutes = 10   keep_minutes_per_document = 60   cache_max_mb = 2048
 [upload]   max_mb = 200
 [pdf]      pdfium_library = "vendor/pdfium/lib/libpdfium.so"

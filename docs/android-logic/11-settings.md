@@ -34,7 +34,7 @@ at once (no Save button).
 | Voice model | "Full quality · 370 MB · in use" | › T2 | — | |
 | Storage | **new** "Storage" / "1.2 GB used · 23.4 GB free" | › pushes the **Storage screen** (T3, file 20) | — | models, books (each with "Clear this book's audio" and "Remove from library"), audio cache + "Clear audio cache", exported audiobooks (open, share, save, delete), "Delete all Lectrice data". Replaces T1b's three storage rows (audio cache, library, exported audiobooks) |
 | Battery | Keep exports running / "Allow unrestricted battery use" | › opens the system page (file 17) | — | |
-| About | "Version 1.0.0 · core 1.1.0" | — | `BuildConfig.VERSION_NAME` + `core_version()` | file 18 |
+| About | "Version 0.1.0 · core 0.2.0" | — | `BuildConfig.VERSION_NAME` + `core_version()` | file 18 |
 | | Open-source licenses | › | — | file 18 |
 | | Source code on GitHub | › | — | opens the repo URL in the browser |
 

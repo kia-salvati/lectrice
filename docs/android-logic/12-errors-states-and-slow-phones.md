@@ -154,7 +154,7 @@ DataStore: `slowTipShown` (set of document ids), `engineLoading`, `engineCrashCo
 
 | Decision | By | When |
 |---|---|---|
-| One registry for both apps, codes 4xxx for device-neutral names | spec C4 (done in core v1.1) | 2026-10-23 |
+| One registry for both apps, codes 4xxx for device-neutral names | spec C4 (done in core v0.2) | 2026-10-23 |
 | `FileUnreadable` 4006 added | Opus (C26) | 2026-10-24 |
 | Tip trigger `RTF × speed > 0.95`, "best" speed `≤ 0.9`, once per book | Opus | 2026-10-24 |
 | Skip a failing sentence after one retry; stop after 3 in a row | Opus | 2026-10-24 |

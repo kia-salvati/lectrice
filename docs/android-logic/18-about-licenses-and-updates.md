@@ -9,7 +9,7 @@ newer APK from GitHub Releases without losing their books, places or model.
 
 ## 2. User flow
 
-1. Settings → About: "Version 1.0.0 · core 1.1.0"; "Open-source licenses" ›; "Source code on GitHub" ›.
+1. Settings → About: "Version 0.1.0 · core 0.2.0"; "Open-source licenses" ›; "Source code on GitHub" ›.
 2. Open-source licenses → a list of components with their license; tap one → its full text.
 3. Updating: the user downloads the new APK from the repo's Releases page and installs it over the old one (Android asks
    to allow installs from the browser/file manager the first time). Everything stays.
@@ -50,7 +50,7 @@ reports; the only long-press in Settings).
 - Releases: signed APKs built by GitHub Actions (spec §14.3); the signing key is made once, backed up, stored as Actions
   secrets. **The same key forever**, or users can't update over their install.
 - `versionCode` increases with every release; `versionName` = semver of the Android app; the release notes name the core
-  tag ("Core: v1.1.0").
+  tag ("Core: v0.2.0").
 - **No in-app update check in v1** (proposed later: a "new version available" check against the GitHub Releases API, which
   would be the app's only other network use).
 - **What survives an update:** everything in `filesDir` (library, positions, cache, exports, models) and DataStore.
