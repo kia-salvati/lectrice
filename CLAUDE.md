@@ -235,7 +235,9 @@ plan, and said **Fable may start designing and building the frontend now against
   + an NPU page) and **yes to the three brief §9 questions** (show the normal-edition row only once
   an NPU edition exists; keep the releases link; "Turn on NPU" as the primary button). The NPU
   vocoder files (chip-specific compiled contexts, ~830 MB / 1.25 GB with long buckets) are ours,
-  downloaded on first use or compiled on the phone while charging.
+  downloaded on first use or compiled on the phone while charging. **User 2026-10-25: no public
+  NPU release for now, but keep the work; make a personal (local, unpublished) NPU build for the
+  user's S26 Ultra.**
 - **Downloads (user 2026-10-24):** Google blocks `dl.google.com/android/repository/` and
   `developer.android.com` from this network. If an official download fails, **use a mirror,
   as long as the files can be checked against a checksum** (the Android SDK came from

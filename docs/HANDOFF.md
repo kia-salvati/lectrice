@@ -64,6 +64,14 @@ D9 (import flash) and D11 (still screen until the file dialog has gone) are **co
 - Commits made and pushed (lectrice + lectrice-android), except the NPU test app and the two QNN
   research files, which stay local.
 
+- **NPU (user 2026-10-25): no public NPU release, but don't drop it.** Next session: make a
+  **personal NPU build for the user's S26 Ultra only** (local, never published or pushed;
+  extends the local `npu-test/` work, see the kept-local files above). Size facts for later: the
+  QNN libs add roughly tens of MB to the APK (npu-test APK 57 MB vs spike 40.8 MB; to measure);
+  the phone also needs Full quality (~326 MB) + the chip-specific NPU vocoder files (~830 MB, or
+  ~1.25 GB with long-sentence pieces; target ≤ 500 MB or compile on the phone while charging).
+  Users of any future NPU edition would self-certify Qualcomm's terms on a first-use screen.
+
 ## Waiting on the user
 1. **Qualcomm license eligibility:** see the private memory note `qnn-eligibility` (not in git).
    It only decides whether the NPU work continues.
