@@ -200,6 +200,42 @@ plan, and said **Fable may start designing and building the frontend now against
   this version** ("0.2 or something"): desktop **v0.1.0** (its first release) with core
   **v0.3.0** (core v0.2.0 is already taken), as a beta/pre-release, after the D9 fixes and the
   Windows check.
+- **Released 2026-10-25 (user OK):** core `v0.3.0` and desktop `v0.1.0` (GitHub pre-releases with
+  `.rpm`, `.deb`, Windows `.exe`, FFmpeg LGPL source + scripts). `gh` 2.103.2 is in `~/.local/bin`
+  (logged in as kia-salvati).
+- **Voice models (user 2026-10-25): three choices, the user picks any:** two official sherpa-onnx
+  bundles (fp32 "Full quality", int8 "Smaller") and **ours: "Small" (`kokoro-lectrice-w8`, vocoder
+  int8 weights + fp16 elsewhere, fp32 maths; sounds like fp32 at fp32 speed)**. Models are hosted on
+  **GitHub, not inside the APK**; ours is released in the main repo under tag
+  `model-kokoro-lectrice-small-v1` (asset `kokoro-lectrice-w8-multi-lang-v1_0.tar.bz2`, sha256
+  `57595e9e…b1e2`). The user heard no difference between fp32, small and fast. Next: add it to the
+  desktop/Android model manifests with its own engine id; "fast" (q8) still needs phone tests.
+- **Phone variants test (2026-10-25, `lectrice-android/docs/progress/variants-cores.md`):** our
+  "Fast" (q8) model: S10+ sustained 1.11 (fp32 1.76), S26 0.38 at 8 threads (fp32 0.58–0.75),
+  34–41 % less battery; the user's ear test heard no difference. "Big cores only" made no
+  difference (keep all cores; tune threads per phone class). **Decided (user 2026-10-25): the apps
+  offer Fast (ours, default, ~111 MB), Full quality (official fp32, ~326 MB) and Small (ours,
+  ~111 MB); the official int8 is dropped.** Fast still needs its own GitHub model release.
+- **Android GO accepted (user 2026-10-25):** build the real Android app from `docs/android-logic/`
+  (live reading on S26-class phones, Prepare-first on S10+-class phones).
+- **LiteRT (user 2026-10-25):** in the ear test sherpa 1.13.8 sounded better than Google's LiteRT
+  Kokoro in most clips; LiteRT CPU and GPU sound identical (only speed differs). Not tested on a
+  phone yet; desktop LiteRT ≈ 2–4 weeks of work for speed only. Undecided.
+- **NPU acceleration (user 2026-10-25): wanted as a toggle feature** in the Android app. NPU and
+  CPU clips both "sounded really good" to the user. Available (and on by default) only on supported
+  Snapdragon chips; elsewhere the toggle is disabled with a header saying it's only available on
+  certain Snapdragon chips. Blocked on a proper license review of Qualcomm's QNN runtime (revocable
+  terms, indemnity, export, GPL-3 espeak-ng in the same app); options include an optional
+  "NPU pack" the phone downloads itself instead of shipping it in the APK.
+  **License review done** (`research/2026-10-25-qnn-license-review.md`): no QNN in v0.x; no
+  NPU-pack download of Qualcomm's libs; later only as an opt-in "NPU edition" APK with the NPU
+  vocoder in its own process. Spec `docs/android-logic/22-npu-acceleration.md` (blocked on
+  licensing + the user's eligibility answer + Qualcomm/lawyer answers). **Design picked (user
+  2026-10-25): option B** (Performance section with the "only on certain Snapdragon chips" header
+  + an NPU page) and **yes to the three brief §9 questions** (show the normal-edition row only once
+  an NPU edition exists; keep the releases link; "Turn on NPU" as the primary button). The NPU
+  vocoder files (chip-specific compiled contexts, ~830 MB / 1.25 GB with long buckets) are ours,
+  downloaded on first use or compiled on the phone while charging.
 - **Downloads (user 2026-10-24):** Google blocks `dl.google.com/android/repository/` and
   `developer.android.com` from this network. If an official download fails, **use a mirror,
   as long as the files can be checked against a checksum** (the Android SDK came from
