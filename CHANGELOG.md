@@ -13,7 +13,9 @@ pulls by tag. While in beta (0.x), a change to a core trait, public type or save
 
 ## [Unreleased]
 
-To be tagged as 0.3.0 (the workspace version is already `0.3.0`). Prepares the core and the web app for the desktop app (`lectrice-desktop`). No trait or saved format changes.
+## [0.3.0] - 2026-10-25
+
+Prepares the core and the web app for the desktop app (`lectrice-desktop`). No trait or saved format changes.
 
 ### Core
 
@@ -151,6 +153,7 @@ To be tagged as 0.3.0 (the workspace version is already `0.3.0`). Prepares the c
 The first release: PDF → cleaned reading view → Kokoro `af_heart` reading sentence by sentence, with read-ahead,
 an audio cache, reading positions, recent documents and MP3/M4B export.
 
-[Unreleased]: https://github.com/kia-salvati/lectrice/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/kia-salvati/lectrice/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/kia-salvati/lectrice/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/kia-salvati/lectrice/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kia-salvati/lectrice/releases/tag/v0.1.0

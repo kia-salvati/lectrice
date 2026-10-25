@@ -171,6 +171,35 @@ plan, and said **Fable may start designing and building the frontend now against
   and, if space is short, blocks the full export or offers a partial one; the cache and the
   exported files must show in Android's own Settings → Apps → Lectrice → Storage. "Save to
   Audiobooks" **moves** the export to `Audiobooks/Lectrice/` (not a copy).
+- **Versions are beta 0.x (user 2026-10-24)** in every repo. Tags retagged and pushed:
+  `v1.0.0` → `v0.1.0`, `v1.1.0` → `v0.2.0` (old tags deleted on GitHub). The next core release
+  (was "1.2.0") is **v0.3.0**; the desktop starts at v0.1.0, the Android app at v0.1.0. Done 2026-10-25:
+  workspace version `0.3.0`, CHANGELOG headings 0.x, the Android/desktop core pins `tag = "v0.2.0"`
+  (`docs/progress/versions-0x.md`).
+- **Desktop app (user 2026-10-24): Tauri 2, Windows + Linux only for now, its own repo**
+  `lectrice-desktop` (local `../lectrice-desktop`; same rules as the other repos: push only `main`
+  + tags, public, no book text). One app for both systems: the shared core stays OS-agnostic and
+  the composition root picks per-OS adapters/tools (clean architecture). Reuses the core via Cargo
+  git deps pinned to tags (path override for local dev) and the web UI from `lectrice/frontend`.
+  Export: M4B through the `AudioExporter` port (system ffmpeg on Linux, a bundled,
+  checksum-verified LGPL ffmpeg on Windows). The user asked the main session to only manage
+  agents and keep going until it's built. The user has a Windows PC for testing. GitHub repo
+  exists: `git@github.com:kia-salvati/lectrice-desktop.git` (use the `personal:` SSH alias:
+  `personal:kia-salvati/lectrice-desktop.git`). 2026-10-24: the user installed the Tauri/WebKitGTK
+  and mingw/clang/NSIS packages and **accepted Microsoft's license for the xwin CRT/SDK
+  download**. **Desktop designs picked (user 2026-10-24): the recommended ones**: UX1 A (one
+  calm first-run card), UX2 C (settings dialog), UX3 C (⋯ panel export + a "ready" card on any
+  screen), UX4 A (About tab in the settings dialog); "Check again" for missing ffmpeg (my default).
+  File: `lectrice-desktop/design/2026-10-24-desktop-ux-options.html`. Small gaps (user
+  2026-10-25, recommended): S1 A ("Import… ▾" menu: file or unpacked folder), S2 B (error title
+  toasts), S3 A (toast centred above the pill while the chapters rail is open). **Designs: give the user the options and let
+  them choose**; everything else goes ahead without waiting; ask only when truly needed.
+- **Desktop tested by the user on Linux (2026-10-25): "works really well".** Two bugs reported:
+  a constant "zzzz" buzz under the voice (heard over RustDesk; being checked digitally in
+  D9) and the import-success screen jumbled for a split second (D9). **The user OK'd releasing
+  this version** ("0.2 or something"): desktop **v0.1.0** (its first release) with core
+  **v0.3.0** (core v0.2.0 is already taken), as a beta/pre-release, after the D9 fixes and the
+  Windows check.
 - **Downloads (user 2026-10-24):** Google blocks `dl.google.com/android/repository/` and
   `developer.android.com` from this network. If an official download fails, **use a mirror,
   as long as the files can be checked against a checksum** (the Android SDK came from
