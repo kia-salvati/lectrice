@@ -31,7 +31,7 @@ struct StoredMeta {
     source_file_name: String,
     page_count: u32,
     sentence_count: u32,
-    /// Missing in files written before v1.1; then it is read from `document.json`.
+    /// Missing in files written before v0.2; then it is read from `document.json`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     cleaner_version: Option<u32>,
     /// Set while the document is removed but not deleted yet.

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/lectrice-domain", "crates/lectrice-infra", "crates/lectrice-app", "crates/lectrice-api"]
 
 [workspace.package]
-version = "1.1.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.91"
 license = "Apache-2.0"

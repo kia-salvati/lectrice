@@ -75,7 +75,7 @@ fn a_paused_record_keeps_its_parts_and_chapters() {
     assert_eq!(store.load_all().unwrap(), [paused]);
 }
 
-/// Records written by v1.0 have no part fields.
+/// Records written by v0.1 have no part fields.
 #[test]
 fn records_from_before_parts_still_load() {
     let data_dir = TempDir::new().unwrap();

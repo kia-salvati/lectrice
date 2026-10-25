@@ -1,17 +1,45 @@
 # Changelog
 
+> Versions were renumbered to 0.x while Lectrice is in beta (2026-10-24): `1.0.0` is now `0.1.0` and `1.1.0` is
+> now `0.2.0` (tags `v0.1.0`, `v0.2.0`).
+
 All notable changes to Lectrice are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The version in `backend/Cargo.toml`
 (`[workspace.package]`) equals the release tag.
 
 "Core" is the shared Rust library (`lectrice-domain`, `lectrice-app`, `lectrice-infra`) that the Android app
-pulls by tag. From 1.1.0 on, a change to a core trait, public type or saved format raises the major version.
-(1.1.0 still breaks some 1.0 traits: 1.0 had no users outside this repo.)
+pulls by tag. While in beta (0.x), a change to a core trait, public type or saved format raises the minor version.
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-10-24
+To be tagged as 0.3.0 (the workspace version is already `0.3.0`). Prepares the core and the web app for the desktop app (`lectrice-desktop`). No trait or saved format changes.
+
+### Core
+
+#### Changed
+- `assemble()` no longer purges removed books. A shell assembles again on every engine reload, so a book removed just
+  before a model switch lost its undo window. Shells call the new `lectrice_app::services::purge_removed_at_start`
+  once, after the first `assemble` (the web server, the desktop app and the Android FFI do).
+
+#### Fixed
+- `FfmpegExporter` starts ffmpeg with `CREATE_NO_WINDOW` on Windows, so an export from a GUI app no longer flashes a
+  console window.
+- `lectrice-api` compiles for Windows: SIGTERM is only listened for on Unix; Windows stops on Ctrl+C. The core
+  crates and `lectrice-api` pass `cargo xwin clippy --target x86_64-pc-windows-msvc -- -D warnings`.
+
+### Web app
+- A `platform` module (`src/platform/`): `web` (the default) or `desktop`, picked by `VITE_PLATFORM` at build time.
+  It gives the API base URL and the export formats. `npm run build -- --mode desktop` (`.env.desktop`) builds for
+  the desktop app: the API on the `lectrice` scheme through `@tauri-apps/api` (2.12.4), M4B only. The desktop code
+  is loaded with a dynamic `import()`, so the web build contains none of it.
+- Media keys and the browser's media controls (`navigator.mediaSession`): play, pause, next and previous sentence,
+  with the book title and the playing state.
+- `importPdf` sends the multipart body as bytes (`ArrayBuffer` + its `Content-Type` with the boundary) instead of
+  a `FormData` holding the `File`. WebKitGTK crashed when a custom-scheme request body held a File or Blob; the web
+  app sends the same bytes as before.
+
+## [0.2.0] - 2026-10-24
 
 ### Core
 
@@ -89,7 +117,7 @@ pulls by tag. From 1.1.0 on, a change to a core trait, public type or saved form
 - `ImportPdf` no longer logs the file name (it can be a book title); the import log has the request id and the size.
 
 #### Migration
-- Export records saved by 1.0 or an earlier 1.1 build load as they are: no engine id means the loaded engine, a paused
+- Export records saved by 0.1 or an earlier 0.2 build load as they are: no engine id means the loaded engine, a paused
   one without a reason is a system pause, a done one gets its file as `location`, the speed is 100.
 - `meta.json` files without `cleanerVersion` read it from `document.json`; without `removedAt` the book isn't removed.
 - An `AudioExporter` adapter implements `begin_part`, `assemble`, `discard_parts`, `parts_bytes` and `delete_file` and
@@ -97,7 +125,7 @@ pulls by tag. From 1.1.0 on, a change to a core trait, public type or saved form
 - An `AudioRetention` adapter implements `usage`, `clear`, `remove_document` and `refresh`; see `FsAudioCache`.
 - A shell builds `lectrice_app::services::Adapters` and `Settings` and calls `assemble`, then calls
   `exports.resume` when it is ready for paused exports to continue. A shell with one engine sets
-  `ExportSettings::short_file_names` to keep 1.0's export file names.
+  `ExportSettings::short_file_names` to keep 0.1's export file names.
 - `Settings::upload_max_bytes` is now `import_max_bytes`.
 
 ### Desktop server
@@ -118,12 +146,11 @@ pulls by tag. From 1.1.0 on, a change to a core trait, public type or saved form
 - The API types follow the new export and summary fields; a paused export shows as "stopped", and "Try again"
   continues it from its finished parts.
 
-## [1.0.0] - 2026-10-23
+## [0.1.0] - 2026-10-23
 
 The first release: PDF → cleaned reading view → Kokoro `af_heart` reading sentence by sentence, with read-ahead,
-an audio cache, reading positions, recent documents and MP3/M4B export. (The workspace version stayed at 0.1.0
-in this release.)
+an audio cache, reading positions, recent documents and MP3/M4B export.
 
-[Unreleased]: https://github.com/kia-salvati/lectrice/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/kia-salvati/lectrice/compare/v1.0.0...v1.1.0
-[1.0.0]: https://github.com/kia-salvati/lectrice/releases/tag/v1.0.0
+[Unreleased]: https://github.com/kia-salvati/lectrice/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/kia-salvati/lectrice/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/kia-salvati/lectrice/releases/tag/v0.1.0

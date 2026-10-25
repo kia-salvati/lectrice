@@ -29,7 +29,7 @@ pub enum KokoroVariant {
 }
 
 impl KokoroVariant {
-    /// Fp32 keeps v1.0's id, so the desktop's cached clips stay valid.
+    /// Fp32 keeps v0.1's id, so the desktop's cached clips stay valid.
     pub const fn engine_id(self) -> &'static str {
         match self {
             Self::Fp32 => FP32_ENGINE_ID,

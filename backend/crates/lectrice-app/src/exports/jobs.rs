@@ -445,7 +445,7 @@ impl Drop for ExportJobs {
     }
 }
 
-/// Brings a loaded record up to date; true when it changed. Records saved before v1.1 have no engine (the one engine
+/// Brings a loaded record up to date; true when it changed. Records saved before v0.2 have no engine (the one engine
 /// that made them is the loaded one) and no pause reason; a done 1.x record has its file in app storage.
 fn upgrade(record: &mut ExportRecord, engine_id: Option<&str>) -> bool {
     let mut changed = false;

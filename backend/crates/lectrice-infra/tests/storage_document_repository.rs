@@ -278,7 +278,7 @@ fn library_usage_is_the_size_of_the_three_files() {
     assert_eq!(repository.library_usage().unwrap()[0].bytes, expected);
 }
 
-/// C27: the summary tells the cleaner version; a `meta.json` from before v1.1 gets it from `document.json`.
+/// C27: the summary tells the cleaner version; a `meta.json` from before v0.2 gets it from `document.json`.
 #[test]
 fn the_summary_has_the_cleaner_version_also_for_old_meta_files() {
     let data_dir = TempDir::new().unwrap();

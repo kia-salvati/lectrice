@@ -165,7 +165,7 @@ pub struct AudioExport {
     pub format: ExportFormat,
     #[serde(rename = "speedPercent", default)]
     pub speed: ExportSpeed,
-    /// The speech engine (model bundle) the export is made with. Empty in records saved before v1.1; the registry
+    /// The speech engine (model bundle) the export is made with. Empty in records saved before v0.2; the registry
     /// fills in the loaded engine when it loads them.
     #[serde(default)]
     pub engine_id: String,
@@ -187,7 +187,7 @@ pub struct AudioExport {
     pub error: Option<ErrorName>,
     pub sentences_done: u32,
     pub sentences_total: u32,
-    /// Finished parts of about ten listening-minutes each (records saved before v1.1 have none).
+    /// Finished parts of about ten listening-minutes each (records saved before v0.2 have none).
     #[serde(default)]
     pub parts_done: u32,
     #[serde(default)]
@@ -221,7 +221,7 @@ pub struct ExportRecord {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub chapters: Vec<ChapterMark>,
     /// The 1x samples that went into the finished parts (they hold fewer when the speed is baked in). Chapter marks are
-    /// timed from it. 0 in records saved before v1.1, which were all made at 1x.
+    /// timed from it. 0 in records saved before v0.2, which were all made at 1x.
     #[serde(default)]
     pub source_samples: u64,
 }

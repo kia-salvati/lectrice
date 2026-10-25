@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use lectrice_app::exports::ExportSettings;
-use lectrice_app::services::{Adapters, Services, Settings, assemble};
+use lectrice_app::services::{Adapters, Services, Settings, assemble, purge_removed_at_start};
 use lectrice_app::speech::ReadAheadSettings;
 use lectrice_app::{RequestContext, UseCase};
 use lectrice_domain::cleaning::RuleBasedCleaner;
@@ -62,6 +62,7 @@ pub fn build_state(config: &Config) -> AppResult<AppState> {
     let upload_max_bytes = megabytes_to_bytes(config.upload.max_mb);
     let settings = Settings { import_max_bytes: upload_max_bytes, default_voice: VoiceId::new(config.speech.default_voice.trim()), read_ahead, export };
     let services = assemble(adapters, settings)?;
+    purge_removed_at_start(&services)?;
     resume_exports(&services)?;
     Ok(AppState { services, upload_max_bytes })
 }

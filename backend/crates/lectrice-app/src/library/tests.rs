@@ -12,7 +12,7 @@ use crate::documents::fakes::{FakeHasher, FakeSplitter, Library, at, id_for};
 use crate::documents::{GetDocument, GetDocumentArgs};
 use crate::exports::fakes::{CountingDecoder, FakeExporter, MemoryRecordStore};
 use crate::exports::{ExportDeps, ExportJobs, ExportSettings};
-use crate::services::{Adapters, Settings, assemble};
+use crate::services::{Adapters, Settings, assemble, purge_removed_at_start};
 use crate::speech::ReadAheadSettings;
 use crate::speech::fakes::{CountingEncoder, MemoryCache};
 use crate::{RequestContext, UseCase};
@@ -233,9 +233,10 @@ fn without_an_engine_exports_are_kept_and_listed() {
     assert_eq!((active.len(), active[0].status, active[0].waiting_for_engine), (1, ExportStatus::Queued, true));
 }
 
-/// A book removed just before the app stopped is purged when the core starts, with its exports kept.
+/// A book removed just before the app stopped is purged when the app starts, with its exports kept; assembling alone
+/// (an engine reload) keeps it, so its undo still works.
 #[test]
-fn the_core_purges_removed_books_when_it_starts() {
+fn removed_books_are_purged_at_app_start_but_not_by_assembling() {
     let library = Library::new(1);
     let id = library.add_book();
     library.store.set_removed(&id, Some(at(5))).unwrap();
@@ -269,6 +270,9 @@ fn the_core_purges_removed_books_when_it_starts() {
     };
 
     let services = assemble(adapters, settings).unwrap();
+    assert!(library.store.contains(&id));
+
+    purge_removed_at_start(&services).unwrap();
 
     assert!(!library.store.contains(&id));
     assert!(store.get(&ExportId::new("kept")).is_some());

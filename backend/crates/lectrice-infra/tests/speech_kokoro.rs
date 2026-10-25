@@ -17,7 +17,7 @@ fn settings(model_dir: PathBuf) -> KokoroSettings {
     KokoroSettings { model_dir, variant: KokoroVariant::Fp32, num_threads: NUM_THREADS, provider: CPU_PROVIDER.into() }
 }
 
-/// C11: fp32 keeps v1.0's id (the desktop cache stays valid); int8 clips are kept apart.
+/// C11: fp32 keeps v0.1's id (the desktop cache stays valid); int8 clips are kept apart.
 #[test]
 fn each_bundle_has_its_own_engine_id() {
     assert_eq!(KokoroVariant::Fp32.engine_id(), "kokoro-v1.0");

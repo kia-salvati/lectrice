@@ -165,7 +165,7 @@ impl ExportRunner {
         let mut state = RunState {
             started: Instant::now(),
             output_samples,
-            // Records saved before v1.1 have no count; they were all made at 1x.
+            // Records saved before v0.2 have no count; they were all made at 1x.
             source_samples: if record.source_samples == 0 { output_samples } else { record.source_samples },
             sentences_done: finished.iter().map(|part| part.sentences).sum(),
             done_chars: finished.iter().map(|part| part.spoken_chars).sum(),

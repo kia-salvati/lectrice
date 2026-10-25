@@ -84,7 +84,7 @@ impl FfmpegExporter {
 
 impl AudioExporter for FfmpegExporter {
     fn check_available(&self) -> AppResult<()> {
-        let status = Command::new(&self.program).arg("-version").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+        let status = ffmpeg_command(&self.program).arg("-version").stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
         match status {
             Ok(status) if status.success() => Ok(()),
             Ok(status) => Err(AppError::new(ErrorName::ExporterUnavailable).with_detail(format!("{} -version exited with {status}", self.program.display()))),
@@ -119,7 +119,7 @@ impl AudioExporter for FfmpegExporter {
         let mut stderr_log = partial_file(&directory, LOG_EXTENSION)?;
         let output = partial_file(&directory, target.format.extension())?;
 
-        let mut command = Command::new(&self.program);
+        let mut command = ffmpeg_command(&self.program);
         command.args(quiet_args()).args(["-f", "concat", "-safe", "0", "-i"]).arg(list.path());
         // Kept until ffmpeg is done with it.
         let _metadata = match target.format {
@@ -224,6 +224,21 @@ impl ExportWriter for WavPartWriter {
         temp.persist(&path).map_err(|error| storage_failed("renaming", &path, error.error))?;
         Ok(ExportPart { index, path, samples, sample_rate })
     }
+}
+
+/// `CREATE_NO_WINDOW`: without it, every ffmpeg run from a Windows GUI app flashes a console window.
+#[cfg(windows)]
+fn ffmpeg_command(program: &Path) -> Command {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let mut command = Command::new(program);
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
+}
+
+#[cfg(not(windows))]
+fn ffmpeg_command(program: &Path) -> Command {
+    Command::new(program)
 }
 
 fn quiet_args() -> [&'static str; 4] {

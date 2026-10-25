@@ -137,8 +137,8 @@ pub struct ExportServices {
     pub file: GetAudioExportFile,
 }
 
-/// Paused exports stay paused: the shell decides when they continue (`ExportServices::resume`). Books removed and not
-/// purged (the app stopped during an undo window) are purged here, keeping their exports.
+/// Paused exports stay paused: the shell decides when they continue (`ExportServices::resume`). Removed books are not
+/// purged here, because a shell assembles again on every engine reload: see [`purge_removed_at_start`].
 pub fn assemble(adapters: Adapters, settings: Settings) -> AppResult<Services> {
     let Adapters {
         hasher,
@@ -207,9 +207,6 @@ pub fn assemble(adapters: Adapters, settings: Settings) -> AppResult<Services> {
         delete_export: DeleteAudioExport::new(jobs.clone()),
         mark_export_saved: MarkExportSaved::new(jobs.clone()),
     });
-    let purged = library.purge_removed.run(&RequestContext::new(STARTUP_REQUEST_ID), PurgeRemovedDocumentsArgs::default())?;
-    info!(service = NAME, purged = purged.documents, failed = purged.failed, "removed documents purged at start");
-
     let Some((engine, worker, read_ahead)) = speech else {
         return Ok(Services { documents, library, speech: None, exports: None });
     };
@@ -243,6 +240,15 @@ pub fn assemble(adapters: Adapters, settings: Settings) -> AppResult<Services> {
         file: GetAudioExportFile::new(jobs, reader, engine),
     };
     Ok(Services { documents, library, speech: Some(Arc::new(speech)), exports: Some(Arc::new(exports)) })
+}
+
+/// Deletes the books that were removed and not purged (the app stopped during an undo window), keeping their exports.
+/// Every shell calls it once when the app starts, after the first [`assemble`]; never on an engine reload, which would
+/// end the undo window of a book removed just before.
+pub fn purge_removed_at_start(services: &Services) -> AppResult<()> {
+    let purged = services.library.purge_removed.run(&RequestContext::new(STARTUP_REQUEST_ID), PurgeRemovedDocumentsArgs::default())?;
+    info!(service = NAME, purged = purged.documents, failed = purged.failed, "removed documents purged at start");
+    Ok(())
 }
 
 fn check_default_voice(engine: &dyn SpeechEngine, default_voice: &VoiceId) -> AppResult<()> {

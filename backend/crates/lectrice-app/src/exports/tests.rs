@@ -332,7 +332,7 @@ fn an_encoder_failure_fails_the_job() {
     assert_eq!(file.unwrap_err().primary(), ErrorName::ExportNotReady);
 }
 
-/// A record as v1.0 / early v1.1 saved it: no engine id, no pause reason, no location.
+/// A record as v0.1 / early v0.2 saved it: no engine id, no pause reason, no location.
 fn saved(id: &str, status: ExportStatus) -> ExportRecord {
     ExportRecord {
         export: AudioExport {
