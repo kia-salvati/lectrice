@@ -1,0 +1,12 @@
+[package]
+name = "kv-bench"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+lectrice-domain = { path = "/home/kia/Desktop/learning/lectrice/backend/crates/lectrice-domain" }
+lectrice-infra = { path = "/home/kia/Desktop/learning/lectrice/backend/crates/lectrice-infra", default-features = false, features = ["kokoro", "sherpa-static"] }
+hound = "=3.5.1"
+
+[workspace]

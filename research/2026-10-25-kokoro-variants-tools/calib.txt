@@ -1,0 +1,80 @@
+The morning train was late again, so Maria read two chapters of her book on the platform.
+Please close the door gently; the baby has only just fallen asleep.
+A good map shows you where you are, where you want to go, and what lies between.
+He counted the coins twice and still came up with seventeen dollars and forty cents.
+Have you ever wondered why the sky turns orange just before the sun goes down?
+The server restarts every night at two o'clock, after the reports are finished.
+Our grandmother kept a jar of buttons on the shelf above the sewing machine.
+When the river floods, the farmers move their cattle to the higher fields.
+I think the answer is yes, but let me check the numbers one more time.
+The function takes a list of names and returns them sorted by length.
+Bright lights, loud music and the smell of popcorn filled the old theatre.
+Nobody expected the quiet student in the back row to win the chess tournament.
+The recipe calls for three eggs, a cup of flour and a pinch of salt.
+If you press the red button, the machine stops at once.
+Thousands of birds fly south each autumn, following routes their ancestors used.
+The library opens at nine and closes at six, except on Sundays.
+What a wonderful surprise to see you here!
+Each node in the cluster sends a small heartbeat message every second.
+The painter mixed blue and yellow until she found exactly the right green.
+After the storm, the beach was covered with shells, seaweed and broken branches.
+Engineers tested the bridge with heavy trucks before it opened to the public.
+Could you tell me the way to the nearest bus stop, please?
+The children built a tall tower out of wooden blocks and then knocked it down.
+In nineteen ninety eight, the small company moved into a larger office downtown.
+The doctor said the wound would heal in about two weeks.
+Our cat sleeps all day and runs around the house all night.
+The interface hides the details, so the rest of the program never needs to know them.
+A thin layer of frost covered the windows of the parked cars.
+She whispered the secret so softly that only her sister could hear it.
+The orchestra tuned their instruments while the audience found their seats.
+Large files are split into chunks, and each chunk is checked before it is saved.
+He forgot his umbrella, of course, on the only rainy day of the month.
+The old clock in the hall chimes every hour, even in the middle of the night.
+Volunteers planted two hundred trees along the edge of the new park.
+Why does the bread always fall with the butter side down?
+The pilot announced that we would land twenty minutes early.
+Every test should check one thing, and its name should say what that thing is.
+The fox paused at the edge of the forest, sniffed the air, and vanished.
+Mountains, lakes and long empty roads make this region perfect for a slow holiday.
+I'm sorry, I didn't catch your name.
+The teacher drew a large circle on the board and divided it into eight parts.
+Fresh tomatoes taste so much better in summer than in winter.
+The message was short: meet me at the station, and bring a coat.
+When two threads write to the same value, the result depends on timing.
+The market sells cheese, honey, warm bread and handmade soap every Saturday.
+Despite the noise, the baby slept peacefully in her father's arms.
+The rocket climbed slowly at first, then faster, until it was only a bright dot.
+Turn left at the bakery, then walk straight for about five minutes.
+Learning a new language takes patience, practice and a little courage.
+The data is copied to three machines, so losing one of them is not a disaster.
+A gentle breeze carried the smell of the sea across the village.
+"Are you coming with us?" asked Tom, holding the gate open.
+The museum guard yawned, checked his watch, and walked to the next room.
+Small steps, taken every day, add up to a long journey.
+The cook burned the onions, laughed, and started the sauce again.
+Water boils at one hundred degrees Celsius at sea level.
+Our neighbour plays the violin every evening, and we have grown to love it.
+The meeting has been moved from Tuesday to Thursday afternoon.
+Snow fell all night, and by morning the whole town was white and silent.
+The program prints an error message and exits when the file is missing.
+She laughed so hard that tears ran down her cheeks.
+Hundreds of tiny lights sparkled on the surface of the lake.
+The farmer fixed the fence, fed the chickens and then sat down for coffee.
+Is it really possible to learn to swim in just one week?
+The book on the top shelf has a green cover and a torn spine.
+Every evening the lighthouse sends its beam across the dark water.
+The quick brown fox jumps over the lazy dog near the riverbank.
+A strong password is long, unique and hard to guess.
+The street musician played an old song that made everyone smile.
+We packed sandwiches, two bottles of water and a warm blanket for the picnic.
+The scientist carefully wrote down every result in her notebook.
+Oh no, I left my keys inside the car!
+The plan was simple, but the weather had other ideas.
+Each morning he walks the dog, waters the plants and reads the news.
+The bridge was painted bright red so that ships could see it in the fog.
+Sixty two people signed the letter before it was sent to the mayor.
+Quietly, carefully, the cat crept toward the sleeping bird.
+The answer, as it turned out, had been written on the first page all along.
+Shall we take the long road by the coast, or the short one through the hills?
+Thank you all for coming, and please drive home safely.
