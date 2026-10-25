@@ -1,0 +1,3 @@
+.path { display: flex; font: .8125rem/1.5 var(--mono); min-width: 0; max-width: 100%; }
+.head { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tail { flex: none; white-space: nowrap; }

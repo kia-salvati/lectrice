@@ -1,0 +1,33 @@
+.toast {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  width: 22rem;
+  max-width: calc(100% - 2rem);
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: .75rem 1rem;
+  display: grid;
+  gap: .5rem;
+  font-size: .875rem;
+  line-height: 1.5;
+  z-index: 20;
+  animation: slideIn .15s ease-out;
+}
+.toast p { margin: 0; }
+@keyframes slideIn {
+  from { opacity: 0; translate: 0 .5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
+/* Narrower than 1100px the pill is close by: sit centred above it instead. The open chapters rail asks for the same place. */
+@media (max-width: 1100px) {
+  .toast { left: 50%; transform: translateX(-50%); bottom: 5rem; }
+}
+.railOpen { left: 50%; transform: translateX(-50%); bottom: 5rem; }
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; }
+.title { font-weight: 600; display: inline-flex; gap: .35rem; align-items: center; }
+.error { color: var(--err-fg); }
+.dismiss { width: 28px; height: 28px; border: 0; background: none; }

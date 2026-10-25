@@ -1,6 +1,6 @@
 interface IconProps { size: number; children: React.ReactNode; }
 
-const Icon = ({ size, children }: IconProps) => (
+export const Icon = ({ size, children }: IconProps) => (
   <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">{children}</svg>
 );
 

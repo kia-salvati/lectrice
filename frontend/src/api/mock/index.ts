@@ -10,6 +10,8 @@ import { MOCK_VOICES } from './voices';
 import { makeMockWav, mockSpeechSeconds } from './wav';
 
 const AUDIO_ERROR_SENTENCE_ID = 5;
+/** About as long as the real sample line. */
+const SAMPLE_SECONDS = 3;
 
 /** Same message, code and HTTP status the backend registry uses (spec §8). */
 const ERRORS = {
@@ -38,6 +40,13 @@ export const mockApi: LectriceApi = {
   async listVoices(signal) {
     await respond(jitter(120, 80), signal);
     return MOCK_VOICES;
+  },
+
+  async getVoiceSample(voiceId, signal) {
+    await respond(jitter(400, 300), signal);
+    if (isScenarioActive('engineFailed')) throw ERRORS.SpeechEngineUnavailable();
+    if (!MOCK_VOICES.voices.some((voice) => voice.id === voiceId)) throw ERRORS.VoiceUnknown();
+    return makeMockWav(SAMPLE_SECONDS);
   },
 
   async listDocuments(page: PageRequest, signal): Promise<ListResponse<DocumentSummary>> {

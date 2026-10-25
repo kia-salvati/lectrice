@@ -1,0 +1,15 @@
+.strip {
+  display: flex;
+  gap: .5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--line);
+  padding: .5rem 1rem;
+  font-size: .875rem;
+}
+.error { background: var(--err-bg); color: var(--err-fg); border-bottom-color: transparent; }
+.error button { color: currentColor; }
+.left { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+.bar { width: 120px; }

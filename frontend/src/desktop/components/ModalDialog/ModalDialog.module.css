@@ -1,0 +1,27 @@
+.dialog {
+  --backdrop: rgba(0, 0, 0, .35);
+  width: min(26rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  padding: 1.25rem;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: .875rem;
+  line-height: 1.5;
+  flex-direction: column;
+  gap: 1rem;
+  overflow: hidden;
+}
+.dialog[open] { display: flex; }
+.dialog::backdrop { background: var(--backdrop); }
+@media (prefers-color-scheme: dark) {
+  .dialog { --backdrop: rgba(0, 0, 0, .55); }
+}
+.wide { width: min(44rem, calc(100% - 2rem)); max-height: min(34rem, calc(100% - 4rem)); }
+.head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex: none; }
+.title { margin: 0; font-size: 1.25rem; font-weight: 600; }
+.close { width: 32px; height: 32px; }
+.body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.body p { margin: 0; }
+.footer { display: flex; justify-content: flex-end; gap: .5rem; flex-wrap: wrap; align-items: center; flex: none; }

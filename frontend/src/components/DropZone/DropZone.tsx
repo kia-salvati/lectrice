@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useAfterFileDialog } from '../../hooks/useAfterFileDialog';
 import type { ImportState } from '../../hooks/useLibrary';
 import controls from '../../styles/controls.module.css';
 import styles from './DropZone.module.css';
@@ -14,6 +15,7 @@ interface DropZoneProps {
 
 export const DropZone = ({ importState, isDragging, maxUploadMb, onFileChosen, onChooseAnother }: DropZoneProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const afterFileDialog = useAfterFileDialog();
 
   if (importState.phase === 'importing') {
     return (
@@ -49,7 +51,7 @@ export const DropZone = ({ importState, isDragging, maxUploadMb, onFileChosen, o
         hidden
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file) onFileChosen(file);
+          if (file) afterFileDialog(() => onFileChosen(file));
           // Reset so choosing the same file again still fires a change.
           event.target.value = '';
         }}

@@ -1,0 +1,11 @@
+.track { display: block; width: 100%; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.small { height: 4px; border-radius: 2px; }
+.fill { display: block; height: 100%; background: var(--accent); }
+.indeterminate .fill { width: 30%; animation: slide 1.2s linear infinite; }
+@keyframes slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(334%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .indeterminate .fill { animation: none; }
+}

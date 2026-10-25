@@ -6,9 +6,9 @@ import { getDocument, importPdf, listDocuments, saveReadingPosition } from './do
 import { cancelExport, exportFileUrl, getExport, listExports, startExport } from './exports';
 import { getHealth } from './health';
 import { mockApi } from './mock';
-import { listVoices } from './voices';
+import { getVoiceSample, listVoices } from './voices';
 
-const httpApi: LectriceApi = { getHealth, listVoices, listDocuments, importPdf, getDocument, saveReadingPosition, getSentenceAudio, startExport, listExports, getExport, cancelExport, exportFileUrl };
+const httpApi: LectriceApi = { getHealth, listVoices, getVoiceSample, listDocuments, importPdf, getDocument, saveReadingPosition, getSentenceAudio, startExport, listExports, getExport, cancelExport, exportFileUrl };
 
 const API_BY_MODE: Record<ApiMode, LectriceApi> = { http: httpApi, mock: mockApi };
 

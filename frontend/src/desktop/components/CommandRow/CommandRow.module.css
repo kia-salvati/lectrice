@@ -1,0 +1,16 @@
+.command { display: grid; gap: .25rem; min-width: 0; }
+.label { font-size: .8125rem; color: var(--fg2); }
+.row { display: flex; gap: .5rem; align-items: center; min-width: 0; }
+.code {
+  flex: 1;
+  min-width: 0;
+  font: .8125rem/1.5 var(--mono);
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: .35rem .5rem;
+  user-select: all;
+  white-space: nowrap;
+  overflow-x: auto;
+}

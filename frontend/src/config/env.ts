@@ -1,3 +1,5 @@
+import { platform } from '../platform';
+
 export type ApiMode = 'mock' | 'http';
 
 const API_MODES: readonly ApiMode[] = ['mock', 'http'];
@@ -11,5 +13,4 @@ const parseApiMode = (value: string | undefined): ApiMode => {
 
 export const API_MODE: ApiMode = parseApiMode(import.meta.env.VITE_API_MODE);
 
-/** Same origin; the Vite dev server proxies /api to the backend. */
-export const API_BASE_PATH = '/api';
+export const API_BASE_PATH = platform.apiBaseUrl;

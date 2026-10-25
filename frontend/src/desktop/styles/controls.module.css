@@ -1,0 +1,32 @@
+/* Controls the desktop screens add to the app's `controls.module.css`. */
+.textButton {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .4rem .5rem;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: .875rem;
+  white-space: nowrap;
+}
+.textButton:hover { text-decoration: underline; }
+.textButton:disabled { opacity: .45; cursor: default; text-decoration: none; }
+.danger { color: var(--err-fg); }
+.dangerButton { background: var(--err-fg); color: var(--bg); border-color: transparent; }
+
+.actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.centered { justify-content: center; }
+.ok { display: inline-flex; align-items: center; gap: .3rem; color: var(--accent); }
+.ok svg { flex: none; }
+.muted { color: var(--fg2); }
+.meta { color: var(--fg2); font-size: .8125rem; }
+.errorText { color: var(--err-fg); }
+
+.spin svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spin svg { animation: none; }
+}

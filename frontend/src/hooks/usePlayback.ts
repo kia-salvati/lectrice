@@ -10,6 +10,7 @@ import type { PlaybackOrder } from '../utils/playbackOrder';
 import type { PlaybackStatus } from '../utils/playerStatus';
 import { createSentenceAudioBuffer } from './sentenceAudioBuffer';
 import type { SentenceAudioBuffer } from './sentenceAudioBuffer';
+import { useMediaSession } from './useMediaSession';
 
 /** Which sentence the audio element holds, for which voice buffer and retry round. */
 interface LoadedAudio { buffer: SentenceAudioBuffer; sentenceId: number; reloadToken: number; }
@@ -228,11 +229,7 @@ export const usePlayback = ({ document, voiceId, canPlay, onEngineUnavailable }:
     if (currentRef.current !== null) savePosition(currentRef.current);
   }, [savePosition]);
 
-  const togglePlay = useCallback(() => {
-    if (isPlaying) {
-      pause();
-      return;
-    }
+  const play = useCallback(() => {
     if (!canPlay || currentSentenceId === null) return;
     setAudioError(null);
     if (ended) {
@@ -240,7 +237,9 @@ export const usePlayback = ({ document, voiceId, canPlay, onEngineUnavailable }:
       setRequestedSentenceId(order.sentenceIds[0] ?? null);
     }
     setWantsToPlay(true);
-  }, [isPlaying, canPlay, currentSentenceId, ended, order, pause]);
+  }, [canPlay, currentSentenceId, ended, order]);
+
+  const togglePlay = useCallback(() => (isPlaying ? pause() : play()), [isPlaying, pause, play]);
 
   const step = useCallback((offset: number) => {
     if (currentSentenceId === null) return;
@@ -267,6 +266,9 @@ export const usePlayback = ({ document, voiceId, canPlay, onEngineUnavailable }:
     setWantsToPlay(canPlay);
   }, [next, canPlay]);
 
+  const status = playbackStatus({ ended, playing: isPlaying, isLoaded });
+  useMediaSession({ title: document.title, status, play, pause, next, previous });
+
   const position = currentSentenceId === null ? 0 : order.positionOf.get(currentSentenceId) ?? 0;
 
   return {
@@ -275,7 +277,7 @@ export const usePlayback = ({ document, voiceId, canPlay, onEngineUnavailable }:
     currentPageIndex: currentSentenceId === null ? null : order.pageIndexOf.get(currentSentenceId) ?? null,
     position,
     playableCount: order.sentenceIds.length,
-    status: playbackStatus({ ended, playing: isPlaying, isLoaded }),
+    status,
     speed,
     readSkipped,
     secondsLeft: currentSentenceId === null ? 0 : secondsLeft(order, currentSentenceId, speed, SECONDS_PER_CHAR),

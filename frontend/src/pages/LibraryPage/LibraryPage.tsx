@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { DropZone } from '../../components/DropZone/DropZone';
+import { LibraryHeader } from '../../components/LibraryHeader/LibraryHeader';
 import { RecentDocumentList } from '../../components/RecentDocumentList/RecentDocumentList';
 import { StatusBanner } from '../../components/StatusBanner/StatusBanner';
 import { MAX_UPLOAD_MB } from '../../config/constants';
@@ -10,7 +11,16 @@ import controls from '../../styles/controls.module.css';
 import type { DocumentId } from '../../types/document';
 import styles from './LibraryPage.module.css';
 
-interface LibraryPageProps { onOpenDocument: (documentId: DocumentId) => void; }
+interface LibraryPageProps {
+  onOpenDocument: (documentId: DocumentId) => void;
+  /** Right end of the header (the desktop's Settings button). */
+  headerActions?: React.ReactNode;
+  /** A strip under the header (the desktop's voice download). */
+  notice?: React.ReactNode;
+  /** A PDF picked on another screen (the desktop's first-run "Open a PDF…"): imported once, then `onFileTaken`. */
+  fileToImport?: File | null;
+  onFileTaken?: () => void;
+}
 
 const hrefFor = (documentId: DocumentId): string => routeHref({ name: 'reader', documentId });
 
@@ -23,10 +33,21 @@ const RecentSection = ({ library }: { library: Library }) => {
   return <RecentDocumentList documents={library.recent} now={library.recentLoadedAt} hrefFor={hrefFor} hasMore={library.recent.length < library.total} isLoadingMore={library.isLoadingMore} onShowMore={library.loadMore} />;
 };
 
-export const LibraryPage = ({ onOpenDocument }: LibraryPageProps) => {
+export const LibraryPage = ({ onOpenDocument, headerActions, notice, fileToImport = null, onFileTaken }: LibraryPageProps) => {
   const library = useLibrary({ onDocumentReady: onOpenDocument });
   // A counter, because dragleave fires every time the pointer crosses a child element.
   const [dragDepth, setDragDepth] = useState(0);
+
+  // The ref survives StrictMode's second effect run, so the file is imported once. A layout effect, so the
+  // library's idle drop zone never paints between the screen the file came from and "Reading…".
+  const importedFile = useRef<File | null>(null);
+  const { importFile } = library;
+  useLayoutEffect(() => {
+    if (fileToImport === null || importedFile.current === fileToImport) return;
+    importedFile.current = fileToImport;
+    importFile(fileToImport);
+    onFileTaken?.();
+  }, [fileToImport, importFile, onFileTaken]);
 
   const handleDragEnter = (event: React.DragEvent) => {
     event.preventDefault();
@@ -43,10 +64,8 @@ export const LibraryPage = ({ onOpenDocument }: LibraryPageProps) => {
 
   return (
     <div className={styles.page} onDragEnter={handleDragEnter} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-      <header className={styles.header}>
-        <h1 className={styles.brand}>Lectrice</h1>
-        <span className={styles.tagline}>Reads PDFs aloud, locally</span>
-      </header>
+      <LibraryHeader actions={headerActions} />
+      {notice}
       <DropZone importState={library.importState} isDragging={dragDepth > 0} maxUploadMb={MAX_UPLOAD_MB} onFileChosen={library.importFile} onChooseAnother={library.resetImport} />
       <div className={styles.recent}><RecentSection library={library} /></div>
     </div>

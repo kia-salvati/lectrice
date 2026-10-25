@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChapterLine } from '../../components/ChapterLine/ChapterLine';
 import { ChaptersRail, ChaptersRailHandle } from '../../components/ChaptersPanel/ChaptersRail';
 import { ChaptersSheet } from '../../components/ChaptersPanel/ChaptersSheet';
@@ -27,8 +27,9 @@ import { formatTimeLeft } from '../../utils/time';
 import { buildTocTree, chapterLabel, entryEndSentenceId, formatChapterPercent, percentThrough, tocLocation } from '../../utils/toc';
 import { groupVoices } from '../../utils/voices';
 import styles from './ReaderPage.module.css';
+import type { ReaderShell } from './readerShell';
 
-interface ReaderScreenProps { document: OpenedDocument; voices: Voices; engine: SpeechEngine; onBack: () => void; }
+interface ReaderScreenProps { document: OpenedDocument; voices: Voices; engine: SpeechEngine; onBack: () => void; shell?: ReaderShell; }
 
 const POPOVER_ID = 'player-popover';
 const SHEET_ID = 'chapters-sheet';
@@ -41,7 +42,7 @@ const ENGINE_BANNER: Record<SpeechEngine['state'], string | null> = {
 };
 
 /** A loaded document: wires playback, export and follow-scroll to the components. */
-export const ReaderScreen = ({ document, voices, engine, onBack }: ReaderScreenProps) => {
+export const ReaderScreen = ({ document, voices, engine, onBack, shell }: ReaderScreenProps) => {
   const voiceId = voices.selectedVoiceId ?? FALLBACK_VOICE_ID;
   const voiceNameOf = (id: string): string => voices.voices.find((voice) => voice.id === id)?.name ?? id;
 
@@ -50,6 +51,25 @@ export const ReaderScreen = ({ document, voices, engine, onBack }: ReaderScreenP
   const follow = useFollowScroll(playback.currentSentenceId, playback.currentBlockIndex);
   const chapters = useChaptersPanel(document.toc.length > 0);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const shellExportRef = useRef<HTMLDivElement>(null);
+
+  const onRailShownChange = shell?.onRailShownChange;
+  const { railShown } = chapters;
+  useEffect(() => {
+    if (!onRailShownChange) return;
+    onRailShownChange(railShown);
+    return () => onRailShownChange(false);
+  }, [railShown, onRailShownChange]);
+
+  // The popover opens in this render; its export section is scrolled into view once it is on screen.
+  const openAtExport = shell?.openAtExport ?? false;
+  const onOpenedAtExport = shell?.onOpenedAtExport;
+  if (openAtExport && !isPopoverOpen) setIsPopoverOpen(true);
+  useEffect(() => {
+    if (!openAtExport) return;
+    shellExportRef.current?.scrollIntoView({ block: 'nearest' });
+    onOpenedAtExport?.();
+  }, [openAtExport, onOpenedAtExport]);
 
   const pageLabels = useMemo(() => buildPageLabelLookup(document.pages), [document.pages]);
   const markers = useMemo(() => planPageMarkers(document), [document]);
@@ -84,7 +104,10 @@ export const ReaderScreen = ({ document, voices, engine, onBack }: ReaderScreenP
   const state = playerState(engine.state, playback.status);
   const chapter = location === null ? null : document.toc[location.chapterIndex];
   const section = location === null || location.sectionIndex === null ? null : document.toc[location.sectionIndex];
-  const statusParts = playerStatusParts(state, { pageText: formatPageMarker(currentLabel), lastPageText: lastLabel, chapter: chapter === null ? null : chapterLabel(chapter.title) }, playback.speed);
+  const voiceStatus = shell?.voiceStatus ?? null;
+  const statusParts = state === 'engineFailed' && voiceStatus !== null
+    ? [{ text: voiceStatus, shrinks: true }]
+    : playerStatusParts(state, { pageText: formatPageMarker(currentLabel), lastPageText: lastLabel, chapter: chapter === null ? null : chapterLabel(chapter.title) }, playback.speed);
   const positionText = `Sentence ${(playback.position + 1).toLocaleString('en')} of ${playback.playableCount.toLocaleString('en')}, page ${currentLabel}`;
   const locationText = `Page ${currentLabel} · ${playback.currentPageIndex === null ? '' : formatPdfPage(playback.currentPageIndex)} of ${document.pageCount.toLocaleString('en')}`;
 
@@ -92,9 +115,22 @@ export const ReaderScreen = ({ document, voices, engine, onBack }: ReaderScreenP
   const fileFormat = job?.format ?? exportState.format;
   const fileVoiceName = voiceNameOf(job?.voiceId ?? voiceId);
   const downloadName = safeFileName(`${document.title} (${fileVoiceName}).${EXPORT_FORMAT_EXTENSION[fileFormat]}`);
-  const engineMessage = ENGINE_BANNER[engine.state];
+  const engineMessage = voiceStatus === null ? ENGINE_BANNER[engine.state] : null;
+  const startExport = () => exportState.start(voiceId, playback.readSkipped);
 
-  const exportPanel = (
+  const exportPanel = shell ? (
+    <div ref={shellExportRef}>
+      {shell.renderExportPanel({
+        exportState,
+        voiceName: voiceNameOf(voiceId),
+        readSkipped: playback.readSkipped,
+        fileVoiceName,
+        canStart: engine.state === 'ready',
+        onStart: startExport,
+        bookSeconds: playback.order.charsFrom[0] * SECONDS_PER_CHAR,
+      })}
+    </div>
+  ) : (
     <ExportPanel
       phase={exportPhase(job, exportState.isStarting)}
       format={exportState.format}
@@ -110,7 +146,7 @@ export const ReaderScreen = ({ document, voices, engine, onBack }: ReaderScreenP
       downloadName={downloadName}
       errorMessage={exportState.error?.message ?? null}
       canStart={engine.state === 'ready'}
-      onStart={() => exportState.start(voiceId, playback.readSkipped)}
+      onStart={startExport}
       onCancel={exportState.cancel}
     />
   );
@@ -146,6 +182,8 @@ export const ReaderScreen = ({ document, voices, engine, onBack }: ReaderScreenP
       onReadSkippedChange={playback.setReadSkipped}
       exportPanel={exportPanel}
       onOpenAnother={onBack}
+      noVoiceNotice={shell?.noVoiceNotice}
+      extraActions={shell?.extraActions}
     />
   );
 

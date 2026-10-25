@@ -1,3 +1,4 @@
+import { platform } from '../platform';
 import type { ExportFormat } from '../types/api';
 
 /** Mirrors the backend's upload.max_mb. The server re-checks. */
@@ -21,8 +22,7 @@ export const POSITION_SAVE_DELAY_MS = 1500;
 
 export const RECENT_PAGE_SIZE = 20;
 
-/** Formats offered for whole-book export, in menu order. The first is the default. */
-export const EXPORT_FORMATS: readonly ExportFormat[] = ['mp3', 'm4b'];
+export const EXPORT_FORMATS: readonly ExportFormat[] = platform.exportFormats;
 
 export const EXPORT_FORMAT_LABEL: Record<ExportFormat, string> = { mp3: 'MP3', m4b: 'M4B (audiobook)' };
 
@@ -38,3 +38,8 @@ export const NARROW_SCREEN_QUERY = '(max-width: 720px)';
 
 /** Whether the reader closed the chapters rail; remembered across books. */
 export const RAIL_OPEN_STORAGE_KEY = 'lectrice.chaptersRailOpen';
+
+/** How long the OS's file-dialog close animation gets before the screen under it changes (KWin's Scale effect ≈ 0.2 s). */
+export const FILE_DIALOG_SETTLE_MS = 250;
+/** The wait ends by then even if the window never reports focus again. */
+export const FILE_DIALOG_SETTLE_MAX_MS = 1000;

@@ -1,0 +1,12 @@
+.card {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  background: var(--bg2);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: left;
+}
+.text { display: grid; gap: .15rem; min-width: 0; }
+.voice { font-weight: 600; }
+.line { font: italic 1.125rem/1.5 var(--serif); margin: 0; }

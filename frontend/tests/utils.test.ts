@@ -1,13 +1,17 @@
 import { test } from 'node:test';
+import type { TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { formatTimeLeft, formatRelativeTime } from '../src/utils/time.ts';
 import { buildPlaybackOrder, firstPlayableFromBlock, prefetchWindow, resolvePlayable, secondsBetween, startingSentenceId, stepFrom } from '../src/utils/playbackOrder.ts';
 import { planPageMarkers } from '../src/utils/pages.ts';
 import { checkPdfFile } from '../src/utils/pdfFile.ts';
+import { createDialogSettleGate, waitForFileDialogToClose } from '../src/utils/fileDialogSettle.ts';
+import type { DialogSettleEnv } from '../src/utils/fileDialogSettle.ts';
 import { playerState, playerStatusParts } from '../src/utils/playerStatus.ts';
 import type { PlayerState, StatusLocation, StatusPart } from '../src/utils/playerStatus.ts';
 import { exportPhase } from '../src/utils/exportPhase.ts';
 import { safeFileName } from '../src/utils/fileName.ts';
+import { serializeFormData } from '../src/utils/multipart.ts';
 import { percentRead } from '../src/utils/progress.ts';
 import { formatVoiceOption, groupVoices } from '../src/utils/voices.ts';
 import { buildTocTree, chapterLabel, childrenText, currentEntryIndex, entryEndSentenceId, entryLength, entryProgress, filterTocTree, flattenTocTree, isChapterNode, isPartNode, nodeView, percentThrough, tocLocation, tocPath } from '../src/utils/toc.ts';
@@ -297,4 +301,160 @@ test('filter keeps matches at any level with their ancestors', () => {
   assert.deepEqual(flattenTocTree(chapters).map((node) => node.entry.id), [1, 2, 3, 4, 5, 6, 7, 8]); // a match keeps all its children
   assert.deepEqual(filterTocTree(roots, 'nothing like this'), []);
   assert.equal(roots[1].children.length, 2, 'the original tree is untouched');
+});
+
+test('form data becomes plain bytes with its multipart boundary', async () => {
+  const bytes = new Uint8Array([37, 80, 68, 70, 0, 255]);
+  const form = new FormData();
+  form.append('file', new File([bytes], 'invented.pdf', { type: 'application/pdf' }));
+  const { body, contentType } = await serializeFormData(form);
+  assert.ok(body instanceof ArrayBuffer);
+  assert.match(contentType, /^multipart\/form-data; boundary=.+/);
+  const decoded = await new Response(body, { headers: { 'Content-Type': contentType } }).formData();
+  const file = decoded.get('file');
+  assert.ok(file instanceof File);
+  assert.equal(file.name, 'invented.pdf');
+  assert.equal(file.type, 'application/pdf');
+  assert.deepEqual(new Uint8Array(await file.arrayBuffer()), bytes);
+});
+
+// File-dialog settle: the fake env plays the window; mock timers play the clock.
+const SETTLE = { settleMs: 250, maxMs: 1000 };
+
+const fakeDialogEnv = (state: { focused: boolean; reducedMotion?: boolean }) => {
+  let listener: (() => void) | null = null;
+  let removals = 0;
+  const env: DialogSettleEnv = {
+    hasFocus: () => state.focused,
+    onFocus: (next) => {
+      listener = next;
+      return () => {
+        listener = null;
+        removals += 1;
+      };
+    },
+    reducedMotion: () => state.reducedMotion ?? false,
+  };
+  return { env, focus: () => listener?.(), get listening() { return listener !== null; }, get removals() { return removals; } };
+};
+
+/** Counts how often the promise settled, so "resolved yet?" and "only once" are the same check. */
+const resolutions = (promise: Promise<void>) => {
+  let count = 0;
+  promise.then(() => { count += 1; });
+  return () => count;
+};
+
+const tick = async (t: TestContext, ms: number) => {
+  t.mock.timers.tick(ms);
+  await Promise.resolve();
+};
+
+test('dialog settle: focused at change resolves after the settle time', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const resolved = resolutions(waitForFileDialogToClose(fakeDialogEnv({ focused: true }).env, SETTLE));
+  await tick(t, 249);
+  assert.equal(resolved(), 0);
+  await tick(t, 1);
+  assert.equal(resolved(), 1);
+});
+
+test('dialog settle: focus that comes back later starts the settle time', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fake = fakeDialogEnv({ focused: false });
+  const resolved = resolutions(waitForFileDialogToClose(fake.env, SETTLE));
+  await tick(t, 600);
+  assert.equal(resolved(), 0);
+  fake.focus();
+  await tick(t, 249);
+  assert.equal(resolved(), 0);
+  await tick(t, 1);
+  assert.equal(resolved(), 1);
+});
+
+test('dialog settle: a second focus restarts the settle time', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fake = fakeDialogEnv({ focused: true });
+  const resolved = resolutions(waitForFileDialogToClose(fake.env, SETTLE));
+  await tick(t, 200);
+  fake.focus();
+  await tick(t, 50);
+  assert.equal(resolved(), 0, 'not at 250');
+  await tick(t, 199);
+  assert.equal(resolved(), 0);
+  await tick(t, 1);
+  assert.equal(resolved(), 1, 'at 450');
+});
+
+test('dialog settle: no focus ever ends at the cap', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const resolved = resolutions(waitForFileDialogToClose(fakeDialogEnv({ focused: false }).env, SETTLE));
+  await tick(t, 999);
+  assert.equal(resolved(), 0);
+  await tick(t, 1);
+  assert.equal(resolved(), 1);
+});
+
+test('dialog settle: the cap wins over a late focus', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fake = fakeDialogEnv({ focused: false });
+  const resolved = resolutions(waitForFileDialogToClose(fake.env, SETTLE));
+  await tick(t, 900);
+  fake.focus();
+  await tick(t, 99);
+  assert.equal(resolved(), 0);
+  await tick(t, 1);
+  assert.equal(resolved(), 1, 'at 1000, not 1150');
+});
+
+test('dialog settle: reduced motion resolves at once without listening for focus', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fake = fakeDialogEnv({ focused: false, reducedMotion: true });
+  const resolved = resolutions(waitForFileDialogToClose(fake.env, SETTLE));
+  await Promise.resolve();
+  assert.equal(resolved(), 1);
+  assert.equal(fake.listening, false);
+});
+
+test('dialog settle: the focus listener is removed once resolved', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fake = fakeDialogEnv({ focused: true });
+  const resolved = resolutions(waitForFileDialogToClose(fake.env, SETTLE));
+  await tick(t, 250);
+  assert.equal(resolved(), 1);
+  assert.equal(fake.removals, 1);
+  assert.equal(fake.listening, false);
+  fake.focus();
+  await tick(t, 2000);
+  assert.equal(resolved(), 1);
+});
+
+test('dialog settle gate: delivers once after the wait, ignores a second pick, drops the action when disposed', async () => {
+  let release = () => {};
+  const gate = createDialogSettleGate(() => new Promise<void>((resolve) => { release = resolve; }));
+  let delivered = 0;
+  gate.run(() => { delivered += 1; });
+  gate.run(() => { delivered += 10; });
+  assert.equal(delivered, 0, 'nothing shows before the dialog has settled');
+  release();
+  await Promise.resolve();
+  assert.equal(delivered, 1);
+
+  gate.run(() => { delivered += 100; });
+  gate.dispose();
+  release();
+  await Promise.resolve();
+  assert.equal(delivered, 1, 'an unmounted component never imports');
+});
+
+test('dialog settle gate: end to end through the real wait', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fake = fakeDialogEnv({ focused: true });
+  const gate = createDialogSettleGate(() => waitForFileDialogToClose(fake.env, SETTLE));
+  let delivered = 0;
+  gate.run(() => { delivered += 1; });
+  await tick(t, 249);
+  assert.equal(delivered, 0);
+  await tick(t, 1);
+  assert.equal(delivered, 1);
 });

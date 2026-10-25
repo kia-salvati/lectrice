@@ -1,0 +1,17 @@
+.box {
+  display: flex;
+  gap: .65rem;
+  align-items: flex-start;
+  border-radius: 8px;
+  padding: .75rem 1rem;
+  font-size: .875rem;
+  line-height: 1.5;
+  text-align: left;
+  min-width: 0;
+}
+.box > svg { flex: none; margin-top: .15rem; }
+.body { display: grid; gap: .5rem; min-width: 0; flex: 1; }
+.body p { margin: 0; }
+.info { background: var(--bg2); border: 1px solid var(--line); }
+.info > svg { color: var(--fg2); }
+.error { background: var(--err-bg); color: var(--err-fg); }

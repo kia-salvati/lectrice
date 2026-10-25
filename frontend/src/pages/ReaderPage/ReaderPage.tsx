@@ -6,13 +6,14 @@ import { useVoices } from '../../hooks/useVoices';
 import controls from '../../styles/controls.module.css';
 import type { DocumentId } from '../../types/document';
 import styles from './ReaderPage.module.css';
+import type { ReaderShell } from './readerShell';
 import { ReaderScreen } from './ReaderScreen';
 
-interface ReaderPageProps { documentId: DocumentId; onBack: () => void; }
+interface ReaderPageProps { documentId: DocumentId; onBack: () => void; shell?: ReaderShell; }
 
 const APP_TITLE = 'Lectrice';
 
-export const ReaderPage = ({ documentId, onBack }: ReaderPageProps) => {
+export const ReaderPage = ({ documentId, onBack, shell }: ReaderPageProps) => {
   // Three independent requests, started together.
   const load = useDocument(documentId);
   const voices = useVoices();
@@ -51,5 +52,5 @@ export const ReaderPage = ({ documentId, onBack }: ReaderPageProps) => {
     );
   }
 
-  return <ReaderScreen document={load.document} voices={voices} engine={engine} onBack={onBack} />;
+  return <ReaderScreen document={load.document} voices={voices} engine={engine} onBack={onBack} shell={shell} />;
 };

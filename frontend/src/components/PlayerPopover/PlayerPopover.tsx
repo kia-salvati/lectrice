@@ -31,9 +31,13 @@ interface PlayerPopoverProps {
   onReadSkippedChange: (readSkipped: boolean) => void;
   exportPanel: React.ReactNode;
   onOpenAnother: () => void;
+  /** Shown in place of the Voice menu while no voice is installed (desktop). */
+  noVoiceNotice?: React.ReactNode;
+  /** More buttons after "Open another PDF…" (the desktop's "Settings…"). */
+  extraActions?: React.ReactNode;
 }
 
-export const PlayerPopover = ({ id, position, playableCount, positionText, chapterSection, locationText, onOpenChapters, timeLeftText, onSeek, speed, onSpeedChange, voiceGroups, voiceId, voicesAvailable, onVoiceChange, readSkipped, onReadSkippedChange, exportPanel, onOpenAnother }: PlayerPopoverProps) => (
+export const PlayerPopover = ({ id, position, playableCount, positionText, chapterSection, locationText, onOpenChapters, timeLeftText, onSeek, speed, onSpeedChange, voiceGroups, voiceId, voicesAvailable, onVoiceChange, readSkipped, onReadSkippedChange, exportPanel, onOpenAnother, noVoiceNotice, extraActions }: PlayerPopoverProps) => (
   <div id={id} className={styles.popover}>
     <div className={styles.position}>
       <div className={styles.row}>
@@ -48,12 +52,13 @@ export const PlayerPopover = ({ id, position, playableCount, positionText, chapt
     </div>
     <div className={styles.settings}>
       <SpeedPicker value={speed} onChange={onSpeedChange} />
-      <VoicePicker groups={voiceGroups} value={voiceId} available={voicesAvailable} onChange={onVoiceChange} />
+      {noVoiceNotice ?? <VoicePicker groups={voiceGroups} value={voiceId} available={voicesAvailable} onChange={onVoiceChange} />}
       <ReadSkippedSwitch checked={readSkipped} onChange={onReadSkippedChange} />
     </div>
     {exportPanel}
     <div className={styles.row}>
       <button type="button" className={controls.button} onClick={onOpenAnother}>Open another PDF…</button>
+      {extraActions}
     </div>
   </div>
 );

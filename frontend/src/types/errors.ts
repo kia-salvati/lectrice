@@ -10,3 +10,6 @@ export type ApiErrorName =
 export type ClientErrorName = 'NetworkError' | 'UnexpectedResponse' | 'FileNotPdf' | 'FileEmpty' | 'FileTooLarge' | 'AudioPlaybackFailed';
 
 export type AppErrorName = ApiErrorName | ClientErrorName;
+
+/** Names a desktop command can reject with: the same registry as the server's, plus the names of its model and storage errors (desktop spec §4.4, §9.2). */
+export type DesktopErrorName = ApiErrorName | 'ModelMissing' | 'ModelDownloadFailed' | 'ModelChecksumMismatch' | 'StorageFull' | 'ExportPaused' | 'FileUnreadable';

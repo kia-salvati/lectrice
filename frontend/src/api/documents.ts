@@ -1,5 +1,6 @@
 import type { ImportResult, ListResponse, PageRequest } from '../types/api';
 import type { DocumentId, DocumentSummary, OpenedDocument } from '../types/document';
+import { serializeFormData } from '../utils/multipart';
 import { requestJson, requestVoid } from './client';
 
 export const listDocuments = (page: PageRequest, signal?: AbortSignal): Promise<ListResponse<DocumentSummary>> => {
@@ -7,10 +8,11 @@ export const listDocuments = (page: PageRequest, signal?: AbortSignal): Promise<
   return requestJson<ListResponse<DocumentSummary>>(`/documents?${query}`, { signal });
 };
 
-export const importPdf = (file: File, signal?: AbortSignal): Promise<ImportResult> => {
-  const body = new FormData();
-  body.append('file', file);
-  return requestJson<ImportResult>('/documents', { method: 'POST', body, signal });
+export const importPdf = async (file: File, signal?: AbortSignal): Promise<ImportResult> => {
+  const form = new FormData();
+  form.append('file', file);
+  const { body, contentType } = await serializeFormData(form);
+  return requestJson<ImportResult>('/documents', { method: 'POST', headers: { 'Content-Type': contentType }, body, signal });
 };
 
 export const getDocument = (id: DocumentId, signal?: AbortSignal): Promise<OpenedDocument> => requestJson<OpenedDocument>(`/documents/${encodeURIComponent(id)}`, { signal });

@@ -99,11 +99,12 @@ export const useLibrary = ({ onDocumentReady }: UseLibraryArgs): Library => {
       fail(new ClientError(quickCheck));
       return;
     }
+    // Before the first await, so a file handed over from another screen shows "Reading…" in the first frame.
+    setImportState({ phase: 'importing', fileName: file.name });
     if ((await file.slice(0, PDF_MAGIC.length).text()) !== PDF_MAGIC) {
       fail(new ClientError('FileNotPdf'));
       return;
     }
-    setImportState({ phase: 'importing', fileName: file.name });
     try {
       const result = await api.importPdf(file, actionsRef.current?.signal);
       importingRef.current = false;

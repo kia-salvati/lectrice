@@ -15,6 +15,8 @@ export interface SentenceAudioRequest {
 export interface LectriceApi {
   getHealth(signal?: AbortSignal): Promise<Health>;
   listVoices(signal?: AbortSignal): Promise<VoiceList>;
+  /** The voice reading one fixed sentence (audio/wav). */
+  getVoiceSample(voiceId: string, signal?: AbortSignal): Promise<Blob>;
   listDocuments(page: PageRequest, signal?: AbortSignal): Promise<ListResponse<DocumentSummary>>;
   importPdf(file: File, signal?: AbortSignal): Promise<ImportResult>;
   getDocument(id: DocumentId, signal?: AbortSignal): Promise<OpenedDocument>;
