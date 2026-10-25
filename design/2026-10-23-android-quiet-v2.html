@@ -555,6 +555,43 @@ svg{fill:currentColor}
 .sysact svg{width:24px; height:24px; color:var(--accent)}
 .sysact[aria-disabled="true"], .sysact[aria-disabled="true"] svg{color:var(--fg2)}
 
+/* ===== 2026-10-25: NPU options ===== */
+h3.npu-opt{font-size:18px; margin:32px 0 12px}
+/* greyed (not available) rows and cards */
+.row.dis .t, .row.dis .m, .row.dis .pick > svg, .mcard.dis, .mcard.dis .m{color:var(--fg2)}
+.row.dis .sw, .mcard.dis .sw{border-color:var(--line); background:var(--bg2)}
+.row.dis .sw::after, .mcard.dis .sw::after{background:var(--line)}
+/* note under a section header (option B) */
+.secnote{display:flex; gap:8px; align-items:flex-start; padding:0 16px 4px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.secnote > svg{width:20px; height:20px; flex:none}
+.secnote .tx{flex:1; min-width:0}
+.secnote .btn.txt{height:40px; margin:-10px -12px -10px 0; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+/* split row: text opens the page, switch toggles */
+.row.split{padding-right:8px}
+.row.split .pick{min-height:48px}
+.row.split .pick > svg{width:24px; height:24px; flex:none}
+.row.split .vdiv{width:1px; height:32px; background:var(--line); flex:none}
+/* a text button under a row's subtitle (option A) */
+.row .inl{display:block; margin:4px 0 0 -12px}
+.row .inl .btn.txt{height:40px; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+/* status card on the NPU page and in the NPU card */
+.npucard{display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; border-radius:12px; padding:12px 16px; background:var(--bg2); border:1px solid var(--line)}
+.npucard > svg{width:24px; height:24px; flex:none}
+.npucard .tx{flex:1; min-width:0}
+.npucard .s1{font:500 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.npucard .s2{font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2); margin-top:2px}
+.npucard .acts{display:flex; justify-content:flex-end; width:100%; gap:4px}
+.npucard.ok > svg{color:var(--okFg)} .npucard.err > svg{color:var(--errFg)} .npucard.busy > svg{color:var(--accent)}
+.npucard .pr{width:100%; margin-top:8px}
+.mcard.npuc .flex > svg{width:24px; height:24px; flex:none}
+/* the first-use page: icon circle; the paragraphs scroll between the title and the buttons (200 % font) */
+.npuic{width:48px; height:48px; border-radius:50%; background:var(--accentContainer); color:var(--onAccentContainer); display:grid; place-items:center; flex:none}
+.npuic svg{width:24px; height:24px}
+.fu{flex:1; min-height:0; overflow-y:auto; margin-bottom:16px}
+.fu p{margin:16px 0 0; font:400 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.fu p + p{color:var(--fg2)}
+.fucol .bottom{position:static; margin-top:auto; padding-bottom:40px}
+
 @media (prefers-reduced-motion: reduce){ .screen *{transition:none !important; animation:none !important; scroll-behavior:auto !important} }
 </style>
 </head>
@@ -621,6 +658,22 @@ svg{fill:currentColor}
     </ul>
   </aside>
   <h2 class="group">Settings</h2><div class="gallery" data-group="settings"></div>
+  <h2 class="group">NPU acceleration · options (25 October)</h2>
+  <aside class="impact" id="npu-options">
+    <h3>NPU acceleration: three places for one switch</h3>
+    <ul>
+      <li><strong>Option A · One row.</strong> T1's Voice model section gets a second row under "Full quality · 370 MB · in use": a switch row "Use the NPU" whose subtitle carries every state ("Faster speech, less battery", "Getting ready · 312 of 830 MB", "Checking that it sounds right…", "Stopped working, so Lectrice uses the CPU"), with a small text button under the subtitle when there is something to do ("Try again", "Use Full quality").</li>
+      <li><strong>Option B · Performance section + NPU page.</strong> T1 gets a new section Performance between "Voice model" and "Storage".</li>
+      <li><strong>Option C · Inside the Voice model page.</strong> T1 doesn't get a new row: the model row's subtitle adds the state ("Full quality · 370 MB · in use · NPU on").</li>
+    </ul>
+    <p><strong>Recommended: B.</strong> It is the only option where the "only on certain Snapdragon chips" note is a header the user sees at a glance (A hides it in a subtitle, C hides it two taps deep), the only one with room for the failure reason and the 1.25 GB of NPU files (users should see what the space is for), and the consent text gets a real page.</p>
+    <h3>Blocked on licensing</h3>
+    <p>The feature waits for three answers (your eligibility, Qualcomm in writing, a lawyer). The NPU would ship only in a separate opt-in NPU edition of the app; the normal edition never contains Qualcomm code.</p>
+  </aside>
+  <h3 class="npu-opt">Option A · One row</h3><div class="gallery" data-group="npuA"></div>
+  <h3 class="npu-opt">Option B · Performance section + NPU page (recommended)</h3><div class="gallery" data-group="npuB"></div>
+  <h3 class="npu-opt">Option C · Inside the Voice model page</h3><div class="gallery" data-group="npuC"></div>
+  <h3 class="npu-opt">The same in every option</h3><div class="gallery" data-group="npuK"></div>
   <section id="questions">
     <h2>8. Questions for the user</h2>
     <ol>
@@ -632,6 +685,13 @@ svg{fill:currentColor}
       <li><strong>Old export frames still show MP3.</strong> The existing E1/E1x/E2–E5, N3 and the live phone still have the Format (M4B | MP3) group from before "M4B only". Clean them up in a small follow-up pass (drop the group, the badge and the MP3 impact bullet)? <em>Answered 24 October: yes, done in this pass; the file is M4B-only.</em></li>
       <li><strong>E5b wording.</strong> The spec says "Free up about {needed}" (342 MB) while the phone has 120 MB, so the user really needs to free 222 MB. Change the copy to the amount still missing ("Free up about 222 MB and continue")? <em>Answered 24 October: yes, every "Free up about …" shows the missing amount.</em></li>
       <li><strong>"There's room now" card</strong> on the Storage screen after freeing enough for an export: keep it (my addition), or just hide the banner? <em>Answered 24 October: keep it.</em></li>
+    </ol>
+    <h2>Questions (25 October, NPU)</h2>
+    <ol>
+      <li><strong>Which option: A (one row), B (Performance section + NPU page, recommended) or C (inside the Voice model page)?</strong></li>
+      <li><strong>Normal edition:</strong> show the greyed row with "Available in the NPU edition…" only after an NPU edition exists (my default), or never show anything about the NPU in the normal edition?</li>
+      <li><strong>"About the NPU edition" link</strong> in the normal edition on allow-listed chips (opens the releases page in the browser): keep it, or leave only the note?</li>
+      <li><strong>The first-use screen's buttons:</strong> "Turn on NPU" as the primary button (my reading of "on by default"), OK?</li>
     </ol>
   </section>
 </main>
@@ -684,6 +744,9 @@ const ICONS = {
   check_box_outline_blank: 'M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z',
   open_in_new: 'M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z',
   library_music: 'M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 5h-3v5.5c0 1.38-1.12 2.5-2.5 2.5S10 13.88 10 12.5s1.12-2.5 2.5-2.5c.57 0 1.08.19 1.5.51V5h4v2zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6z',
+  /* 2026-10-25: NPU options */
+  memory: 'M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-2V9h-2V7c0-1.1-.9-2-2-2h-2V3h-2v2h-2V3H9v2H7c-1.1 0-2 .9-2 2v2H3v2h2v2H3v2h2v2c0 1.1.9 2 2 2h2v2h2v-2h2v2h2v-2h2c1.1 0 2-.9 2-2v-2h2v-2h-2v-2h2zm-4 6H7V7h10v10z',
+  description: 'M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z',
 };
 const ic = (name, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -985,6 +1048,68 @@ function rangeSuffix(r) {       // the summary line under the export header
   if (r.from === r.to) return a ? `Ch. ${a}` : shortNum(r.from);
   return a ? `Ch. ${a}–${b}` : `${shortNum(r.from)}–Ch. ${b}`;
 }
+
+/* ===== 2026-10-25: NPU options (file 22 §3.11 copy; numbers invented) ===== */
+const NPU = { downloadMB: 830, doneMB: 312, filesMB: 1250, filesLabel: '1.25 GB', pct: 38 };   // filesLabel: fmtMB would round to "1.3 GB"; the brief's copy says 1.25 GB
+COPY.npu = {
+  title: 'Use the NPU', section: 'Performance',
+  sub: {
+    on: 'Faster speech, less battery', onCompile: 'On · preparing for long sentences while charging',
+    off: 'Off · Lectrice uses the CPU', ready: `Getting ready · ${NPU.doneMB} of ${NPU.downloadMB} MB`,
+    wifi: `Waits for Wi-Fi · ${NPU.downloadMB} MB`, checking: 'Checking that it sounds right…',
+    failed: 'Stopped working, so Lectrice uses the CPU', needsFull: 'Works with the Full quality voice model',
+    unsupported: 'Only on certain Snapdragon chips', normal: 'Available in the NPU edition on certain Snapdragon chips',
+  },
+  /* option B: the T1 row's short subtitle */
+  shortB: { on: 'On · faster speech, less battery', onCompile: 'On · preparing for long sentences', off: 'Off', ready: `Getting ready · ${NPU.pct} %`, wifi: 'Waits for Wi-Fi', checking: 'Checking…', failed: 'Stopped working · using the CPU', needsFull: 'Works with Full quality only' },
+  /* option C: the T1 model row's value */
+  modelVal: { on: 'Full quality · 370 MB · in use · NPU on', onCompile: 'Full quality · 370 MB · in use · NPU on', checking: 'Full quality · 370 MB · in use · checking the NPU', failed: 'Full quality · 370 MB · in use · NPU stopped', ready: 'Full quality · 370 MB · in use · NPU getting ready' },
+  tryAgain: 'Try again', useFull: 'Use Full quality', aboutEdition: 'About the NPU edition', pause: 'Pause',
+  mobile: 'Download now on mobile data', remove: `Remove NPU files (${NPU.filesLabel})`, checkAgain: 'Check again',
+  /* the NPU page (option B) and card (option C) */
+  page: {
+    title: 'NPU',
+    what: 'Lectrice makes speech on the phone’s Snapdragon NPU instead of its main processor. On the phones we tested it was about twice as fast and used about 40 % less battery. It sounds the same.',
+    cpu: 'If the NPU ever stops working, Lectrice switches back to the CPU by itself.',
+    files: 'NPU files', filesVal: `${NPU.filesLabel} · part of Full quality`, qnn: 'Qualcomm AI Runtime',
+    card: {
+      on: ['NPU on', 'Speech is made on the NPU.'],
+      onCompile: ['NPU on', 'Preparing for long sentences while charging · 1 of 2'],
+      ready: ['Getting ready', `Downloading the NPU files · ${NPU.doneMB} of ${NPU.downloadMB} MB`],
+      wifi: ['Waiting for Wi-Fi', `The NPU files are ${NPU.downloadMB} MB. They download on Wi-Fi.`],
+      checking: ['Checking that it sounds right…', 'This takes about half a minute.'],
+      failed: ['Stopped working', 'The NPU’s speech didn’t match the CPU’s. Lectrice uses the CPU.'],
+      needsFull: ['Works with the Full quality voice model', 'The NPU files are made from Full quality.'],
+      unsupported: ['Only on certain Snapdragon chips', 'This phone’s chip isn’t one of them.'],
+      off: ['NPU off', 'Lectrice uses the CPU.'],
+    },
+  },
+  firstUse: {
+    title: 'Use the phone’s NPU?',
+    p: [
+      'Lectrice can make speech on your phone’s Snapdragon NPU. It’s usually faster and uses less battery. It uses Qualcomm’s closed-source libraries, which are included in this edition under Qualcomm’s license.',
+      'By turning it on you agree not to reverse engineer, decompile or disassemble those libraries, and to follow U.S. export and sanctions laws. They’re provided as is, without warranty.',
+      'Everything still runs on your phone. Nothing is sent anywhere. You can switch back to the CPU at any time in Settings.',
+    ],
+    on: 'Turn on NPU', cpu: 'Keep using CPU', license: 'Read Qualcomm’s license',
+  },
+  snack: 'The NPU stopped working, so Lectrice switched to the CPU.', details: 'Details',
+  about: {
+    title: 'Qualcomm AI Runtime',
+    body: 'This edition of Lectrice includes Qualcomm® AI Runtime (QNN) libraries, © Qualcomm Technologies, Inc. They are proprietary software provided under the Qualcomm AI Stack License, not under Lectrice’s MIT / Apache-2.0 license or the GPL-3.0. They run only in Lectrice’s separate NPU process.',
+    license: 'View Qualcomm license', notices: 'View Qualcomm notices',
+    tm: 'Qualcomm, Snapdragon and Hexagon are trademarks of Qualcomm Incorporated. Lectrice is not affiliated with or endorsed by Qualcomm.',
+  },
+  edition: {
+    title: 'The NPU edition',
+    p: [
+      'A separate download of Lectrice that can make speech on the NPU of certain Snapdragon phones, including this one: usually faster and lighter on the battery.',
+      'It contains Qualcomm’s closed-source libraries under Qualcomm’s license. Everything else is the same open-source app.',
+      'Install it over this app to keep your books, places and settings. Installing this edition again switches back.',
+    ],
+    open: 'Open the releases page', close: 'Close',
+  },
+};
 
 /* where a sentence index sits in the book */
 function pos(v) {
@@ -1438,29 +1563,119 @@ function settingsRow(title, value, trailing = ic('chevron_right'), attrs = '') {
   return `<${tag} class="row${value ? ' two' : ''}" ${attrs}><span class="tx"><span class="t" style="display:block">${esc(title)}</span>${value ? `<span class="m" style="display:block">${esc(value)}</span>` : ''}</span><span class="tr">${trailing}</span></${tag}>`;
 }
 /* storageRow: the single "Storage" row (T1s) instead of the cache block and the library row */
-function T1(v, { scrolled = false, storageRow = false, store = STORE } = {}) {
+/* npu (2026-10-25 options, static frames only): { opt: 'A' | 'B' | 'C', state } adds the NPU row (A), the Performance section (B) or the model row's NPU state (C), centred by positionFrame */
+function T1(v, { scrolled = false, storageRow = false, store = STORE, npu = null } = {}) {
   const c = COPY.t1, r = c.rows;
   const storage = storageRow ? settingsRow(c.storage, `${fmtMB(storeTotals(store).total)} used · ${fmtMB(v.freeMB)} free`, ic('chevron_right'), 'data-act="t3"')
     : `<div class="px16"><div class="lb16">${r.cache}</div>${progress(31, '', 'margin-top:8px')}<div class="bs fg2 mt4">${r.cacheVal}</div><div class="mt4" style="margin-left:-12px">${btn(r.clear, 'txt')}</div><div class="bs fg2">${r.clearSub}</div></div>${settingsRow(r.lib, '', '')}`;
-  return `<div class="scroll" data-scroll data-scroll-end="${scrolled}"><div class="tbar">${ib('arrow_back', 'Back', 'data-act="back"')}<span class="tl">${c.title}</span></div>
+  const modelText = npu?.opt === 'C' && COPY.npu.modelVal[npu.state] ? COPY.npu.modelVal[npu.state] : r.model;
+  const modelRow = rowCls(settingsRow(modelText, '', ic('chevron_right'), 'data-act="t2"'), npu?.opt === 'C' ? 'cur' : '');
+  const npuA = npu?.opt === 'A' ? npuRowA(npu.state) : '';
+  const performance = npu?.opt === 'B' ? `<div class="sechead">${COPY.npu.section}</div>${npuSectionB(npu.state)}` : '';
+  const qnn = npu && npuEdition(npu.state) === 'npu' ? settingsRow(COPY.npu.about.title, '') : '';
+  return `<div class="scroll" data-scroll data-scroll-end="${scrolled}"${npu ? ' data-center-cur' : ''}><div class="tbar">${ib('arrow_back', 'Back', 'data-act="back"')}<span class="tl">${c.title}</span></div>
     <div class="sechead">${c.listening}</div>${settingsRow(...r.voice)}${settingsRow(...r.speed)}${settingsRow(r.code, '', switchCtl(v.readCode, r.code, 'readCode'))}${settingsRow(...r.ahead)}
     ${settingsRow(r.lockSentence[0], r.lockSentence[1], switchCtl(v.lockSentence, r.lockSentence[0], 'lockSentence'))}${settingsRow(r.lockStage[0], r.lockStage[1], switchCtl(v.lockStage, r.lockStage[0], 'lockStage'))}
     <div class="sechead">${c.reading}</div><div class="px16 lb16">${r.size}</div><div class="px16 mt8"><div class="sl" role="slider" aria-valuenow="3" aria-valuemin="1" aria-valuemax="5" aria-label="Text size" tabindex="0"><span class="trk"></span><span class="act" style="width:50%"></span>${[0, 25, 50, 75, 100].map((p) => `<span class="tk" style="left:${p}%"></span>`).join('')}<span class="th" style="left:50%"></span></div><div class="stops"><span>S</span><span>M</span><span class="w6" style="color:var(--fg)">L</span><span>XL</span><span>XXL</span></div></div>
     <div class="prev" style="--pv:21">${r.preview}</div><div class="px16 lb16 mt8">${r.theme}</div><div class="px16 mt8" style="margin-bottom:8px">${segmented(['System', 'Light', 'Dark', 'Black'], 'System', 'aria-label="Theme"')}</div>
-    <div class="sechead">${c.model}</div>${settingsRow(r.model, '', ic('chevron_right'), 'data-act="t2"')}
+    <div class="sechead">${c.model}</div>${modelRow}${npuA}${performance}
     <div class="sechead">${c.storage}</div>${storage}
     <div class="sechead">${c.battery}</div>${settingsRow(...r.keep)}
-    <div class="sechead">${c.about}</div>${settingsRow(r.version, '', '')}${settingsRow(r.licenses, '')}${settingsRow(r.source, '')}<div style="height:48px"></div></div>`;
+    <div class="sechead">${c.about}</div>${settingsRow(r.version, '', '')}${settingsRow(r.licenses, '')}${qnn}${settingsRow(r.source, '')}<div style="height:48px"></div></div>`;
 }
-function T2(v, { both = false, confirm = false } = {}) {
+/* npu (2026-10-25 options): option C appends the NPU card; option A adds "Remove NPU files" to the Full quality card while the NPU is on */
+function T2(v, { both = false, confirm = false, npu = null } = {}) {
   const c = COPY.t2, s = COPY.s2;
-  const full = modelCard(s.cards[0], false, `<span class="lb ok mt8" style="display:block">${c.installed}</span>`);
+  const removeNpu = npu?.opt === 'A' && npu.state === 'on' ? `<span class="mt4" style="display:block;margin-left:-12px">${btn(COPY.npu.remove, 'txt errc')}</span>` : '';
+  const full = modelCard(s.cards[0], false, `<span class="lb ok mt8" style="display:block">${c.installed}</span>${removeNpu}`);
   const small = modelCard(s.cards[1], false, both
     ? `<span class="lb ok mt8" style="display:block">Installed</span><span class="mt8" style="display:flex;gap:8px;align-items:center">${btn(c.use, 'sec', 'style="flex:1"')}${btn(c.del, 'txt errc')}</span>`
     : `<span class="bs fg2 mt8" style="display:block">${c.notInstalled}</span>${btn(s.dlSmall, 'sec', 'style="margin-top:8px"')}`);
+  const npuC = npu?.opt === 'C' ? npuCardC(npu.state) : '';
   const dlg = confirm ? scrim() + dialog(c.confirm[0], c.confirm[1], btn(c.confirm[2], 'txt') + btn(c.confirm[3], 'txt errc')) : '';
-  return `<div class="scroll"><div class="tbar">${ib('arrow_back', 'Back', 'data-act="back"')}<span class="tl">${c.title}</span></div><div class="px16" style="display:flex;flex-direction:column;gap:12px">${full}${small}</div></div>${dlg}`;
+  return `<div class="scroll"><div class="tbar">${ib('arrow_back', 'Back', 'data-act="back"')}<span class="tl">${c.title}</span></div><div class="px16" style="display:flex;flex-direction:column;gap:12px">${full}${small}${npuC}</div></div>${dlg}`;
 }
+
+/* ===== 2026-10-25: NPU acceleration options (static frames; the live phone has no NPU state) ===== */
+/* state: on | onCompile | off | ready (downloading) | wifi | checking | failed | needsFull | unsupported | normal | normalAllowed */
+const npuOn = (s) => ['on', 'onCompile', 'checking'].includes(s);
+const npuDis = (s) => ['unsupported', 'normal', 'normalAllowed', 'needsFull'].includes(s);
+const npuEdition = (s) => (s === 'normal' || s === 'normalAllowed' ? 'normal' : 'npu');
+const rowCls = (html, cls) => (cls ? html.replace('class="row', `class="row ${cls}`) : html);
+/* on while on/checking and while the files are still coming (the user's choice); disabled when greyed */
+function npuSwitch(s) {
+  const sw = switchCtl(npuOn(s) || s === 'ready' || s === 'wifi', COPY.npu.title, 'npu');
+  return npuDis(s) ? sw.replace('<button ', '<button aria-disabled="true" ') : sw;
+}
+const npuSubA = (s) => COPY.npu.sub[s === 'normalAllowed' ? 'normal' : s];
+/* option A: the switch row under the model row; the subtitle carries the state, a text button sits under it when there is something to do */
+function npuRowA(s) {
+  const c = COPY.npu;
+  const action = { failed: c.tryAgain, needsFull: c.useFull, normalAllowed: c.aboutEdition, wifi: c.mobile }[s];
+  return `<div class="row two cur${npuDis(s) ? ' dis' : ''}"><span class="tx"><span class="t" style="display:block">${c.title}</span><span class="m" style="display:block">${npuSubA(s)}</span>${action ? `<span class="inl">${btn(action, 'txt')}</span>` : ''}</span><span class="tr">${s === 'checking' ? spinner() : ''}${npuSwitch(s)}</span></div>`;
+}
+/* option B: the note under the Performance header (greyed states) and the split row (text → NPU page, switch toggles) */
+function npuSectionB(s) {
+  const c = COPY.npu, dis = npuDis(s), noted = dis && s !== 'needsFull';
+  const note = noted ? `<div class="secnote">${ic('info')}<span class="tx">${c.sub[s === 'unsupported' ? 'unsupported' : 'normal']}</span>${s === 'normalAllowed' ? btn(c.aboutEdition, 'txt') : ''}</div>` : '';
+  const sub = noted ? '' : s === 'checking' ? `<span class="m" style="display:flex;align-items:center;gap:8px">${spinner()}<span>${c.shortB[s]}</span></span>` : `<span class="m" style="display:block">${c.shortB[s]}</span>`;
+  return `${note}<div class="row split cur${dis ? ' dis' : ''}"><button class="pick" data-act="t4n">${ic('memory', 'lead')}<span class="tx"><span class="t" style="display:block">${c.title}</span>${sub}</span></button><span class="vdiv"></span>${npuSwitch(s)}</div>`;
+}
+const npuActs = (label, cls = 'txt') => `<div class="acts">${btn(label, cls)}</div>`;
+/* the status card on top of the NPU page: icon, state line, detail line and the state's action */
+function npuStatusCard(s) {
+  const c = COPY.npu, [s1, s2] = c.page.card[s];
+  const kind = s === 'on' || s === 'onCompile' ? 'ok' : s === 'failed' ? 'err' : ['ready', 'wifi', 'checking'].includes(s) ? 'busy' : '';
+  const icon = kind === 'ok' ? 'check_circle' : kind === 'err' ? 'error' : s === 'ready' || s === 'wifi' ? 'download' : 'memory';
+  const extra = { ready: progress(NPU.pct) + npuActs(c.pause), wifi: npuActs(c.mobile), checking: indeterminate(), failed: npuActs(c.tryAgain), needsFull: npuActs(c.useFull), onCompile: progress(50) }[s] || '';
+  return `<div class="npucard ${kind}">${ic(icon)}<div class="tx"><div class="s1">${s1}</div><div class="s2">${s2}</div></div>${extra}</div>`;
+}
+/* option B's NPU page (T4n); unsupported shows only the status card and the two paragraphs */
+function T4n(v, s) {
+  const c = COPY.npu, p = c.page, unsupported = s === 'unsupported';
+  const sw = unsupported ? '' : rowCls(settingsRow(c.title, '', npuSwitch(s)), s === 'needsFull' ? 'dis' : '');
+  const files = unsupported ? '' : `<div class="sechead">Files</div>${settingsRow(p.files, p.filesVal, '')}
+    ${['on', 'onCompile', 'off', 'failed'].includes(s) ? `<button class="row"><span class="tx"><span class="t errc" style="display:block">${c.remove}</span></span></button>` : ''}${['on', 'off', 'failed'].includes(s) ? settingsRow(c.checkAgain, '', '') : ''}`;
+  const about = unsupported ? '' : `<div class="sechead">${COPY.t1.about}</div>${settingsRow(p.qnn, '', ic('chevron_right'))}`;
+  return `<div class="scroll"><div class="tbar">${ib('arrow_back', 'Back', 'data-act="back"')}<span class="tl">${p.title}</span></div><div class="px16">${npuStatusCard(s)}</div>${sw}
+    <div class="px16 mt8"><div class="b">${p.what}</div><div class="bs fg2 mt8">${p.cpu}</div></div>${files}${about}<div style="height:48px"></div></div>`;
+}
+/* option C: the NPU card under the model cards on T2 */
+function npuCardC(s) {
+  const c = COPY.npu, dis = npuDis(s);
+  const body = dis ? c.sub[s === 'normalAllowed' ? 'normal' : s] : c.page.card[s][1];
+  const acts = (label, cls = 'txt') => `<div class="mt8" style="display:flex;justify-content:flex-end">${btn(label, cls)}</div>`;
+  const extra = { ready: progress(NPU.pct, '', 'margin-top:12px') + acts(c.pause), wifi: acts(c.mobile), checking: indeterminate('margin-top:12px'), failed: acts(c.tryAgain), needsFull: acts(c.useFull), normalAllowed: acts(c.aboutEdition), onCompile: progress(50, '', 'margin-top:12px'), on: acts(c.remove, 'txt errc') }[s] || '';
+  return `<div class="mcard npuc${dis ? ' dis' : ''}"><span class="flex" style="gap:12px">${ic('memory')}<span class="tm sp1">${c.title}</span>${npuSwitch(s)}</span><span class="b mt4" style="display:block">${body}</span>${extra}</div>`;
+}
+/* the first-use (consent) screen in its three forms: dialog (A), full page (B), bottom sheet (C) */
+function firstUseDialog() {
+  const f = COPY.npu.firstUse;
+  return scrim() + `<div class="dlg" role="dialog" aria-label="${esc(f.title)}" style="max-height:calc(100% - 96px);overflow-y:auto"><div class="tm">${f.title}</div><div class="b mt16">${f.p[0]}</div><div class="b fg2 mt16">${f.p[1]}</div><div class="b fg2 mt16">${f.p[2]}</div>
+    <div class="acts" style="flex-direction:column;align-items:flex-end">${btn(f.on, 'txt')}${btn(f.cpu, 'txt')}${btn(f.license, 'txt')}</div></div>`;
+}
+function firstUsePage() {
+  const f = COPY.npu.firstUse;
+  return `<div class="layer"><div class="col fucol" style="padding-top:96px"><span class="npuic" aria-hidden="true">${ic('memory')}</span><div class="tl mt24">${f.title}</div><div class="fu">${f.p.map((t) => `<p>${t}</p>`).join('')}</div>
+    <div class="bottom">${btn(f.on)}${btn(f.cpu, 'sec')}${btn(f.license, 'txt')}</div></div></div>`;
+}
+function firstUseSheet() {
+  const f = COPY.npu.firstUse;
+  return scrim() + sheet(`<div class="shh"><span class="tm">${f.title}</span></div><div class="bd"><div class="b">${f.p[0]}</div><div class="b fg2 mt12">${f.p[1]}</div><div class="b fg2 mt12">${f.p[2]}</div>${btn(f.on, '', 'style="margin-top:24px"')}${btn(f.cpu, 'sec', 'style="margin-top:8px"')}${centred(btn(f.license, 'txt'))}</div>`, { auto: true, attrs: `aria-label="${esc(f.title)}"` });
+}
+/* NK2: Settings → About → Qualcomm AI Runtime (NPU edition only) */
+function aboutQnn(v) {
+  const a = COPY.npu.about;
+  return `<div class="scroll"><div class="tbar">${ib('arrow_back', 'Back', 'data-act="back"')}<span class="tl">${a.title}</span></div><div class="px16 b">${a.body}</div>
+    <div class="mt16">${sheetRow('description', a.license, '', ic('open_in_new'))}${sheetRow('description', a.notices, '', ic('open_in_new'))}</div><div class="px16 bs fg2 mt16">${a.tm}</div></div>`;
+}
+/* NK3: "About the NPU edition" sheet (normal edition, allow-listed chip) */
+function editionSheet() {
+  const e = COPY.npu.edition;
+  return scrim() + sheet(`<div class="shh"><span class="tm">${e.title}</span></div><div class="bd"><div class="b">${e.p[0]}</div><div class="bs fg2 mt12">${e.p[1]}</div><div class="bs fg2 mt12">${e.p[2]}</div>${btn(e.open, '', 'style="margin-top:16px"', 'open_in_new')}${centred(btn(e.close, 'txt'))}</div>`, { auto: true, attrs: `aria-label="${esc(e.title)}"` });
+}
+/* NK1: the one-time fallback snackbar over the reader */
+const npuSnack = () => `<div class="snack" role="status"><span class="sp1">${COPY.npu.snack}</span><button class="act">${COPY.npu.details}</button></div>`;
 
 /* ===== storage (T3) and Android's own app-storage page (X1) ===== */
 const exportMeta = (x) => x.state === 'done' ? `${x.voice} · ${x.speed} · ${x.mb} MB · ${x.where === 'shared' ? COPY.t3.inAudiobooks : COPY.t3.inLectrice}` : COPY.t3.soFar(x.pct, x.mb);
@@ -1478,7 +1693,7 @@ function T3(v, store, { from = 'settings', banner: ban = null, loading = false, 
   const stack = `<div class="stack" aria-hidden="true">${loading ? '' : kinds.map((x) => `<span class="k${x.k}" style="flex:${x.mb} 0 0"></span>`).join('')}</div>`;
   const legend = loading ? '' : `<div class="legend" aria-hidden="true">${kinds.map((x) => `<span><i class="k${x.k}"></i>${c.kinds[x.k]} ${fmtMB(x.mb)}</span>`).join('')}</div>`;
   const summary = `<div class="card sumcard"><div class="tm">${c.used(n(fmtMB(t.total)))}</div><div class="bs fg2 mt4">${c.free(n(fmtMB(free)))}</div>${stack}${legend}</div>`;
-  const models = st.models.length ? st.models.map((m) => settingsRow(m.name, n(`${m.mb} MB${m.inUse ? ` · ${c.inUse}` : ''}`), ic('chevron_right'), 'data-act="t2"')).join('')
+  const models = st.models.length ? st.models.map((m) => settingsRow(m.name, n(`${m.mb} MB${m.npuMB ? ` + ${COPY.npu.page.files} ${m.npuMB === NPU.filesMB ? NPU.filesLabel : fmtMB(m.npuMB)}` : ''}${m.inUse ? ` · ${c.inUse}` : ''}`), ic('chevron_right'), 'data-act="t2"')).join('')
     : settingsRow(c.noVoice, '', btn(c.download, 'txt'));
   const books = [...st.books].sort((a, b) => (b.lib + b.audio) - (a.lib + a.audio));
   const bookRows = books.length ? `<div class="shead">${n(c.booksHead(books.length, t.lib, t.audio))}</div>` + books.map((b) => `<button class="lrow" data-act="t3-book" data-title="${esc(b.title)}">${tile(b.title, 40, 56)}<span class="tx"><span class="t ell" style="display:block">${esc(b.title)}</span><span class="m ell" style="display:block">${n(COPY.l7.meta(b.lib, b.audio))}</span></span>${loading ? '' : `<span class="sz">${b.lib + b.audio} MB</span>`}</button>`).join(divider('i72'))
@@ -1524,6 +1739,8 @@ const RD = { scrim: true, scroll: 'hl' };
 const NEW = { isNew: true };      // added 2026-10-24: the caption gets a "New" tag
 const rdExtra = (v, { chip = null, tip = '', top = false, state = 'expanded' } = {}) => reader(v, { state, chip, extra: tip + (top ? topBanner() : '') });
 const exportFrame = (over, opts) => (v) => reader(v) + playerSheet({ ...v, ...over }, { detent: '100%', page: 'export', ...opts });
+const npuT1 = (opt, state) => (v) => T1(v, { npu: { opt, state } });
+const npuT2 = (opt, state) => (v) => T2(v, { npu: { opt, state } });
 const FRAMES = {
   first: [
     f('S1', 'Welcome', 'First run. "Not now, just read" skips the voice.', S1),
@@ -1648,6 +1865,51 @@ const FRAMES = {
     f('T3s', 'Opened from Android', 'Opened by Android’s "Clear storage": ✕ returns to Android’s Settings.', (v) => T3(v, STORE, { from: 'system' }), NEW),
     f('X1', 'Android Settings · App storage', 'Android’s own screen (AOSP labels; Samsung’s wording UNVERIFIED). "Cache" is Lectrice’s audio cache, covers and voice samples. Lectrice declares manageSpaceActivity, so "Clear storage" opens Lectrice’s Storage screen (T3s) instead of wiping everything.', (v) => X1(v, STORE), NEW),
     f('X1c', 'Android · after Clear cache', 'Nothing else is lost; audio is made again when needed.', (v) => X1(v, clearedStore(STORE)), NEW),
+  ],
+  /* 2026-10-25: NPU acceleration options (brief §5–§7); the x frames are the 200 % font spot checks */
+  npuA: [
+    f('NA1', 'On', 'NPU edition, supported phone. The switch sits under the model it belongs to.', npuT1('A', 'on'), NEW),
+    f('NA2', 'Getting ready', 'The NPU files download on Wi-Fi; the CPU is used meanwhile.', npuT1('A', 'ready'), NEW),
+    f('NA3', 'Checking', 'The self-test after the user agreed (~30 s).', npuT1('A', 'checking'), NEW),
+    f('NA4', 'Stopped working', 'After a fallback to the CPU. One tap runs the check again.', npuT1('A', 'failed'), NEW),
+    f('NA5', 'Needs Full quality', 'Another model is active.', npuT1('A', 'needsFull'), NEW),
+    f('NA6', 'Not this chip', 'NPU edition on a phone that isn’t on the list.', npuT1('A', 'unsupported'), NEW),
+    f('NA7', 'Normal edition', 'No Qualcomm code; allow-listed chip, so it links to the NPU edition.', npuT1('A', 'normalAllowed'), NEW),
+    f('NA8', 'First use (dialog)', 'Shown once, before the NPU is used. Turn on is the default choice.', (v) => npuT1('A', 'off')(v) + firstUseDialog(), NEW),
+    f('NA9', 'Voice model page', 'Remove NPU files sits under Full quality.', npuT2('A', 'on'), NEW),
+    f('NA1x', '200 % font', 'NA1 at 200 % font.', npuT1('A', 'on'), { ...NEW, x2: true }),
+  ],
+  npuB: [
+    f('NB1', 'Settings · on', 'A Performance section with a split row: text opens the NPU page, the switch toggles.', npuT1('B', 'on'), NEW),
+    f('NB2', 'NPU page · on', 'Status, what it does, the files it uses, the license entry.', (v) => T4n(v, 'onCompile'), NEW),
+    f('NB3', 'NPU page · getting ready', 'Download progress; Pause.', (v) => T4n(v, 'ready'), NEW),
+    f('NB4', 'NPU page · waiting for Wi-Fi', 'Never on mobile data unless the user asks.', (v) => T4n(v, 'wifi'), NEW),
+    f('NB5', 'NPU page · checking', 'The self-test runs while the user waits.', (v) => T4n(v, 'checking'), NEW),
+    f('NB6', 'NPU page · stopped working', 'The reason and Try again.', (v) => T4n(v, 'failed'), NEW),
+    f('NB7', 'Settings · not this chip', 'The note sits under the section header; the row is greyed.', npuT1('B', 'unsupported'), NEW),
+    f('NB8', 'Settings · normal edition', 'Same header note, with a link to the NPU edition on allow-listed chips.', npuT1('B', 'normalAllowed'), NEW),
+    f('NB9', 'Settings · needs Full quality', 'The row stays active so the page can offer Use Full quality.', npuT1('B', 'needsFull'), NEW),
+    f('NB10', 'First use (page)', 'A full page: the license terms read well at any font size.', (v) => npuT1('B', 'off')(v) + firstUsePage(), NEW),
+    f('NB11', 'NPU page · not this chip', 'Reached from the greyed row only to read why.', (v) => T4n(v, 'unsupported'), NEW),
+    f('NB1x', '200 % font', 'NB1 at 200 % font.', npuT1('B', 'on'), { ...NEW, x2: true }),
+    f('NB2x', '200 % font', 'NB2 at 200 % font.', (v) => T4n(v, 'onCompile'), { ...NEW, x2: true }),
+    f('NB10x', '200 % font', 'NB10 at 200 % font.', (v) => npuT1('B', 'off')(v) + firstUsePage(), { ...NEW, x2: true }),
+  ],
+  npuC: [
+    f('NC1', 'Settings', 'No new row; the model row tells the NPU state.', npuT1('C', 'on'), NEW),
+    f('NC2', 'Voice model · on', 'An NPU card under the model cards.', npuT2('C', 'on'), NEW),
+    f('NC3', 'Card · getting ready', '', npuT2('C', 'ready'), NEW),
+    f('NC4', 'Card · checking', '', npuT2('C', 'checking'), NEW),
+    f('NC5', 'Card · stopped working', '', npuT2('C', 'failed'), NEW),
+    f('NC6', 'Card · not this chip', 'A greyed card on every unsupported phone.', npuT2('C', 'unsupported'), NEW),
+    f('NC7', 'Card · normal edition', '', npuT2('C', 'normalAllowed'), NEW),
+    f('NC8', 'First use (sheet)', '', (v) => npuT2('C', 'off')(v) + firstUseSheet(), NEW),
+  ],
+  npuK: [
+    f('NK1', 'Fell back to the CPU', 'Once per failure, over whatever is on screen.', (v) => reader(v) + npuSnack(), { ...NEW, ...RD }),
+    f('NK2', 'About · Qualcomm AI Runtime', 'NPU edition only; not in the open-source list.', aboutQnn, NEW),
+    f('NK3', 'About the NPU edition', 'Normal edition, allow-listed chip.', (v) => npuT1('B', 'normalAllowed')(v) + editionSheet(), NEW),
+    f('NK4', 'Storage', 'The NPU files are counted under Full quality.', (v) => T3(v, { ...STORE, models: [{ ...STORE.models[0], npuMB: NPU.filesMB }, STORE.models[1]] }), NEW),
   ],
 };
 const allFrames = () => Object.values(FRAMES).flat();

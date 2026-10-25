@@ -3,6 +3,9 @@
 Status: **decided** (C20, C21 conditional on the spike; C23 proposed). Numbering continues the spec's C1–C9
 (`docs/2026-10-23-android-spec.md` §3.5, done on `feature/core-v1.1`, not tagged). **Release: every change in this file
 goes into core `v0.2.0`** together with C1–C9 (user 2026-10-24); nothing waits for a later release.
+**Exception (2026-10-25): C31–C34 (NPU acceleration, file 22) are blocked on licensing** and go into a later core release
+(the next minor after the licensing gates close, by the CHANGELOG's semver rule). C31 alone may land earlier if a LiteRT
+GPU adapter needs it.
 
 ## 1. Goal
 
@@ -51,6 +54,10 @@ None directly. The flow for the developer:
 | **C29** | **Audio cache under its own root** (`cache_dir`, Android's `cacheDir`); tolerate clips the OS deleted | infra, ffi config | no (new config key with default = `data_dir`) | 08, 20 |
 | **C30** | **Partial export** (sentence range) + per-chapter estimates | domain, app | yes (`StartAudioExportArgs`, record field) | 10 |
 | C6b | (from spec C6) model dir without `espeak-ng-data` on sherpa-onnx 2.x (**conditional**: spike M-k, M-l) | infra | no | 01 |
+| C31 | Kokoro token front end in Rust (text → token ids, identical to sherpa 1.13.8) (**blocked on licensing**, file 22) | infra | no (new feature `kokoro-frontend`) | 22 |
+| C32 | `KokoroTokenEngine` adapter over an `AcousticBackend` (**blocked**) | infra | no (new feature `kokoro-token`) | 22 |
+| C33 | New registry name `SpeechAcceleratorFailed` 2004 (**blocked**) | domain | no | 22, 12 |
+| C34 | Engine id = model id + accelerator tag; cache by full id, **exports by model id** (changes C12's rule) (**blocked**) | domain, app | yes (export record `parts[i].engineId`; same-target rule) | 22, 10 |
 
 ### 3.1 C10 · Baked-in speed for exports (time-stretch)
 
@@ -378,6 +385,55 @@ required now.
 - Tests: a range export plans only its sentences; marks shift to the range start; the same book's full and partial exports
   are different targets.
 
+### 3.21a C31 · Kokoro token front end (blocked on licensing; file 22)
+
+- **Why.** The NPU adapter (file 22) makes speech from **token ids** in a separate process, and sherpa doesn't hand out
+  its tokens. A future LiteRT GPU adapter fed with our own phonemes needs the same thing.
+- **What.** `lectrice-infra/src/speech/kokoro_frontend/` (feature `kokoro-frontend`): `KokoroFrontEnd::load(model_dir)`
+  reads the bundle's `tokens.txt`, `lexicon-us-en.txt` / `lexicon-gb-en.txt` and `voices.bin`; `tokens(text, voice) ->
+  Vec<i64>` (without the pads) and `style(voice, token_count) -> [f32; 256]`. A port of sherpa-onnx **1.13.8**'s Kokoro
+  English path (lexicon first, espeak-ng for words not in it, the same punctuation and space tokens, the same
+  diphthong mapping), so a given text gives **the same ids as sherpa**. espeak-ng is reached through whichever build the
+  platform has (desktop: the static one inside `sherpa-static`; Android: the one inside sherpa's `.so` if its symbols
+  are reachable, else a separate `libespeak-ng.so` of the same version; spike N1, file 22 §8). Kokoro-specific, so it
+  lives inside `speech/` like the sherpa adapter.
+- **Tests:** an invented corpus (200 sentences incl. numbers, abbreviations, unknown words) gives the same ids as sherpa
+  (laptop: a debug build of sherpa 1.13.8 that prints its ids); a local-only check on the book word lists (gitignored,
+  skipped when missing) with ≤ 0.1 % of words different.
+
+### 3.21b C32 · `KokoroTokenEngine` over an `AcousticBackend` (blocked)
+
+- `lectrice-infra/src/speech/kokoro_token/` (feature `kokoro-token`). Implements `lectrice_domain::ports::SpeechEngine`:
+  `synthesize(text, voice, speed)` = C31 tokens + style → `backend.synthesize(&tokens, &style, speed)` → PCM;
+  `voices()` from the bundle; `id()` = `"<modelId>+<backend.tag()>"` (C34).
+- `AcousticBackend` is an **infra** trait (Kokoro-specific, never in the domain):
+  `fn synthesize(&self, tokens: &[i64], style: &[f32; 256], speed: f32) -> Result<Vec<f32>, AcousticError>`,
+  `fn sample_rate(&self) -> u32`, `fn tag(&self) -> String`. `AcousticError { Accelerator(String), Input(String) }` maps to
+  `SpeechAcceleratorFailed` (C33) and `SpeechSynthesisFailed`.
+- Long texts: the backend splits internally (the NPU's window plan); the engine never sees frames or buckets.
+- A test-only `FakeBackend` (fixed tone per token) covers the engine; no ONNX Runtime in the main repo for this.
+- The Android implementation (`NpuBackend`, calling the `:npu` service through a Kotlin foreign trait) lives in
+  `lectrice-ffi` (§3.22), not here.
+
+### 3.21c C33 · `SpeechAcceleratorFailed` 2004 (blocked)
+
+- New registry name in `lectrice-domain/src/error.rs`: `SpeechAcceleratorFailed` (2004), "The speech accelerator
+  stopped working." Raised only by accelerator backends. The shell answers it by reloading the CPU engine and retrying
+  the same sentence (file 22 §3.5); `SpeechSynthesisFailed` (2003) keeps its skip handling. Kotlin's `ErrorName` and
+  `ErrorRegistryTest` follow (README §4.8).
+
+### 3.21d C34 · Engine id = model id + accelerator tag; exports by model id (blocked)
+
+- `EngineId` helpers in the domain: `model()` = the part before the first `+`, `accelerator()` = the part after it (or
+  none). CPU ids are unchanged (`kokoro-v1.0`, `kokoro-v1.0-int8`, …), so every stored id stays valid.
+- **Audio cache, voice samples, `contains`:** the **full** id (unchanged behaviour; NPU and CPU clips never mix).
+- **Exports (changes C12):** `AudioExport.engine_id` stores the **model** id; `ExportJobs` runs a job when the loaded
+  engine's `model()` equals it; the same-target rule and the target file name use the model id. Each finished part
+  records the full id that made it (`ExportPart.engine_id`, serde default = the export's id; logs only). A part is
+  always made by one engine: an engine reload mid-part redoes that part.
+- Tests: an export paused on `m+npu1` continues on `m` and keeps its parts; a clip cached under `m+npu1` is a miss for
+  `m`; a desktop export record from 0.2/0.3 loads with its parts' engine id defaulted.
+
 ### 3.22 FFI changes (Android repo, `lectrice-ffi`) vs spec §5.2
 
 | Item | Change |
@@ -404,6 +460,8 @@ required now.
 | `AudioEncoderSink.finish_part` | returns the part's sample count (core progress note) |
 | `import_pdf` | + optional `ImportListener` (C20, conditional) |
 | new (conditional) | `start_prepare`, `cancel_prepare` (C21, file 14) |
+| `EngineConfig` (blocked, file 22) | + `KokoroNpu { model_dir, accelerator_tag }`, built as C32's `KokoroTokenEngine` with an `NpuBackend` |
+| new foreign trait (blocked) | `NpuVocoderClient { synthesize(tokens: List<Long>, style: List<Float>, speed: Float) -> List<Float> (throws NpuException) }`, implemented in Kotlin (`core:npu-client`, Binder to the `:npu` process); `NpuBackend` wraps it. No NPU code in Rust beyond this wrapper |
 
 ## 4. States
 
@@ -458,6 +516,7 @@ defaults to `data_dir`).
 | Voice sample: one fixed sentence, made on demand, disk-cached (C16) | user (fixed sentence) + Opus (on demand) | 2026-10-24 |
 | Read-ahead control in the core is only stop / stop-all / `plan_ahead` / minutes; the when-rules stay in Kotlin (C13) | Opus | 2026-10-24 |
 | Partial export by sentence range with cumulative estimates (C30) | user (feature) + Opus (shape) | 2026-10-24 |
+| NPU: a new adapter split at the token boundary (C31, C32), its own error (C33), exports by model id (C34); all blocked on licensing, later release | Opus, from the license review | 2026-10-25 |
 
 No open questions in this file.
 
@@ -472,6 +531,7 @@ No open questions in this file.
 - [ ] `lectrice-ffi` exposes §3.22; the Kotlin `ErrorRegistryTest` passes with `FileUnreadable`.
 - [x] Tagged `v0.2.0`; the Android repo pins it.
 - [ ] `grep` finds no Kokoro/sherpa names outside `lectrice-infra/src/speech/`.
+- [ ] (Blocked, file 22) C31–C34 merged with their tests once the licensing gates close; C31's sherpa-parity test passes.
 
 ## 10. Design screens
 

@@ -1,6 +1,6 @@
 # Lectrice for Android: feature logic spec (index)
 
-Status: **written 2026-10-23 by Opus, for the user's review; updated 2026-10-24 with the user's decisions of that day**
+Status: **written 2026-10-23 by Opus, for the user's review; updated 2026-10-24 with the user's decisions of that day; 2026-10-25: file 22 (NPU, blocked on licensing) added**
 (remove from library, core `v0.2.0`, the read-ahead stop rule, the voice sample, export space checks and partial export,
 storage visible in Android's Settings). Nothing here is built yet.
 This folder is the exact behaviour of every feature of the Android app. A build agent gets **one feature file plus this
@@ -55,6 +55,7 @@ Status: **decided** = fully specified, nothing waits on anyone · **open** = a q
 | 19 | [19-core-and-ffi-changes.md](19-core-and-ffi-changes.md) | Every new core (main repo) and `lectrice-ffi` change these features need (C10–C30), incl. **baked-in speed (time-stretch)**; all ship in core **`v0.2.0`** | decided | — |
 | 20 | [20-storage.md](20-storage.md) | Where every file lives, what Android's Settings → Apps → Lectrice → Storage shows ("Cache", "Clear storage" → our screen), the Storage screen | decided (3 UNVERIFIED device checks) | core C15, C19, C28, C29 |
 | 21 | [21-remove-from-library.md](21-remove-from-library.md) | "Remove from library": book sheet, confirm, 8 s undo, what's deleted (exports kept by default), playing/exporting books | decided | core C28 |
+| 22 | [22-npu-acceleration.md](22-npu-acceleration.md) | "Use the NPU" on tested Snapdragon chips: opt-in **NPU edition** APK, `:npu` process, allow-list + probe + self-test, first-use screen, CPU fallback with one notice, NPU files, engine ids | **blocked on licensing** (user eligibility, Qualcomm's written answers, a lawyer; license review §6–§7); Settings UI: user picks from the brief | core C31–C34, 01, 08, 10, 11 |
 
 ### Dependencies (what must exist before what)
 
@@ -84,6 +85,9 @@ flowchart LR
   F21 --> F20
   F20 --> F10
   F12[12 errors] -.applies to.-> F02 & F04 & F05 & F10
+  core --> F22[22 NPU, blocked]
+  F11 --> F22
+  F08 --> F22
 ```
 
 ## 2. Suggested build order (milestones)
@@ -98,6 +102,7 @@ The milestones are the spec's (§16), filled with the features.
 | **M2** design system, library (incl. remove), open PDF, reader, chapters, position, settings shell, fake playback | 02, 03, 04, 07, 13, 21, 11 (theme, text size), 12 (their states) | the M2 line of spec §16 |
 | **M3** real playback | 05, 06, 08, 09, 15, 16, 17 (notifications, media), 12 (slow phone) | a whole chapter with the screen off, earbuds work, Listen view works over the lock screen when the setting is on |
 | **M4** model download, export, storage, release | 01, 10, 11 (model page, Storage row), 20, 14 (only if conditional is true), 17 (battery page, `manageSpaceActivity`), 18 | the M4 line of spec §16 |
+| **M-later** NPU edition (**blocked on licensing**; only after M4 and after the user, Qualcomm and a lawyer say yes) | 22 (+ core C31–C34 in a later core release); spike N1–N7 first | file 22 §9 |
 
 During M2–M3 the model is put on the phone with the spike's `push-model.sh`, so playback can be built before the
 download screens.
@@ -356,6 +361,9 @@ Where the spec (`docs/2026-10-23-android-spec.md`), the mockup and the newest us
 | 29 | Export space check | Spec: none; first version of file 10: `2 × size + 100 MB`, else a refusal sheet | Predicted with +3 % overhead and a `max(100 MB, 10 %)` margin against `getAllocatableBytes`; if short: E6 with **Free up space** or a **partial export** (E7, the fitting range suggested; core C30) | user 2026-10-24 + Opus | 10, 19 |
 | 30 | Read-ahead stop | Spec §5.4: stop after 60 s paused; file 08: "battery saver: no change in v1" | The governor's Full / Reduced (2 min) / Off rules: paused 60 s, sleep timer (at once), book change or removal, battery saver or ≤ 15 % (reduced while playing, off at once while paused), heat SEVERE (reduced) / CRITICAL (off + exports pause), low memory; core `plan_ahead` flag (C13) | user 2026-10-24 + Opus | 08, 10, 15, 19 |
 | 31 | Voice sample | C16 first draft: in-memory LRU of 4 | One fixed sentence for every voice/model, **made on demand and cached on disk** (`cacheDir`) | user (fixed sentence) + Opus | 01, 16, 19 |
+| 32 | NPU acceleration | Spec §15.3: QNN EP "only after model surgery", own ORT session, in the app | **Separate opt-in NPU edition APK** (same app id + key), the NPU model in its own `:npu` process that never loads sherpa/espeak-ng/`lectrice-ffi` (token ids ↔ PCM over Binder), CPU default + fallback; **no download pack**; blocked on licensing | license review 2026-10-25 + user | 22 |
+| 33 | Exports and engines | C12: an export runs only on its exact engine id | Exports are tied to the **model** id; NPU and CPU of the same model continue each other at part boundaries; the cache stays keyed by the full id (core C34) | Opus | 10, 19, 22 |
+| 34 | NPU switch in the normal edition | — | Shown disabled, "Available in the NPU edition on certain Snapdragon chips", only once an NPU edition exists; "About the NPU edition" sheet on allow-listed chips | coordinator + Opus | 22 |
 
 ## 6. Open questions for the user (few)
 
@@ -375,3 +383,4 @@ as a local HTML file under `design/`.
 | L7, L7c, L7u | Book sheet from a long-press, the remove confirm dialog (with/without the export checkbox), the undo snackbar | 21 |
 | T1b (Storage row), T3, T3-system, T3b, T3c, T3d, T3 "free up about …" banner | The Storage screen and its sheets and dialog | 20, 11 |
 | E6, E7 (+ chapter list sheet, no-TOC variant), E5 (needed/free line), E5b, E3 heat/battery, E4 "Saved to Audiobooks" | Not enough space, export part of the book, out of space while assembling | 10 |
+| NPU options A/B/C (row states, NPU page, first-use screen, fallback snackbar, About entry, edition sheet) | Added 2026-10-25; brief `docs/2026-10-25-android-npu-toggle-brief.md`; **the user picks an option** before it is drawn into the approved set | 22 |
