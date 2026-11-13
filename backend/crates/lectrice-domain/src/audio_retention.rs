@@ -1,7 +1,7 @@
 //! Keeping the sentence audio cache small (spec §4 "keep about an hour per book", §6 sizes).
 
 use crate::error::AppResult;
-use crate::ids::DocumentId;
+use crate::ids::{DocumentId, SentenceId};
 use crate::speech::AudioKey;
 
 /// What one retention pass removed, as counts only.
@@ -62,4 +62,16 @@ pub trait AudioRetention: Send + Sync {
 
     /// Re-reads what is on disk, for a cache root the system may clear behind the app's back.
     fn refresh(&self) -> AppResult<()>;
+
+    /// Keeps the clips of `scope`'s document, cleaner version, engine and voice whose sentence ids are in
+    /// `from..=to` out of [`Self::retain_around`]'s window (prepared audio, spec 19 C21). One pin per scope; a new pin
+    /// replaces it. The global cap still applies. The default keeps no pins.
+    fn pin(&self, _scope: &AudioKey, _from: SentenceId, _to: SentenceId) -> AppResult<()> {
+        Ok(())
+    }
+
+    /// Lifts every pin of a document.
+    fn unpin(&self, _document_id: &DocumentId) -> AppResult<()> {
+        Ok(())
+    }
 }

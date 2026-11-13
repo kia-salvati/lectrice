@@ -4,6 +4,7 @@
 use std::ops::Range;
 use std::path::Path;
 
+use crate::audiobook::LectriceMap;
 use crate::cleaned::CleanedDocument;
 use crate::clock::Timestamp;
 use crate::document::{Document, DocumentBytes, DocumentMeta, DocumentSummary, ReadingPosition};
@@ -41,6 +42,12 @@ pub trait SpeechEngine: Send + Sync {
     /// The rate of every `Audio` this engine returns, so silence can be made to match it.
     fn sample_rate(&self) -> u32;
     fn synthesize(&self, request: SpeechRequest) -> AppResult<Audio>;
+    /// What changes the sound for the same model id (the adapter's front end, e.g. the sherpa-onnx version and its
+    /// phoneme data). Clips made elsewhere are used only when the id and the revision both match (file 24 §3.11).
+    /// Wrappers must pass it through.
+    fn revision(&self) -> &str {
+        ""
+    }
 }
 
 pub trait AudioEncoder: Send + Sync {
@@ -82,6 +89,16 @@ pub trait AudioDecoder: Send + Sync {
 pub trait AudioCache: Send + Sync {
     fn get(&self, key: &AudioKey) -> AppResult<Option<Vec<u8>>>;
     fn put(&self, key: &AudioKey, bytes: &[u8]) -> AppResult<()>;
+    /// Stores the clip only if none is stored for this key yet; returns whether it was stored. When two producers
+    /// make the same sentence (the phone and its helper computer), the first one wins and the clip never changes
+    /// under the player (file 24 C45). Adapters that can write without replacing should override this default.
+    fn put_if_absent(&self, key: &AudioKey, bytes: &[u8]) -> AppResult<bool> {
+        if self.get(key)?.is_some() {
+            return Ok(false);
+        }
+        self.put(key, bytes)?;
+        Ok(true)
+    }
 }
 
 /// Encodes a whole book into one file, written as numbered parts and then joined, so a stopped export can resume.
@@ -99,6 +116,11 @@ pub trait AudioExporter: Send + Sync {
     fn parts_bytes(&self) -> AppResult<u64>;
     /// Deletes a finished export's file. A file that is already gone is fine.
     fn delete_file(&self, path: &Path) -> AppResult<()>;
+    /// Adds the Lectrice map to an assembled M4B (spec 23 §3.1) and returns the bytes added. Formats or shells that
+    /// can't carry one keep the default, which adds nothing.
+    fn attach_map(&self, _file: &ExportedFile, _map: &LectriceMap) -> AppResult<u64> {
+        Ok(0)
+    }
 }
 
 /// Changes the speed of mono PCM without changing its pitch. One stretcher per export part (it keeps state between

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::audiobook::SentenceMark;
 use crate::clock::Timestamp;
 use crate::error::{AppError, ErrorName};
 use crate::ids::{DocumentId, ExportId, SentenceId, VoiceId};
@@ -224,6 +225,20 @@ pub struct ExportRecord {
     /// timed from it. 0 in records saved before v0.2, which were all made at 1x.
     #[serde(default)]
     pub source_samples: u64,
+    /// The spoken sentences inside the finished parts and where they start in the output (spec 23 §3.1).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sentences: Vec<SentenceMark>,
+    /// How many of `parts` recorded their sentences. Parts finished before spec 23 didn't, and an export with such a
+    /// part gets no Lectrice map.
+    #[serde(default)]
+    pub marked_parts: u32,
+}
+
+impl ExportRecord {
+    /// Every finished part recorded its sentences, so the file can carry a complete map.
+    pub fn has_complete_map(&self) -> bool {
+        usize::try_from(self.marked_parts).is_ok_and(|marked| marked == self.parts.len())
+    }
 }
 
 /// One finished part of an export, as the exporter wrote it. `samples` counts what the file holds.

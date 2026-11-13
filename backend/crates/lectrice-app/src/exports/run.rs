@@ -9,10 +9,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
+use lectrice_domain::audiobook::{MAP_FORMAT, MAP_VERSION};
 use lectrice_domain::{
-    AppError, AppResult, Audio, AudioCache, AudioDecoder, AudioExport, AudioExporter, AudioKey, ChapterMark, Document, DocumentReader, ErrorName, ExportPart,
-    ExportRecord, ExportSpeed, ExportTarget, ExportWriter, ExportedFile, Sentence, SpeechEngine, SpeechRequest, TimeStretch, TimeStretcher, VoiceId,
-    export_file_stem,
+    AppError, AppResult, Audio, AudioCache, AudioDecoder, AudioExport, AudioExporter, AudioKey, ChapterMark, Document, DocumentReader, ErrorName, ExportFormat,
+    ExportPart, ExportRecord, ExportSpeed, ExportTarget, ExportWriter, ExportedFile, LectriceMap, Sentence, SentenceId, SentenceMark, SpeechEngine,
+    SpeechRequest, TimeStretch, TimeStretcher, VoiceId, export_file_stem, text_hash,
 };
 use tracing::{info, warn};
 
@@ -63,7 +64,34 @@ pub(crate) struct Progress {
 pub(crate) struct FinishedPart {
     pub part: ExportPart,
     pub chapters: Vec<ChapterMark>,
+    pub sentences: Vec<SentenceMark>,
     pub source_samples: u64,
+}
+
+/// What one part holds besides its audio.
+struct WrittenPart {
+    part: ExportPart,
+    chapters: Vec<ChapterMark>,
+    sentences: Vec<SentenceMark>,
+}
+
+/// What the finished file says about itself (spec 23 §3.1).
+fn lectrice_map(run: &Run<'_>, sentences: Vec<SentenceMark>, duration_ms: u64) -> LectriceMap {
+    let export = &run.record.export;
+    LectriceMap {
+        format: MAP_FORMAT.to_string(),
+        version: MAP_VERSION,
+        document_id: export.document_id.clone(),
+        cleaner_version: run.document.cleaner_version,
+        engine_id: export.engine_id.clone(),
+        voice_id: export.voice_id.to_string(),
+        speed_percent: export.speed.percent(),
+        read_skipped: run.record.read_skipped,
+        range: export.range,
+        sample_rate: run.sample_rate,
+        duration_ms,
+        sentences,
+    }
 }
 
 /// What the runner tells the job registry while it works.
@@ -95,7 +123,12 @@ impl Drop for PendingSpeech {
 
 enum Prepared {
     Chapter(String),
-    Sentence { clip: Clip, chars: u64 },
+    /// `mark` is the sentence's id and text hash, timed when its audio goes in (spec 23 §3.1).
+    Sentence {
+        clip: Clip,
+        chars: u64,
+        mark: (SentenceId, String),
+    },
 }
 
 /// Counters across the whole run, including the parts finished before a resume.
@@ -178,16 +211,19 @@ impl ExportRunner {
         };
         let mut parts = record.parts.clone();
         let mut chapter_marks = record.chapters.clone();
+        let mut sentence_marks = record.sentences.clone();
 
         for (index, part_plan) in plan.parts.iter().enumerate().skip(first_part) {
             let part_index = u32::try_from(index).map_err(|_| AppError::new(ErrorName::Internal).with_detail("too many export parts"))?;
-            let Some((part, marks)) = self.write_part(&run, part_plan, part_index, stop, &mut state, report)? else {
+            let Some(written) = self.write_part(&run, part_plan, part_index, stop, &mut state, report)? else {
                 return Ok(None);
             };
+            let WrittenPart { part, chapters: marks, sentences } = written;
             info!(service = NAME, export_id = %export.id, part_index, samples = part.samples, chapters = marks.len(), sentences_done = state.sentences_done, elapsed_ms = elapsed_ms(state.started), "export part written");
             parts.push(part.clone());
             chapter_marks.extend(marks.iter().cloned());
-            report.part_finished(FinishedPart { part, chapters: marks, source_samples: state.source_samples });
+            sentence_marks.extend(sentences.iter().cloned());
+            report.part_finished(FinishedPart { part, chapters: marks, sentences, source_samples: state.source_samples });
         }
 
         if state.output_samples == 0 {
@@ -197,7 +233,14 @@ impl ExportRunner {
             return Ok(None);
         }
         report.assembling();
-        let file = self.deps.exporter.assemble(&run.target, &parts, &chapter_marks)?;
+        let mut file = self.deps.exporter.assemble(&run.target, &parts, &chapter_marks)?;
+        // The parts written in this run are all marked; parts from an earlier run only if that run recorded them.
+        if export.format == ExportFormat::M4b && record.has_complete_map() {
+            let duration_ms = state.output_samples * MILLIS_PER_SECOND as u64 / u64::from(run.sample_rate.max(1));
+            file.size_bytes += self.deps.exporter.attach_map(&file, &lectrice_map(&run, sentence_marks, duration_ms))?;
+        } else if export.format == ExportFormat::M4b {
+            info!(service = NAME, export_id = %export.id, "export resumed from parts made before sentence maps; no map");
+        }
         info!(service = NAME, export_id = %export.id, path = %file.path.display(), bytes = file.size_bytes, parts = parts.len(), chapters = chapter_marks.len(), cached = state.cached, synthesized = state.synthesized, elapsed_ms = elapsed_ms(state.started), "export file written");
         Ok(Some(file))
     }
@@ -211,7 +254,7 @@ impl ExportRunner {
         stop: &AtomicBool,
         state: &mut RunState,
         report: &mut dyn RunReport,
-    ) -> AppResult<Option<(ExportPart, Vec<ChapterMark>)>> {
+    ) -> AppResult<Option<WrittenPart>> {
         let export = &run.record.export;
         let mut writer = PartWriter {
             writer: self.deps.exporter.begin_part(&run.target, part_index, run.sample_rate)?,
@@ -221,6 +264,7 @@ impl ExportRunner {
         // Marks are timed from what the earlier parts really hold, so a stretcher's small error per part never adds up.
         let part_start = PartStart { output_samples: state.output_samples, source_samples: state.source_samples };
         let mut marks = Vec::new();
+        let mut sentences = Vec::new();
         let mut window: VecDeque<Prepared> = VecDeque::new();
         let mut steps = run.plan.steps[part.steps.clone()].iter();
 
@@ -233,18 +277,19 @@ impl ExportRunner {
             if stop.load(Ordering::SeqCst) {
                 return Ok(None);
             }
-            let (clip, chars) = match prepared {
+            let (clip, chars, (sentence_id, hash)) = match prepared {
                 Prepared::Chapter(title) => {
                     marks.push(ChapterMark { title, start_ms: part_start.mark_ms(state.source_samples, run.sample_rate, export.speed) });
                     continue;
                 }
-                Prepared::Sentence { clip, chars } => (clip, chars),
+                Prepared::Sentence { clip, chars, mark } => (clip, chars, mark),
             };
             let synthesized_before = state.synthesized;
             match receive(clip, stop, state)? {
                 Received::Stopped => return Ok(None),
                 Received::Silent => {}
                 Received::Audio(audio) => {
+                    sentences.push(SentenceMark(sentence_id, hash, part_start.mark_ms(state.source_samples, run.sample_rate, export.speed)));
                     state.output_samples += writer.append(&audio)?;
                     state.source_samples += audio.samples.len() as u64;
                 }
@@ -277,7 +322,7 @@ impl ExportRunner {
         }
         let (part, flushed) = writer.finish()?;
         state.output_samples += flushed;
-        Ok(Some((part, marks)))
+        Ok(Some(WrittenPart { part, chapters: marks, sentences }))
     }
 
     /// No stretcher at 1x, so the output is the clips' samples unchanged. A new one per part: a part is a whole stream.
@@ -308,7 +353,11 @@ impl ExportRunner {
     fn prepare(&self, document: &Document, voice_id: VoiceId, step: &ExportStep<'_>) -> Prepared {
         match step {
             ExportStep::Chapter(title) => Prepared::Chapter(title.clone()),
-            ExportStep::Sentence(sentence) => Prepared::Sentence { clip: self.clip(document, voice_id, sentence), chars: spoken_chars(sentence) },
+            ExportStep::Sentence(sentence) => Prepared::Sentence {
+                clip: self.clip(document, voice_id, sentence),
+                chars: spoken_chars(sentence),
+                mark: (sentence.id, text_hash(sentence.spoken_text())),
+            },
         }
     }
 

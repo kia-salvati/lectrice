@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use lectrice_domain::{
     AppError, AppResult, Audio, AudioCache, AudioEncoder, AudioKey, Document, DocumentId, DocumentReader, ErrorName, Sentence, SentenceId, SpeechEngine,
@@ -7,12 +7,15 @@ use lectrice_domain::{
 };
 use tracing::{debug, info, warn};
 
+use super::helper_fill::{HelperFill, UrgentWait};
 use super::read_ahead::{ListenerPosition, ReadAhead};
 use super::worker::{SpeechJob, SpeechPriority, SpeechTicket, SpeechWorker, audio_seconds, elapsed_ms};
 use crate::{RequestContext, UseCase};
 
 /// A sentence with nothing to say (e.g. only a URL) gets this much silence, so the player just moves on.
 const SILENCE_SECONDS: f64 = 0.25;
+/// How often a caller racing the helper against the local engine looks at both.
+const RACE_POLL: Duration = Duration::from_millis(50);
 
 #[derive(Debug, Clone)]
 pub struct SpeakSentenceArgs {
@@ -38,6 +41,9 @@ pub struct SpokenSentence {
 
 /// One sentence's audio: from the cache, or made by the speech worker at the highest priority, then cached.
 /// Every request also moves the read-ahead and the cache window to this sentence.
+///
+/// With a helper computer connected (file 24 §3.7), a miss first goes to the helper as urgent and waits up to the
+/// grace; then the local engine makes it too, and whichever finishes first is cached and played.
 pub struct SpeakSentence {
     engine: Arc<dyn SpeechEngine>,
     worker: Arc<SpeechWorker>,
@@ -45,6 +51,8 @@ pub struct SpeakSentence {
     cache: Arc<dyn AudioCache>,
     encoder: Arc<dyn AudioEncoder>,
     read_ahead: Arc<ReadAhead>,
+    helper: Option<Arc<HelperFill>>,
+    helper_grace: Duration,
 }
 
 pub struct SpeakSentenceDeps {
@@ -54,12 +62,16 @@ pub struct SpeakSentenceDeps {
     pub cache: Arc<dyn AudioCache>,
     pub encoder: Arc<dyn AudioEncoder>,
     pub read_ahead: Arc<ReadAhead>,
+    /// The phone's helper computer, when the shell has one (file 24).
+    pub helper: Option<Arc<HelperFill>>,
+    /// How long a miss waits for the helper before the local engine starts (`HELPER_NOW_GRACE`).
+    pub helper_grace: Duration,
 }
 
 impl SpeakSentence {
     pub fn new(deps: SpeakSentenceDeps) -> Self {
-        let SpeakSentenceDeps { engine, worker, reader, cache, encoder, read_ahead } = deps;
-        Self { engine, worker, reader, cache, encoder, read_ahead }
+        let SpeakSentenceDeps { engine, worker, reader, cache, encoder, read_ahead, helper, helper_grace } = deps;
+        Self { engine, worker, reader, cache, encoder, read_ahead, helper, helper_grace }
     }
 
     fn check_voice(&self, voice_id: &VoiceId) -> AppResult<()> {
@@ -85,8 +97,31 @@ impl SpeakSentence {
 
     fn follow(&self, position: ListenerPosition<'_>, plan_ahead: bool) {
         if plan_ahead {
+            if let Some(helper) = &self.helper {
+                helper.follow(position);
+            }
             self.read_ahead.follow(position);
         }
+    }
+
+    /// The miss path while a helper makes clips: urgent to the helper, then (after the grace) a local race.
+    /// `None` when the helper can't take it; the caller goes the local way.
+    fn through_helper(&self, ctx: &RequestContext, key: &AudioKey, text: &str, position: ListenerPosition<'_>, plan_ahead: bool) -> Option<AppResult<Vec<u8>>> {
+        let helper = self.helper.as_ref().filter(|helper| helper.makes_clips())?;
+        let started = Instant::now();
+        // The plan goes first, so its re-plan can't cancel the urgent item.
+        self.follow(position, plan_ahead);
+        let wait = helper.urgent(key, text)?;
+        match wait.wait(self.helper_grace, &ctx.cancellation) {
+            Ok(Some(bytes)) => {
+                info!(service = Self::NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, wait_ms = elapsed_ms(started), source = "helper", "speech received");
+                return Some(Ok(bytes));
+            }
+            Ok(None) => {}
+            Err(error) => return Some(Err(error)),
+        }
+        let ticket = self.submit_now(key, text);
+        Some(self.receive(ctx, key, ticket, started, Some(&wait)))
     }
 
     fn submit_now(&self, key: &AudioKey, text: &str) -> SpeechTicket {
@@ -95,9 +130,19 @@ impl SpeakSentence {
     }
 
     /// Waits for the worker unless the caller gives up first; then the job is withdrawn so it doesn't
-    /// hold up the requests that come after it (review M1).
-    fn receive(&self, ctx: &RequestContext, key: &AudioKey, ticket: SpeechTicket, started: Instant) -> AppResult<Vec<u8>> {
-        let audio = ticket.wait_unless_cancelled(&ctx.cancellation).inspect_err(|error| {
+    /// hold up the requests that come after it (review M1). With `racing`, a helper clip that arrives first wins.
+    fn receive(&self, ctx: &RequestContext, key: &AudioKey, ticket: SpeechTicket, started: Instant, racing: Option<&UrgentWait>) -> AppResult<Vec<u8>> {
+        let outcome = match racing {
+            None => ticket.wait_unless_cancelled(&ctx.cancellation),
+            Some(racing) => match self.race(ctx, ticket, racing)? {
+                Race::Local(outcome) => outcome,
+                Race::Helper(bytes) => {
+                    info!(service = Self::NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, wait_ms = elapsed_ms(started), source = "helper", "speech received");
+                    return Ok(bytes);
+                }
+            },
+        };
+        let audio = outcome.inspect_err(|error| {
             if error.is(ErrorName::RequestCancelled) {
                 info!(service = Self::NAME, request_id = %ctx.request_id, doc_id = %key.document_id, sentence_id = key.sentence_id.0, wait_ms = elapsed_ms(started), "request cancelled, speech job withdrawn");
             }
@@ -107,14 +152,39 @@ impl SpeakSentence {
 
         let bytes = self.encoder.encode(&audio)?;
         debug!(service = Self::NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, bytes = bytes.len(), "audio encoded");
-        // The audio is already made, so a failed cache write only costs a later re-synthesis.
-        match self.cache.put(key, &bytes) {
-            Ok(()) => {
+        // The audio is already made, so a failed cache write only costs a later re-synthesis. When another producer
+        // stored this sentence first, its clip is the one everybody plays.
+        match self.cache.put_if_absent(key, &bytes) {
+            Ok(true) => {
                 debug!(service = Self::NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, voice_id = %key.voice_id, bytes = bytes.len(), "audio cached")
+            }
+            Ok(false) => {
+                if let Ok(Some(first)) = self.cache.get(key) {
+                    debug!(service = Self::NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, "audio was cached first by another producer");
+                    return Ok(first);
+                }
             }
             Err(error) => warn!(service = Self::NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, error = %error, "audio cache write failed"),
         }
         Ok(bytes)
+    }
+
+    /// Whichever finishes first: the local job or the helper's clip. The loser's result is dropped (a running local
+    /// job finishes and its clip is refused by the cache).
+    fn race(&self, ctx: &RequestContext, ticket: SpeechTicket, racing: &UrgentWait) -> AppResult<Race> {
+        loop {
+            if let Some(outcome) = ticket.wait_timeout(RACE_POLL) {
+                return Ok(Race::Local(outcome));
+            }
+            if let Some(bytes) = racing.ready()? {
+                ticket.cancel_handle().cancel();
+                return Ok(Race::Helper(bytes));
+            }
+            if ctx.cancellation.is_cancelled() {
+                ticket.cancel_handle().cancel();
+                return Ok(Race::Local(Err(AppError::new(ErrorName::RequestCancelled).with_detail("the caller stopped waiting for speech"))));
+            }
+        }
     }
 
     fn spoken(&self, bytes: Vec<u8>, position: ListenerPosition<'_>) -> SpokenSentence {
@@ -155,13 +225,22 @@ impl UseCase for SpeakSentence {
             return Ok(self.spoken(bytes, position));
         }
 
+        if let Some(bytes) = self.through_helper(ctx, &key, text, position, plan_ahead) {
+            return Ok(self.spoken(bytes?, position));
+        }
+
         // Queued before the read-ahead, so this sentence is made first even if the worker is idle.
         let started = Instant::now();
         let ticket = self.submit_now(&key, text);
         self.follow(position, plan_ahead);
-        let bytes = self.receive(ctx, &key, ticket, started)?;
+        let bytes = self.receive(ctx, &key, ticket, started, None)?;
         Ok(self.spoken(bytes, position))
     }
+}
+
+enum Race {
+    Local(super::worker::SpeechOutcome),
+    Helper(Vec<u8>),
 }
 
 /// The route also limits the range; here only what would break the read-ahead and the cache window is refused
@@ -215,7 +294,16 @@ mod tests {
         let read_ahead_deps =
             ReadAheadDeps { worker: worker.clone(), reader: library.reader(), cache: cache.clone(), retention: cache.clone(), encoder: encoder.clone() };
         let read_ahead = Arc::new(ReadAhead::new(read_ahead_deps, settings).unwrap());
-        let deps = SpeakSentenceDeps { engine: engine.clone(), worker, reader: library.reader(), cache: cache.clone(), encoder, read_ahead };
+        let deps = SpeakSentenceDeps {
+            engine: engine.clone(),
+            worker,
+            reader: library.reader(),
+            cache: cache.clone(),
+            encoder,
+            read_ahead,
+            helper: None,
+            helper_grace: Duration::ZERO,
+        };
         Setup { library, engine, cache, service: SpeakSentence::new(deps) }
     }
 

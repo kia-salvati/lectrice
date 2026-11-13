@@ -7,6 +7,7 @@ use std::process::{Command, Stdio};
 use hound::WavWriter;
 use lectrice_domain::{
     AppError, AppResult, Audio, AudioExporter, ChapterMark, ErrorName, ExportFormat, ExportId, ExportPart, ExportTarget, ExportWriter, ExportedFile,
+    LectriceMap,
 };
 use tempfile::NamedTempFile;
 
@@ -193,6 +194,16 @@ impl AudioExporter for FfmpegExporter {
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
             Err(error) => Err(storage_failed("deleting", path, error)),
         }
+    }
+
+    /// M4B only: MP3 has no place for the map.
+    fn attach_map(&self, file: &ExportedFile, map: &LectriceMap) -> AppResult<u64> {
+        if file.path.extension().and_then(|extension| extension.to_str()) != Some(ExportFormat::M4b.extension()) {
+            return Ok(0);
+        }
+        super::mp4_map::append_map(&file.path, map)?;
+        let size = fs::metadata(&file.path).map_err(|error| storage_failed("inspecting", &file.path, error))?.len();
+        Ok(size.saturating_sub(file.size_bytes))
     }
 }
 

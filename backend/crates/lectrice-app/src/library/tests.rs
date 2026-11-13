@@ -93,6 +93,8 @@ fn record(id: &str, document_id: DocumentId, status: ExportStatus, file_bytes: O
         parts: Vec::new(),
         chapters: Vec::new(),
         source_samples: 0,
+        sentences: Vec::new(),
+        marked_parts: 0,
     }
 }
 

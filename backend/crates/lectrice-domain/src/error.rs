@@ -73,12 +73,21 @@ error_registry! {
     ExportNotReady          => (3002, 409, true,  "The audio file isn't ready yet."),
     ExportFormatUnsupported => (3003, 400, true,  "That audio format isn't supported."),
     ExporterUnavailable     => (3004, 503, true,  "Audio export isn't available."),
+    AudiobookNotLectrice    => (3101, 422, true,  "This audiobook wasn't made by Lectrice."),
+    AudiobookOtherBook      => (3102, 409, true,  "This audiobook belongs to another book."),
+    AudiobookUnreadable     => (3103, 422, true,  "This file isn't an audiobook Lectrice can play."),
     ModelMissing            => (4001, 503, true,  "The voice model isn't installed."),
     ModelDownloadFailed     => (4002, 502, true,  "The voice model couldn't be downloaded."),
     ModelChecksumMismatch   => (4003, 502, true,  "The downloaded voice model is damaged."),
     StorageFull             => (4004, 507, true,  "There isn't enough free space."),
     ExportPaused            => (4005, 409, true,  "Export paused; it will continue later."),
     FileUnreadable          => (4006, 422, true,  "This file couldn't be opened."),
+    HelperNotPaired         => (5001, 409, true,  "This phone isn't paired with the computer any more."),
+    HelperPairingFailed     => (5002, 422, true,  "Pairing with the computer didn't work."),
+    HelperUnreachable       => (5003, 503, true,  "The computer isn't reachable."),
+    HelperModelMissing      => (5004, 409, true,  "The computer doesn't have this voice model."),
+    HelperIncompatible      => (5005, 409, true,  "Lectrice on the phone and on the computer don't match; update the older one."),
+    HelperBusy              => (5006, 429, true,  "The computer is busy; the phone makes this sentence itself."),
     StorageFailed           => (9001, 500, false, "Something went wrong saving data."),
     Internal                => (9999, 500, false, "Something went wrong."),
 }
@@ -171,8 +180,9 @@ mod tests {
     use std::collections::HashSet;
 
     /// Spec §8, plus `RequestInvalid` (B4), `RouteNotFound`, `MethodNotAllowed`, `RequestCancelled` (B-fixes)
-    /// the five device-neutral 4xxx names (Android spec C4) and `FileUnreadable` (C26).
-    const SPEC_ERROR_COUNT: usize = 26;
+    /// the five device-neutral 4xxx names (Android spec C4), `FileUnreadable` (C26), the three audiobook names (C39)
+    /// and the six helper names 5001–5006 (file 24 C47; `HelperBusy` from security review S15).
+    const SPEC_ERROR_COUNT: usize = 35;
 
     #[test]
     fn every_name_has_a_unique_code() {
@@ -203,6 +213,20 @@ mod tests {
     fn file_unreadable_is_registered() {
         let spec = ErrorName::FileUnreadable.spec();
         assert_eq!((spec.code, spec.status, spec.operational), (4006, 422, true));
+    }
+
+    #[test]
+    fn the_helper_names_are_5001_to_5006() {
+        let helper = [
+            ErrorName::HelperNotPaired,
+            ErrorName::HelperPairingFailed,
+            ErrorName::HelperUnreachable,
+            ErrorName::HelperModelMissing,
+            ErrorName::HelperIncompatible,
+            ErrorName::HelperBusy,
+        ];
+        let codes: Vec<u32> = helper.iter().map(|name| name.spec().code).collect();
+        assert_eq!(codes, (5001..=5006).collect::<Vec<_>>());
     }
 
     #[test]

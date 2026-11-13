@@ -142,6 +142,21 @@ fn the_window_deletes_the_farthest_behind_first() {
 }
 
 #[test]
+fn a_pinned_range_stays_out_of_the_window_until_unpinned() {
+    let dir = TempDir::new().unwrap();
+    let cache = FsAudioCache::open(dir.path(), NO_CAP).unwrap();
+    put_clips(&cache, 1, "af_heart", 0..10);
+    cache.pin(&clip_key(1, "af_heart", 0), SentenceId(7), SentenceId(9)).unwrap();
+
+    cache.retain_around(&clip_key(1, "af_heart", 2), 4.0).unwrap();
+
+    assert_eq!(cached_sentences(&cache, 1, "af_heart", 0..10), [2, 3, 4, 5, 7, 8, 9]);
+    cache.unpin(&clip_key(1, "af_heart", 0).document_id).unwrap();
+    cache.retain_around(&clip_key(1, "af_heart", 2), 4.0).unwrap();
+    assert_eq!(cached_sentences(&cache, 1, "af_heart", 0..10), [2, 3, 4, 5]);
+}
+
+#[test]
 fn after_everything_behind_the_farthest_ahead_go() {
     let dir = TempDir::new().unwrap();
     let cache = FsAudioCache::open(dir.path(), NO_CAP).unwrap();
@@ -363,4 +378,29 @@ fn the_cache_root_is_its_own_folder() {
 
     assert!(clip_path(&cache_dir, &key).is_file());
     assert_eq!(FsAudioCache::open(&cache_dir, NO_CAP).unwrap().usage().unwrap().clips, 1);
+}
+
+/// C45: the first writer of a sentence wins, even when two writers race; the clip never changes afterwards.
+#[test]
+fn put_if_absent_keeps_the_first_clip() {
+    let dir = TempDir::new().unwrap();
+    let cache = Arc::new(FsAudioCache::open(dir.path(), NO_CAP).unwrap());
+    let key = clip_key(1, "af_heart", 3);
+
+    assert!(cache.put_if_absent(&key, &one_second_clip(0.1)).unwrap());
+    assert!(!cache.put_if_absent(&key, &one_second_clip(0.2)).unwrap());
+
+    assert_eq!(cache.get(&key).unwrap().unwrap(), one_second_clip(0.1));
+    assert_eq!(cache.usage().unwrap().clips, 1);
+
+    let racing = clip_key(1, "af_heart", 4);
+    let writers: Vec<_> = (0..8)
+        .map(|writer| {
+            let (cache, racing) = (cache.clone(), racing.clone());
+            std::thread::spawn(move || cache.put_if_absent(&racing, &one_second_clip(0.01 * writer as f32)).unwrap())
+        })
+        .collect();
+    let winners = writers.into_iter().map(|writer| writer.join().unwrap()).filter(|stored| *stored).count();
+    assert_eq!(winners, 1);
+    assert!(cache.contains(&racing).unwrap());
 }

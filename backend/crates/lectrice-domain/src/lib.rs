@@ -2,12 +2,14 @@
 //! Depends on no other Lectrice crate and on no I/O library.
 
 pub mod audio_retention;
+pub mod audiobook;
 pub mod cleaned;
 pub mod cleaning;
 pub mod clock;
 pub mod document;
 pub mod error;
 pub mod export;
+pub mod helper;
 pub mod ids;
 pub mod paging;
 pub mod pdf;
@@ -15,6 +17,10 @@ pub mod ports;
 pub mod speech;
 
 pub use audio_retention::{AudioEviction, AudioRetention, CacheUsage, DocumentCacheUsage};
+pub use audiobook::{
+    AudiobookInfo, AudiobookMismatch, AudiobookMode, AudiobookTimeline, LectriceMap, SentenceMark, TimedChapter, TimedSentence, chapters_match_well,
+    match_audiobook, text_hash,
+};
 pub use cleaned::{CleanedBlock, CleanedDocument, TextSpan};
 pub use clock::{Clock, Timestamp};
 pub use document::{Block, BlockKind, Document, DocumentBytes, DocumentMeta, DocumentSummary, PageLabel, ReadingPosition, Sentence, TocEntry};
@@ -23,6 +29,7 @@ pub use export::{
     AudioExport, ChapterMark, ExportFormat, ExportLocation, ExportPart, ExportRange, ExportRecord, ExportSpeed, ExportStage, ExportStatus, ExportTarget,
     ExportedFile, PauseReason, export_file_stem,
 };
+pub use helper::{HelperEngine, HelperEvent, HelperEvents, HelperItem, HelperState, SpeechHelper};
 pub use ids::{BlockId, DocumentId, ExportId, SentenceId, VoiceId};
 pub use paging::{ListOptions, Page};
 pub use pdf::{BoundingBox, OutlineItem, PdfContent, PdfPage, TextRun};

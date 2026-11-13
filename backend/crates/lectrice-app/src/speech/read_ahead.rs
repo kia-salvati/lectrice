@@ -59,6 +59,8 @@ pub struct ReadAheadOutcome {
     pub cached: usize,
     pub cancelled: usize,
     pub unchanged: bool,
+    /// The document's read-ahead is paused while a helper makes its audio: nothing was planned.
+    pub paused: bool,
 }
 
 pub struct ReadAheadDeps {
@@ -79,6 +81,8 @@ pub struct ReadAhead {
     read_ahead_minutes: AtomicU32,
     keep_minutes_per_document: u32,
     plans: Arc<Plans>,
+    /// Documents whose audio a helper computer makes (file 24 C44): their cache window is still kept, nothing is planned.
+    paused: Mutex<HashSet<DocumentId>>,
 }
 
 type PlanKey = (DocumentId, VoiceId);
@@ -156,6 +160,7 @@ impl ReadAhead {
             read_ahead_minutes: AtomicU32::new(settings.read_ahead_minutes),
             keep_minutes_per_document: settings.keep_minutes_per_document,
             plans: Arc::default(),
+            paused: Mutex::default(),
         })
     }
 
@@ -163,7 +168,38 @@ impl ReadAhead {
     /// caller: errors are logged, because playback of the requested sentence doesn't depend on them.
     pub fn follow(&self, position: ListenerPosition<'_>) -> ReadAheadOutcome {
         self.trim_cache(&position);
+        if self.is_paused(&position.key.document_id) {
+            return ReadAheadOutcome { paused: true, ..ReadAheadOutcome::default() };
+        }
         self.plan(&position)
+    }
+
+    /// While a helper computer makes this document's audio, the local read-ahead plans nothing and its queued jobs
+    /// are withdrawn (the clip being made is still cached). Returns how many jobs were cancelled.
+    pub fn pause_for_helper(&self, document_id: &DocumentId) -> usize {
+        let newly = self.paused_documents().insert(document_id.clone());
+        let cancelled = self.stop(document_id);
+        if newly {
+            info!(service = NAME, doc_id = %document_id, cancelled, "read-ahead paused for the helper");
+        }
+        cancelled
+    }
+
+    /// Plans again from the next request on, with whatever minutes the shell set for the link's loss.
+    pub fn resume(&self, document_id: &DocumentId) -> bool {
+        let resumed = self.paused_documents().remove(document_id);
+        if resumed {
+            info!(service = NAME, doc_id = %document_id, "read-ahead resumed");
+        }
+        resumed
+    }
+
+    pub fn is_paused(&self, document_id: &DocumentId) -> bool {
+        self.paused_documents().contains(document_id)
+    }
+
+    fn paused_documents(&self) -> MutexGuard<'_, HashSet<DocumentId>> {
+        self.paused.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Used from the next planning request on; a shorter read-ahead then cancels the queued jobs past it.
@@ -332,10 +368,11 @@ impl ClipStore {
             info!(service = NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, "read-ahead audio dropped, the document is gone");
             return;
         }
-        let stored = outcome.and_then(|audio| self.encoder.encode(&audio)).and_then(|bytes| self.cache.put(key, &bytes).map(|()| bytes.len()));
+        let stored =
+            outcome.and_then(|audio| self.encoder.encode(&audio)).and_then(|bytes| self.cache.put_if_absent(key, &bytes).map(|stored| (bytes.len(), stored)));
         match stored {
-            Ok(bytes) => {
-                info!(service = NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, voice_id = %key.voice_id, bytes, "read-ahead audio cached")
+            Ok((bytes, stored)) => {
+                info!(service = NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, voice_id = %key.voice_id, bytes, stored, "read-ahead audio cached")
             }
             Err(error) => warn!(service = NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, error = %error, "read-ahead audio failed"),
         }
@@ -580,6 +617,28 @@ mod tests {
         let again = follow(&setup, &book, 0, 1.0);
         assert!(!again.unchanged);
         assert_eq!((again.cached, again.queued), (1, 59));
+    }
+
+    /// C44: while a helper makes the audio, nothing is planned (the window is still kept); resuming plans again.
+    #[test]
+    fn a_paused_document_plans_nothing_until_resumed() {
+        let book = document(400);
+        let setup = setup(&book.blocks[1].sentences[0].text, 1);
+        follow(&setup, &book, 0, 1.0);
+        setup.engine.wait_until_blocked();
+
+        assert_eq!(setup.read_ahead.pause_for_helper(&book.id), 59, "queued jobs are withdrawn, the running one finishes");
+        let paused = follow(&setup, &book, 5, 1.0);
+
+        assert!(paused.paused);
+        assert_eq!(paused.queued, 0);
+        assert_eq!(setup.cache.retained().len(), 2, "the cache window still follows the listener");
+        assert!(setup.read_ahead.resume(&book.id));
+        assert!(!setup.read_ahead.resume(&book.id));
+        let resumed = follow(&setup, &book, 5, 1.0);
+        assert!(!resumed.paused);
+        assert_eq!(resumed.queued, 60);
+        setup.engine.release();
     }
 
     #[test]

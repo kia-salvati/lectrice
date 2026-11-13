@@ -8,7 +8,7 @@ use std::time::SystemTime;
 use hound::WavReader;
 use lectrice_domain::{AppResult, AudioCache, AudioEviction, AudioKey, AudioRetention, CacheUsage, DocumentCacheUsage, DocumentId, SentenceId, VoiceId};
 
-use super::atomic_file::write_atomically;
+use super::atomic_file::{write_atomically, write_new_atomically};
 use super::path_component::safe_component;
 use super::storage_failed;
 
@@ -76,6 +76,8 @@ struct CacheState {
     in_use: HashMap<AudioKey, usize>,
     /// Clips of a removed document that were in use; deleted when the last user lets go.
     doomed: HashSet<AudioKey>,
+    /// Prepared ranges kept out of the listener's window (C21).
+    pins: HashMap<Scope, (u32, u32)>,
 }
 
 impl CacheState {
@@ -243,16 +245,33 @@ impl AudioCache for FsAudioCache {
         drop(in_use);
         Ok(())
     }
+
+    /// One atomic step on disk (no replace), so the phone and its helper computer can't both store a sentence.
+    fn put_if_absent(&self, key: &AudioKey, bytes: &[u8]) -> AppResult<bool> {
+        let path = self.clip_path(key)?;
+        let in_use = self.mark_in_use(key);
+        let stored = write_creating_folders_with(&path, |path| write_new_atomically(path, bytes))?;
+        if stored {
+            let audio_seconds = wav_seconds(Cursor::new(bytes)).unwrap_or_default();
+            self.lock().insert(key, Clip { file_bytes: bytes.len() as u64, audio_seconds, written: SystemTime::now() });
+        }
+        drop(in_use);
+        Ok(stored)
+    }
 }
 
 /// Creates the clip's folders, and once more if the system deleted them between that and the write.
 fn write_creating_folders(path: &Path, bytes: &[u8]) -> AppResult<()> {
+    write_creating_folders_with(path, |path| write_atomically(path, bytes))
+}
+
+fn write_creating_folders_with<T>(path: &Path, write: impl Fn(&Path) -> io::Result<T>) -> AppResult<T> {
     let directory = path.parent().unwrap_or(path);
     let mut retried = false;
     loop {
         fs::create_dir_all(directory).map_err(|error| storage_failed("creating", directory, error))?;
-        match write_atomically(path, bytes) {
-            Ok(()) => return Ok(()),
+        match write(path) {
+            Ok(written) => return Ok(written),
             Err(error) if error.kind() == io::ErrorKind::NotFound && !retried => retried = true,
             Err(error) => return Err(storage_failed("writing", path, error)),
         }
@@ -270,7 +289,10 @@ impl AudioRetention for FsAudioCache {
         let mut state = self.lock();
         let mut eviction = AudioEviction::default();
 
-        let window = state.clips.get(&scope).map(|clips| window_victims(clips, position.sentence_id.0, keep_seconds, |id| state.is_in_use(&scope.key(id))));
+        let pinned = state.pins.get(&scope).copied();
+        let is_pinned = |id: u32| pinned.is_some_and(|(from, to)| (from..=to).contains(&id));
+        let window =
+            state.clips.get(&scope).map(|clips| window_victims(clips, position.sentence_id.0, keep_seconds, |id| state.is_in_use(&scope.key(id)), is_pinned));
         for sentence_id in window.unwrap_or_default() {
             eviction.freed_bytes += self.delete(&mut state, &scope, sentence_id)?;
             eviction.window_clips += 1;
@@ -286,6 +308,16 @@ impl AudioRetention for FsAudioCache {
         eviction.kept_seconds = state.clips.get(&scope).map_or(0.0, |clips| clips.values().map(|clip| clip.audio_seconds).sum());
         eviction.cache_bytes = state.total_bytes;
         Ok(eviction)
+    }
+
+    fn pin(&self, scope: &AudioKey, from: SentenceId, to: SentenceId) -> AppResult<()> {
+        self.lock().pins.insert(Scope::of(scope), (from.0.min(to.0), from.0.max(to.0)));
+        Ok(())
+    }
+
+    fn unpin(&self, document_id: &DocumentId) -> AppResult<()> {
+        self.lock().pins.retain(|scope, _| scope.document_id != *document_id);
+        Ok(())
     }
 
     fn usage(&self) -> AppResult<CacheUsage> {
@@ -335,17 +367,21 @@ impl AudioRetention for FsAudioCache {
 /// Which clips of one scope to delete so at most `keep_seconds` of audio stay: the farthest behind
 /// `position` first, then the farthest ahead. The clip at `position` and clips in use are never chosen.
 /// A NaN `keep_seconds` (a caller's bug) deletes nothing rather than the whole scope.
-fn window_victims(clips: &BTreeMap<u32, Clip>, position: u32, keep_seconds: f64, in_use: impl Fn(u32) -> bool) -> Vec<u32> {
+/// Pinned clips (prepared audio) are neither counted in the window nor deleted.
+fn window_victims(clips: &BTreeMap<u32, Clip>, position: u32, keep_seconds: f64, in_use: impl Fn(u32) -> bool, pinned: impl Fn(u32) -> bool) -> Vec<u32> {
     if keep_seconds.is_nan() {
         return Vec::new();
     }
-    let mut total: f64 = clips.values().map(|clip| clip.audio_seconds).sum();
+    let mut total: f64 = clips.iter().filter(|(id, _)| !pinned(**id)).map(|(_, clip)| clip.audio_seconds).sum();
     let behind = clips.range(..position);
     let ahead = clips.range(position.saturating_add(1)..).rev();
     let mut victims = Vec::new();
     for (&id, clip) in behind.chain(ahead) {
         if total <= keep_seconds {
             break;
+        }
+        if pinned(id) {
+            continue;
         }
         if in_use(id) {
             continue;
@@ -453,27 +489,27 @@ mod tests {
 
     #[test]
     fn a_window_that_fits_deletes_nothing() {
-        assert!(window_victims(&clips(10, 1.0), 5, 10.0, |_| false).is_empty());
+        assert!(window_victims(&clips(10, 1.0), 5, 10.0, |_| false, |_| false).is_empty());
     }
 
     #[test]
     fn the_farthest_behind_go_first() {
-        assert_eq!(window_victims(&clips(10, 1.0), 5, 7.0, |_| false), [0, 1, 2]);
+        assert_eq!(window_victims(&clips(10, 1.0), 5, 7.0, |_| false, |_| false), [0, 1, 2]);
     }
 
     #[test]
     fn when_behind_is_not_enough_the_farthest_ahead_go_next() {
-        assert_eq!(window_victims(&clips(10, 1.0), 3, 4.0, |_| false), [0, 1, 2, 9, 8, 7]);
+        assert_eq!(window_victims(&clips(10, 1.0), 3, 4.0, |_| false, |_| false), [0, 1, 2, 9, 8, 7]);
     }
 
     #[test]
     fn the_position_and_clips_in_use_are_never_chosen() {
-        assert_eq!(window_victims(&clips(4, 1.0), 2, 0.0, |id| id == 0), [1, 3]);
+        assert_eq!(window_victims(&clips(4, 1.0), 2, 0.0, |id| id == 0, |_| false), [1, 3]);
     }
 
     #[test]
     fn a_nan_window_deletes_nothing() {
-        assert!(window_victims(&clips(3, 1.0), 1, f64::NAN, |_| false).is_empty());
+        assert!(window_victims(&clips(3, 1.0), 1, f64::NAN, |_| false, |_| false).is_empty());
     }
 
     #[test]

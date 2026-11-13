@@ -50,6 +50,14 @@ pub struct SpeechJob {
 /// Shared by every waiter of a merged job.
 pub type SpeechOutcome = AppResult<Arc<Audio>>;
 
+/// One synthesis at a time on the machine, shared with other users of the CPU (the desktop's helper server makes
+/// phones' items through the same gate; file 24 C48). The worker asks for a turn with the job's priority, so the
+/// shell can rank its own `Now`, read-ahead and export work against the phones' items.
+pub trait SynthesisGate: Send + Sync {
+    /// Runs `synthesize` once it is this priority's turn; the turn ends when it returns.
+    fn with_turn(&self, priority: SpeechPriority, synthesize: &mut dyn FnMut());
+}
+
 type OnDone = Box<dyn FnOnce(SpeechOutcome) + Send>;
 
 /// Owns the synthesis thread. Dropping it stops the thread after the running job; queued waiters
@@ -61,11 +69,16 @@ pub struct SpeechWorker {
 
 impl SpeechWorker {
     pub fn start(engine: Arc<dyn SpeechEngine>) -> AppResult<Self> {
+        Self::start_gated(engine, None)
+    }
+
+    /// Like [`Self::start`], with every synthesis waiting for its turn at `gate`.
+    pub fn start_gated(engine: Arc<dyn SpeechEngine>, gate: Option<Arc<dyn SynthesisGate>>) -> AppResult<Self> {
         let shared = Arc::new(Shared::default());
         let thread_shared = shared.clone();
         let thread = std::thread::Builder::new()
             .name(THREAD_NAME.to_string())
-            .spawn(move || run_loop(&thread_shared, engine.as_ref()))
+            .spawn(move || run_loop(&thread_shared, engine.as_ref(), gate.as_deref()))
             .map_err(|error| AppError::new(ErrorName::Internal).with_detail("cannot start the speech worker thread").with_source(error))?;
         Ok(Self { shared, thread: Some(thread) })
     }
@@ -146,6 +159,15 @@ impl SpeechTicket {
                 }
                 Err(RecvTimeoutError::Timeout) => {}
             }
+        }
+    }
+
+    /// The outcome if it arrives within `timeout`; `None` means it is still coming.
+    pub fn wait_timeout(&self, timeout: Duration) -> Option<SpeechOutcome> {
+        match self.receiver.recv_timeout(timeout) {
+            Ok(outcome) => Some(outcome),
+            Err(RecvTimeoutError::Timeout) => None,
+            Err(RecvTimeoutError::Disconnected) => Some(Err(not_delivered())),
         }
     }
 
@@ -339,10 +361,21 @@ impl PartialEq for QueueEntry {
 
 impl Eq for QueueEntry {}
 
-fn run_loop(shared: &Shared, engine: &dyn SpeechEngine) {
+fn run_loop(shared: &Shared, engine: &dyn SpeechEngine, gate: Option<&dyn SynthesisGate>) {
     while let Some((key, request, priority)) = next_job(shared) {
-        let started = Instant::now();
-        let outcome = synthesize(engine, request);
+        let mut request = Some(request);
+        let mut outcome = None;
+        let mut started = Instant::now();
+        let mut run = || {
+            // Timed from the turn on, so waiting for a phone's item doesn't count as synthesis time.
+            started = Instant::now();
+            outcome = request.take().map(|request| synthesize(engine, request));
+        };
+        match gate {
+            Some(gate) => gate.with_turn(priority, &mut run),
+            None => run(),
+        }
+        let outcome = outcome.unwrap_or_else(|| Err(AppError::new(ErrorName::SpeechSynthesisFailed).with_detail("the synthesis gate gave no turn")));
         let synth_ms = elapsed_ms(started);
         if let Ok(audio) = &outcome {
             shared.record(Timing { audio_ms: (audio_seconds(audio) * MILLIS_PER_SECOND).round() as u64, synth_ms });
@@ -638,6 +671,42 @@ mod tests {
         let timings = worker.timings();
         assert_eq!(timings.samples, 10);
         assert!(timings.rtf_median.is_some_and(|rtf| rtf >= 0.0));
+    }
+
+    /// Records the priority of every turn it gives.
+    #[derive(Default)]
+    struct RecordingGate {
+        turns: Mutex<Vec<SpeechPriority>>,
+    }
+
+    impl SynthesisGate for RecordingGate {
+        fn with_turn(&self, priority: SpeechPriority, synthesize: &mut dyn FnMut()) {
+            self.turns.lock().unwrap().push(priority);
+            synthesize();
+        }
+    }
+
+    /// C48: each job takes its turn at the machine's gate with its own priority (no more "everything is Now").
+    #[test]
+    fn every_job_takes_its_turn_at_the_gate_with_its_priority() {
+        let gate = Arc::new(RecordingGate::default());
+        let worker = SpeechWorker::start_gated(Arc::new(GatedEngine::open()), Some(gate.clone())).unwrap();
+
+        for (sentence, priority) in [(1, SpeechPriority::Now), (2, SpeechPriority::ReadAhead), (3, SpeechPriority::Export)] {
+            worker.submit(job(sentence, priority)).wait().unwrap();
+        }
+
+        assert_eq!(*gate.turns.lock().unwrap(), [SpeechPriority::Now, SpeechPriority::ReadAhead, SpeechPriority::Export]);
+    }
+
+    #[test]
+    fn a_timed_wait_says_when_the_audio_is_not_there_yet() {
+        let (engine, worker, first) = blocked_worker();
+
+        assert!(first.wait_timeout(Duration::from_millis(20)).is_none());
+        engine.release();
+        assert!(first.wait_timeout(Duration::from_secs(5)).unwrap().is_ok());
+        drop(worker);
     }
 
     /// Review L7: a panic in a callback used to kill the worker thread, so every later wait hung.

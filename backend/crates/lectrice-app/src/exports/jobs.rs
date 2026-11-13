@@ -234,6 +234,8 @@ impl ExportJobs {
             parts: Vec::new(),
             chapters: Vec::new(),
             source_samples: 0,
+            sentences: Vec::new(),
+            marked_parts: 0,
         };
         self.shared.store.save(&record)?;
         info!(service = NAME, export_id = %id, doc_id = %export.document_id, voice_id = %export.voice_id, format = export.format.extension(), engine_id = %export.engine_id, speed_percent = export.speed.percent(), ranged = export.range.is_some(), sentences_total = export.sentences_total, parts_total = export.parts_total, "export job saved and queued");
@@ -586,6 +588,8 @@ impl Shared {
         let Some(job) = registry.jobs.get_mut(id) else { return };
         job.record.parts.push(finished.part);
         job.record.chapters.extend(finished.chapters);
+        job.record.sentences.extend(finished.sentences);
+        job.record.marked_parts += 1;
         job.record.source_samples = finished.source_samples;
         job.record.export.parts_done = u32::try_from(job.record.parts.len()).unwrap_or(u32::MAX);
         self.save_or_stop(job);
@@ -691,6 +695,8 @@ impl Shared {
         let parts = record.parts.len();
         record.parts.clear();
         record.chapters.clear();
+        record.sentences.clear();
+        record.marked_parts = 0;
         record.source_samples = 0;
         match self.exporter.discard_parts(&record.export.id) {
             Ok(()) => info!(service = NAME, export_id = %record.export.id, parts, "export parts deleted"),

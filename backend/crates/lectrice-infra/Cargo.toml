@@ -14,9 +14,13 @@ kokoro = ["dep:sherpa-onnx"]
 sherpa-static = ["kokoro", "sherpa-onnx/static"]
 ffmpeg-export = []
 time-stretch = []
+# The phone's side of the computer helper (file 24): the `SpeechHelper` adapter over `lectrice-link`'s client.
+helper-client = ["dep:lectrice-link", "lectrice-link/client"]
 
 [dependencies]
 lectrice-domain.workspace = true
+lectrice-link = { workspace = true, optional = true }
+tracing.workspace = true
 chrono.workspace = true
 sherpa-onnx = { workspace = true, optional = true }
 pdfium-render = { workspace = true, optional = true }
@@ -50,6 +54,14 @@ required-features = ["pdfium"]
 [[test]]
 name = "speech_kokoro"
 required-features = ["kokoro"]
+
+[[test]]
+name = "helper_link"
+required-features = ["helper-client"]
+
+[dev-dependencies]
+lectrice-app.workspace = true
+lectrice-link = { workspace = true, features = ["client", "server", "testing"] }
 
 [lints]
 workspace = true

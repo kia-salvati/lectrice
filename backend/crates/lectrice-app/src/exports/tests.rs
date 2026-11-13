@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use lectrice_domain::{
     AudioCache, AudioEncoder, AudioExport, AudioKey, Block, BlockKind, Document, DocumentId, DocumentMeta, DocumentWriter, ErrorName, ExportFormat, ExportId,
     ExportLocation, ExportRange, ExportRecord, ExportRecordStore, ExportSpeed, ExportStage, ExportStatus, PageLabel, PauseReason, Sentence, SentenceId,
-    SpeechRequest, TocEntry, VoiceId,
+    SentenceMark, SpeechRequest, TocEntry, VoiceId,
 };
 
 use super::fakes::{CountingDecoder, Event, FakeExporter, MemoryRecordStore, ShorteningStretch};
@@ -154,6 +154,24 @@ fn a_job_goes_from_queued_to_done_and_streams_every_sentence_with_its_chapter() 
     assert!(matches!(done.location, Some(ExportLocation::AppStorage { .. })));
     let download = GetAudioExportFile::new(setup.jobs.clone(), setup.library.reader(), setup.engine.clone()).run(&ctx(), queued.id).unwrap();
     assert_eq!((download.title.as_str(), download.voice_name.as_str(), download.format), ("Fake Book", "Heart", ExportFormat::M4b));
+
+    // Spec 23 §3.1: the file carries every spoken sentence, timed back to back from the 1x audio.
+    let maps = setup.exporter.maps();
+    assert_eq!(maps.len(), 1);
+    let map = &maps[0];
+    assert_eq!((map.document_id.clone(), map.speed_percent, map.engine_id.as_str(), map.sample_rate), (id, 100, ENGINE_ID, SAMPLE_RATE));
+    let starts: Vec<u64> = map.sentences.iter().map(SentenceMark::start_ms).collect();
+    let mut expected_start = 0;
+    let mut expected_starts = Vec::new();
+    for text in SPOKEN {
+        expected_starts.push((expected_start as f64 * 1000.0 / f64::from(SAMPLE_RATE)).round() as u64);
+        expected_start += (text.len() * SAMPLES_PER_CHAR) as u64;
+    }
+    assert_eq!(starts, expected_starts);
+    assert_eq!(map.duration_ms, expected_start * 1000 / u64::from(SAMPLE_RATE));
+    assert_eq!(map.sentences[1].hash(), lectrice_domain::text_hash("One."));
+    // What the exporter writes must pass the check a reader applies to any file's map.
+    assert_eq!(map.check(), Ok(()));
 }
 
 /// W finding: cached sentences finish at once, so they must not make the time left look tiny.
@@ -364,6 +382,8 @@ fn saved(id: &str, status: ExportStatus) -> ExportRecord {
         parts: Vec::new(),
         chapters: Vec::new(),
         source_samples: 0,
+        sentences: Vec::new(),
+        marked_parts: 0,
     }
 }
 

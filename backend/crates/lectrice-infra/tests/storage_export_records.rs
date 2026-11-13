@@ -36,6 +36,8 @@ fn record(id: &str, status: ExportStatus) -> ExportRecord {
         parts: Vec::new(),
         chapters: Vec::new(),
         source_samples: 12_000,
+        sentences: Vec::new(),
+        marked_parts: 0,
     }
 }
 

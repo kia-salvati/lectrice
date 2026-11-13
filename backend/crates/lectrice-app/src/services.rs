@@ -2,10 +2,11 @@
 //! adapters and settings, then calls [`assemble`], so the shells can't drift apart.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use lectrice_domain::{
     AppError, AppResult, AudioCache, AudioDecoder, AudioEncoder, AudioExporter, AudioRetention, Clock, ContentHasher, DocumentCleaner, DocumentReader,
-    DocumentWriter, ErrorName, ExportRecordStore, PdfTextSource, SentenceSplitter, SpeechEngine, TimeStretch, VoiceId, VoiceSampleCache,
+    DocumentWriter, ErrorName, ExportRecordStore, PdfTextSource, SentenceSplitter, SpeechEngine, SpeechHelper, TimeStretch, VoiceId, VoiceSampleCache,
 };
 use tracing::info;
 
@@ -17,8 +18,8 @@ use crate::exports::{
 };
 use crate::library::{ClearAudioCache, ClearDocumentAudio, GetStorageUsage, PurgeRemovedDocuments, PurgeRemovedDocumentsArgs, RemoveDocument, RestoreDocument};
 use crate::speech::{
-    GetSpeechStats, ListVoices, ReadAhead, ReadAheadDeps, ReadAheadSettings, SetReadAheadMinutes, SpeakSentence, SpeakSentenceDeps, SpeakVoiceSample,
-    SpeechWorker, StopAllReadAhead, StopReadAhead,
+    GetSpeechStats, HELPER_NOW_GRACE, HelperFill, HelperFillDeps, ListVoices, PrepareDeps, PrepareJobs, ReadAhead, ReadAheadDeps, ReadAheadSettings,
+    SetReadAheadMinutes, SpeakSentence, SpeakSentenceDeps, SpeakVoiceSample, SpeechWorker, StopAllReadAhead, StopReadAhead, SynthesisGate,
 };
 use crate::{RequestContext, UseCase};
 
@@ -58,6 +59,22 @@ pub struct Settings {
     pub default_voice: VoiceId,
     pub read_ahead: ReadAheadSettings,
     pub export: ExportSettings,
+}
+
+/// What only some shells give the speech services (file 24): the desktop shares the CPU with the phones it helps, and
+/// the phone may have a helper computer.
+pub struct SpeechOptions {
+    /// Every synthesis waits for its turn here, ranked by its job's priority.
+    pub gate: Option<Arc<dyn SynthesisGate>>,
+    /// The phone's helper computer; `SpeechServices::helper` drives it.
+    pub helper: Option<Arc<dyn SpeechHelper>>,
+    pub helper_grace: Duration,
+}
+
+impl Default for SpeechOptions {
+    fn default() -> Self {
+        Self { gate: None, helper: None, helper_grace: HELPER_NOW_GRACE }
+    }
 }
 
 /// Every use case, built once. Speech and exports are `None` without a speech engine; the library always works.
@@ -120,6 +137,10 @@ pub struct SpeechServices {
     pub stop_read_ahead: StopReadAhead,
     pub stop_all_read_ahead: StopAllReadAhead,
     pub set_read_ahead_minutes: SetReadAheadMinutes,
+    /// Making a range of a book ahead of time, for phones slower than real time (C21).
+    pub prepare: Arc<PrepareJobs>,
+    /// The helper computer's fill (file 24 C43), when the shell gave a helper; the shell starts and stops it.
+    pub helper: Option<Arc<HelperFill>>,
 }
 
 pub struct ExportServices {
@@ -140,6 +161,11 @@ pub struct ExportServices {
 /// Paused exports stay paused: the shell decides when they continue (`ExportServices::resume`). Removed books are not
 /// purged here, because a shell assembles again on every engine reload: see [`purge_removed_at_start`].
 pub fn assemble(adapters: Adapters, settings: Settings) -> AppResult<Services> {
+    assemble_with(adapters, settings, SpeechOptions::default())
+}
+
+/// [`assemble`] with the options only some shells have.
+pub fn assemble_with(adapters: Adapters, settings: Settings, options: SpeechOptions) -> AppResult<Services> {
     let Adapters {
         hasher,
         pdf_source,
@@ -172,7 +198,7 @@ pub fn assemble(adapters: Adapters, settings: Settings) -> AppResult<Services> {
     let speech = match &speech_engine {
         Some(engine) => {
             check_default_voice(engine.as_ref(), &settings.default_voice)?;
-            let worker = Arc::new(SpeechWorker::start(engine.clone())?);
+            let worker = Arc::new(SpeechWorker::start_gated(engine.clone(), options.gate.clone())?);
             let deps = ReadAheadDeps {
                 worker: worker.clone(),
                 reader: reader.clone(),
@@ -210,6 +236,25 @@ pub fn assemble(adapters: Adapters, settings: Settings) -> AppResult<Services> {
     let Some((engine, worker, read_ahead)) = speech else {
         return Ok(Services { documents, library, speech: None, exports: None });
     };
+    let prepare = Arc::new(PrepareJobs::new(PrepareDeps {
+        engine: engine.clone(),
+        worker: worker.clone(),
+        reader: reader.clone(),
+        cache: audio_cache.clone(),
+        retention: audio_retention.clone(),
+        encoder: audio_encoder.clone(),
+    }));
+    let helper = options.helper.map(|helper| {
+        HelperFill::new(HelperFillDeps {
+            helper,
+            engine: engine.clone(),
+            reader: reader.clone(),
+            cache: audio_cache.clone(),
+            retention: audio_retention.clone(),
+            encoder: audio_encoder.clone(),
+            read_ahead: read_ahead.clone(),
+        })
+    });
     let speech = SpeechServices {
         list_voices: ListVoices::new(engine.clone(), settings.default_voice),
         speak_sentence: SpeakSentence::new(SpeakSentenceDeps {
@@ -219,12 +264,16 @@ pub fn assemble(adapters: Adapters, settings: Settings) -> AppResult<Services> {
             cache: audio_cache,
             encoder: audio_encoder.clone(),
             read_ahead: read_ahead.clone(),
+            helper: helper.clone(),
+            helper_grace: options.helper_grace,
         }),
         voice_sample: SpeakVoiceSample::new(engine.clone(), worker.clone(), voice_samples, audio_encoder),
         stats: GetSpeechStats::new(engine.clone(), worker, speech_engine_load_ms),
         stop_read_ahead: StopReadAhead::new(read_ahead.clone()),
         stop_all_read_ahead: StopAllReadAhead::new(read_ahead.clone()),
         set_read_ahead_minutes: SetReadAheadMinutes::new(read_ahead),
+        prepare,
+        helper,
     };
     let start_deps = StartAudioExportDeps { jobs: jobs.clone(), engine: engine.clone(), reader: reader.clone(), exporter, time_stretch };
     let exports = ExportServices {

@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use lectrice_domain::{
     AppError, AppResult, Audio, AudioDecoder, AudioExporter, ChapterMark, ErrorName, ExportId, ExportPart, ExportRecord, ExportRecordStore, ExportSpeed,
-    ExportTarget, ExportWriter, ExportedFile, TimeStretch, TimeStretcher,
+    ExportTarget, ExportWriter, ExportedFile, LectriceMap, TimeStretch, TimeStretcher,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,6 +31,7 @@ pub(crate) struct FakeExporter {
     events: Arc<Mutex<Vec<Event>>>,
     targets: Mutex<Vec<ExportTarget>>,
     deleted: Mutex<Vec<PathBuf>>,
+    maps: Mutex<Vec<LectriceMap>>,
 }
 
 impl FakeExporter {
@@ -53,6 +54,11 @@ impl FakeExporter {
 
     pub fn deleted(&self) -> Vec<PathBuf> {
         self.deleted.lock().unwrap().clone()
+    }
+
+    /// The Lectrice maps attached to assembled files, in order.
+    pub fn maps(&self) -> Vec<LectriceMap> {
+        self.maps.lock().unwrap().clone()
     }
 
     pub fn chapters(&self) -> Vec<Vec<(String, u64)>> {
@@ -119,6 +125,11 @@ impl AudioExporter for FakeExporter {
     fn delete_file(&self, path: &Path) -> AppResult<()> {
         self.deleted.lock().unwrap().push(path.to_path_buf());
         Ok(())
+    }
+
+    fn attach_map(&self, _file: &ExportedFile, map: &LectriceMap) -> AppResult<u64> {
+        self.maps.lock().unwrap().push(map.clone());
+        Ok(0)
     }
 }
 

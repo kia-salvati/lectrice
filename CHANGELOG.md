@@ -13,6 +13,84 @@ pulls by tag. While in beta (0.x), a change to a core trait, public type or save
 
 ## [Unreleased]
 
+### Core
+
+#### Added
+- `KokoroSpeechEngine::voice_catalog()`: the voices without loading a model (for a voice list before the engine is ready).
+- Prepare jobs (C21): `SpeechServices.prepare` (`PrepareJobs`: `start`, `stop`, `cancel`, `status`) makes a range of a book
+  into the sentence cache at export priority, one sentence at a time, skipping cached ones, and pins the range.
+- `AudioRetention::pin` / `unpin` (default: no pins): pinned clips are neither counted in nor deleted by
+  `retain_around`'s window. `FsAudioCache` implements them (in memory; the shell pins again after a restart).
+- Audiobook source (Android spec 23, C35–C39): M4B exports carry a **Lectrice map** (a top-level `uuid` box with JSON:
+  document id, cleaner version, engine, voice, speed, and every spoken sentence's id, text hash and start time).
+  `lectrice_domain::audiobook` (`LectriceMap`, `text_hash`, `match_audiobook`: sentence follow-along for the same book,
+  remapped by hash across cleaner versions, else chapter titles), `lectrice_infra::export::mp4_map` (`append_map`,
+  `read_audiobook`: map, length, `chpl` chapters, title). New error names `AudiobookNotLectrice` 3101,
+  `AudiobookOtherBook` 3102, `AudiobookUnreadable` 3103.
+- New crate **`lectrice-link`** (Android spec 24, C40–C41; desktop helper): wire protocol v1 (`postcard` messages, u16
+  framing, fragment joining, limits), SPAKE2 + Noise `XXpsk3` pairing on a 6-digit code (3 wrong codes close the window,
+  10 per hour start a 10-minute wait, stalled attempts free their slot), Noise `IK` sessions with pinned keys, FLAC clips
+  (`flacenc` / `claxon`, bit-exact with the WAV encoder's PCM16), "LAN only" address rule. Features: `client` (the phone:
+  `pair`, `Session`), `server` (the computer: `Server` over shell-bound listeners, `EngineProvider` / `ClipEngine` /
+  `PeerStore` ports, `CpuGate` priorities, per-phone item budget), `testing` (`FaultyLink` proxy). Tests: cacophony
+  Noise vectors, a recorded SPAKE2 vector, end-to-end client↔server, link-drop tests, fuzz smoke (+ `fuzz/` targets).
+- Computer helper in the core (Android spec 24, C42–C48, milestone H2):
+  - `lectrice_domain::SpeechHelper` port (`state`, `open`, `make`, `cancel_all`, `close`; no network words) with
+    `HelperEngine`, `HelperItem` (its `Debug` prints the text length only), `HelperState`, `HelperEvent`, `HelperEvents`.
+  - `SpeechEngine::revision()` (default `""`); `KokoroSpeechEngine::REVISION` = `"sherpa-onnx-1.13.8/kokoro-1"` and
+    `KokoroSpeechEngine::SAMPLE_RATE`. Clips from elsewhere are used only when id, revision and sample rate match.
+  - `AudioCache::put_if_absent` (default: `get` then `put`); `FsAudioCache` stores without replacing in one atomic step
+    (`persist_noclobber`), so of the phone and its computer the first writer wins.
+  - `lectrice_app::speech::HelperFill`: plans 30 listening-minutes ahead (`HELPER_AHEAD_MINUTES`), asks for the
+    uncached sentences nearest first within 12 items / 3 minutes in flight, stores clips through the normal encoder
+    and cache, cancels the computer's queue on a jump (at most the item being made is wasted), and leaves refused items
+    to the phone. `UrgentWait` and `HELPER_NOW_GRACE` (1.5 s): a miss while connected goes to the computer as urgent,
+    then races the local engine. `lost_read_ahead_minutes` (green phones keep their setting, others take 30 minutes).
+  - `ReadAhead::pause_for_helper` / `resume` / `is_paused`; `ReadAheadOutcome.paused`.
+  - `SynthesisGate` port and `SpeechWorker::start_gated`: each job takes its turn at a shell's CPU gate with its own
+    priority (the desktop ranks its `Now`, read-ahead and exports against the phones' items).
+  - `services::assemble_with(adapters, settings, SpeechOptions { gate, helper, helper_grace })`; `assemble` is
+    `assemble_with` with the defaults. `SpeechTicket::wait_timeout`.
+  - `lectrice_infra::DeferredSpeechEngine` (+ `KokoroSpeechEngine::deferred`): id, revision, voices and sample rate
+    without loading the model; loads on the first sentence or `preload`, can `unload`, refuses a model that isn't the
+    promised one.
+  - `lectrice_infra::helper::LinkSpeechHelper` (feature `helper-client`, off by default): the `SpeechHelper` over
+    `lectrice-link`'s client with reconnects (1, 2, 5, 10, 30, then every 60 s; `retry_now`, `set_addresses`), the
+    engine check on `Ready`, and `registry_name`.
+  - `lectrice-link`: `client::SocketFactory` with `Session::connect_via` / `pair_via` (Android binds the socket to the
+    Wi-Fi network; the link still checks the address before and the peer after), `DirectSockets`,
+    `limits::reconnect_delay`, `LinkErrorName::HelperBusy` and `LinkErrorName::ALL`.
+  - Registry names (C47): `HelperNotPaired` 5001, `HelperPairingFailed` 5002, `HelperUnreachable` 5003,
+    `HelperModelMissing` 5004, `HelperIncompatible` 5005, `HelperBusy` 5006.
+  - Tests: the link-drop simulator on a virtual clock (1 000 random runs, no gap, file 24 §13 assertions 1, 3, 4, 5,
+    6) and the helper end to end over real sockets through `FaultyLink` (`lectrice-infra/tests/helper_link.rs`).
+
+#### Changed
+- **Breaking:** `SpeechServices` gains `prepare` and `helper`; `SpeakSentenceDeps` gains `helper` and `helper_grace`.
+- `SpeakSentence` and the read-ahead store clips with `put_if_absent`; when another producer stored the sentence
+  first, its clip is the one returned.
+- The test profile builds `lectrice-app` optimised (the simulator's thousand runs).
+- `AudioExporter` gains `attach_map` (default: adds nothing). `FfmpegExporter` implements it for M4B; a shell that wraps
+  an exporter must forward it (the desktop's `SwappableExporter`) or its files carry no map.
+- `ExportRecord` gains `sentences` and `marked_parts` (serde defaults; a job resumed from parts made before this
+  version gets no map).
+
+#### Fixed
+- Chapter headings at the top of a page were dropped when each chapter took one page and started with its number
+  (`2 Blossom` on PDF page 2, e.g. HTML printed to PDF by Chrome): the numbers were taken for printed page numbers.
+  Page numbers are now inferred only from header/footer lines whose shape repeats across pages. Cleaner version 4, so
+  saved books are cleaned again.
+
+#### Security
+- `mp4_map::read_audiobook` treats the file as untrusted (security review S13): box sizes are checked without overflow
+  (a 64-bit size could wrap the offset), at most 200 000 top-level boxes are walked, `moov` is capped at 64 MB and
+  the map at 8 MB before anything is allocated, only the 16-byte type of a foreign `uuid` box is read, the `mvhd`
+  length can't overflow, and the title tag is cut to 1 KB without control characters.
+- `LectriceMap::check` (new): a map from a file is refused (the file then reads as a foreign audiobook) unless its speed
+  is 50–300 %, its sample rate and length are sane, it has at most `MAX_MAP_SENTENCES` (200 000) sentences, each id
+  once, 8-hex-digit hashes, and start times that never go back or past the end. `match_audiobook` applies it too, so
+  a timeline never has `end_ms < start_ms` or a zero speed.
+
 ## [0.3.0] - 2026-10-25
 
 Prepares the core and the web app for the desktop app (`lectrice-desktop`). No trait or saved format changes.
