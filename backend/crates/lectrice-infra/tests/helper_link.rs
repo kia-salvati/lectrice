@@ -458,3 +458,49 @@ fn the_links_error_names_are_the_registrys() {
         assert_eq!((registry.as_str(), registry.spec().code), (name.as_str(), name.code()));
     }
 }
+
+/// A paired computer that takes the phone and drops it at once, every time (broken, or hostile): the phone must
+/// come back ever more rarely, not in a loop that keeps the radio and a core busy (security review pass 3).
+#[test]
+fn a_computer_that_drops_every_session_at_once_is_retried_on_the_schedule() {
+    use lectrice_domain::{HelperEngine, HelperEvent, HelperEvents, SpeechHelper};
+    use lectrice_link::client::DirectSockets;
+    use lectrice_link::testing::RawComputer;
+    use lectrice_link::{ByeReason, Ready, ServerMessage, Welcome};
+
+    struct Ignored;
+    impl HelperEvents for Ignored {
+        fn on_event(&self, _event: HelperEvent) {}
+    }
+
+    let computer_keys = StaticKeys::generate().unwrap();
+    let computer = RawComputer::bind(computer_keys.clone()).unwrap();
+    let address = computer.address().unwrap();
+    let sessions = Arc::new(AtomicUsize::new(0));
+    let counted = sessions.clone();
+    std::thread::spawn(move || {
+        loop {
+            let welcome = Welcome { proto_minor: 0, app_version: "0.2.0".into(), computer_name: "Laptop".into(), engines: Vec::new() };
+            let Ok(mut session) = computer.accept(welcome) else { return };
+            counted.fetch_add(1, Ordering::SeqCst);
+            let _ = session.receive(WAIT);
+            let ready = Ready { engine_id: ENGINE_ID.into(), revision: REVISION.into(), sample_rate: SAMPLE_RATE, voices: vec![VOICE.into()] };
+            let _ = session.send(&ServerMessage::Ready(ready));
+            let _ = session.send(&ServerMessage::Bye(ByeReason::EngineSwitch));
+        }
+    });
+    let helper = LinkSpeechHelper::new(LinkHelperConfig {
+        keys: StaticKeys::generate().unwrap(),
+        computer_key: *computer_keys.public(),
+        addresses: vec![address],
+        client: ClientConfig { device_name: "Phone".into(), app_version: "0.4.0".into(), timing: timing(), allow_loopback: true },
+        sockets: Arc::new(DirectSockets),
+    });
+    helper.open(HelperEngine { engine_id: ENGINE_ID.into(), revision: REVISION.into(), sample_rate: SAMPLE_RATE }, Arc::new(Ignored)).unwrap();
+
+    // The first drop is answered at once (a model switch looks like this), the next after 2 s, then 5 s.
+    std::thread::sleep(Duration::from_secs(4));
+    let seen = sessions.load(Ordering::SeqCst);
+    assert!((2..=3).contains(&seen), "{seen} sessions in 4 s");
+    helper.close();
+}

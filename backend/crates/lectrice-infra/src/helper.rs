@@ -23,6 +23,10 @@ const SERVICE: &str = "LinkSpeechHelper";
 const THREAD_NAME: &str = "helper-link";
 /// How often the session loop looks for new commands between the computer's events.
 const COMMAND_POLL: Duration = Duration::from_millis(20);
+/// A session at least this many times `Timing::dead_after` long (30 s by default) proved the link works. A shorter
+/// one doesn't restart the reconnect schedule: a computer that takes the phone and drops it at once, in a loop
+/// (broken, or hostile after pairing), is retried ever more rarely instead of every second, or without any wait.
+const STABLE_SESSION_DEAD_AFTERS: u32 = 2;
 
 /// Where and who the computer is, and how this phone talks to it.
 pub struct LinkHelperConfig {
@@ -164,20 +168,27 @@ impl Supervisor {
         loop {
             self.set_state(HelperState::Connecting);
             let end = match self.connect() {
-                Ok(session) => {
-                    failures = 0;
+                Ok((session, stable_after)) => {
+                    let connected = std::time::Instant::now();
                     self.set_state(HelperState::Connected);
                     let end = self.serve(&session);
                     let reason = if matches!(end, End::Close) { ByeReason::Idle } else { ByeReason::Quit };
                     session.close(reason);
+                    if connected.elapsed() >= stable_after {
+                        failures = 0;
+                    }
                     end
                 }
                 Err(end) => end,
             };
             let waited = match end {
                 End::Close => break,
-                End::Again => true,
-                End::Lost => {
+                // At once after a model switch, but only the first time in a row of short sessions.
+                End::Again if failures == 0 => {
+                    failures = 1;
+                    true
+                }
+                End::Again | End::Lost => {
                     failures += 1;
                     self.set_state(HelperState::Lost);
                     self.wait(Some(reconnect_delay(failures)))
@@ -219,8 +230,9 @@ impl Supervisor {
         }
     }
 
-    /// Tries every address; the first computer that opens exactly this engine wins.
-    fn connect(&self) -> Result<Session, End> {
+    /// Tries every address; the first computer that opens exactly this engine wins. Also says how long the session
+    /// must last to count as stable.
+    fn connect(&self) -> Result<(Session, Duration), End> {
         let (addresses, keys, computer_key, client, sockets) = {
             let config = lock(&self.shared.config);
             (config.addresses.clone(), config.keys.clone(), config.computer_key, config.client.clone(), config.sockets.clone())
@@ -229,7 +241,7 @@ impl Supervisor {
         for address in addresses {
             let opened = Session::connect_via(sockets.as_ref(), address, &keys, &computer_key, &client).and_then(|session| self.open(session, &client));
             match opened {
-                Ok(session) => return Ok(session),
+                Ok(session) => return Ok((session, client.timing.dead_after * STABLE_SESSION_DEAD_AFTERS)),
                 Err(error) => {
                     let name = error.name();
                     info!(service = SERVICE, error = %error, name = name.as_str(), "helper connection failed");
