@@ -1,6 +1,7 @@
 //! The server's composition root: picks the concrete adapters from the config, then wires them with
 //! `lectrice_app::services::assemble` (shared with the mobile bindings).
 
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -9,7 +10,7 @@ use lectrice_app::services::{Adapters, Services, Settings, assemble, purge_remov
 use lectrice_app::speech::ReadAheadSettings;
 use lectrice_app::{RequestContext, UseCase};
 use lectrice_domain::cleaning::RuleBasedCleaner;
-use lectrice_domain::{AppResult, AudioExporter, SpeechEngine, VoiceId};
+use lectrice_domain::{AppError, AppResult, AudioExporter, ErrorName, SpeechEngine, VoiceId};
 use lectrice_infra::{
     CachedLibrary, FfmpegExporter, FsAudioCache, FsDocumentRepository, FsExportRecordStore, FsVoiceSampleCache, KokoroSettings, KokoroSpeechEngine,
     KokoroVariant, PdfiumTextSource, SentencexSplitter, Sha256ContentHasher, SonicTimeStretch, SystemClock, WavDecoder, WavEncoder,
@@ -29,6 +30,8 @@ const DOCUMENT_CACHE_CAPACITY: usize = 4;
 /// Builds the real app from the config and continues exports a stop interrupted. A speech engine that fails to load
 /// is logged and reported by `/api/health`; anything else that fails stops the start.
 pub fn build_state(config: &Config) -> AppResult<AppState> {
+    private_dir(&config.storage.data_dir)?;
+    private_dir(config.storage.cache_dir())?;
     let library = Arc::new(CachedLibrary::new(Arc::new(FsDocumentRepository::new(&config.storage.data_dir)), DOCUMENT_CACHE_CAPACITY));
     let audio_cache = Arc::new(open_audio_cache(config)?);
     let (speech_engine, speech_engine_load_ms) = load_speech_engine(&config.speech);
@@ -65,6 +68,27 @@ pub fn build_state(config: &Config) -> AppResult<AppState> {
     purge_removed_at_start(&services)?;
     resume_exports(&services)?;
     Ok(AppState { services, upload_max_bytes })
+}
+
+/// Creates the folder and makes it the user's only (0700 on Unix, also when an older version made it): the books,
+/// their cleaned text and the audio are nobody else's to read, even where home folders are open to other users
+/// (security review S11).
+fn private_dir(dir: &Path) -> AppResult<()> {
+    create_private(dir).map_err(|error| AppError::new(ErrorName::StorageFailed).with_detail(format!("cannot prepare {}", dir.display())).with_source(error))
+}
+
+#[cfg(unix)]
+fn create_private(dir: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+
+    const USER_ONLY: u32 = 0o700;
+    std::fs::DirBuilder::new().recursive(true).mode(USER_ONLY).create(dir)?;
+    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(USER_ONLY))
+}
+
+#[cfg(not(unix))]
+fn create_private(dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)
 }
 
 /// The speech engine factory: `speech.engine` picks the adapter.
@@ -152,5 +176,22 @@ mod tests {
     fn upload_limit_is_converted_to_bytes() {
         assert_eq!(megabytes_to_bytes(200), 200 * 1024 * 1024);
         assert_eq!(megabytes_to_bytes(u64::MAX), usize::MAX);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_data_folder_is_the_users_only_also_when_it_existed_before() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = tempfile::tempdir().unwrap();
+        let fresh = root.path().join("new").join("data");
+        let existing = root.path().join("old");
+        std::fs::create_dir(&existing).unwrap();
+        std::fs::set_permissions(&existing, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        for dir in [&fresh, &existing] {
+            private_dir(dir).unwrap();
+            assert_eq!(std::fs::metadata(dir).unwrap().permissions().mode() & 0o777, 0o700, "{}", dir.display());
+        }
     }
 }
