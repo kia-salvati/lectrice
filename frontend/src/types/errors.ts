@@ -1,6 +1,7 @@
 /** Server error names (spec §8). */
 export type ApiErrorName =
   | 'RequestInvalid' | 'UploadMissingFile' | 'UploadTooLarge' | 'PdfInvalid' | 'PdfEncrypted' | 'PdfNoText' | 'RouteNotFound' | 'MethodNotAllowed' | 'RequestCancelled'
+  | 'RequestForbidden' | 'PdfTooComplex'
   | 'DocumentNotFound' | 'SentenceNotFound'
   | 'VoiceUnknown' | 'SpeechEngineUnavailable' | 'SpeechSynthesisFailed'
   | 'ExportNotFound' | 'ExportNotReady' | 'ExportFormatUnsupported' | 'ExporterUnavailable'

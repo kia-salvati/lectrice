@@ -7,6 +7,7 @@ pub mod context;
 pub mod dev_clean;
 pub mod dev_speak;
 pub mod error;
+pub mod guard;
 pub mod logging;
 pub mod routes;
 pub mod server;

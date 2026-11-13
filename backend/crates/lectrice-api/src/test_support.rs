@@ -243,6 +243,7 @@ impl ExportWriter for TestPartWriter {
 
 pub struct TestApp {
     pub router: Router,
+    pub state: AppState,
     pub engine: Arc<FakeEngine>,
     pub exporter: Arc<TestExporter>,
     pub data_dir: TempDir,
@@ -291,8 +292,9 @@ impl TestApp {
     fn build(engine: Option<Arc<dyn SpeechEngine>>, fake: Arc<FakeEngine>, read_ahead: ReadAheadSettings, mode: ExporterMode) -> Self {
         let data_dir = TempDir::new().unwrap();
         let exporter = Arc::new(TestExporter::new(data_dir.path(), mode == ExporterMode::Unavailable, mode == ExporterMode::Held));
-        let router = router_with(data_dir.path(), engine, read_ahead, exporter.clone());
-        Self { router, engine: fake, exporter, data_dir }
+        let state = state_with(data_dir.path(), engine, read_ahead, exporter.clone());
+        let router = build_app(state.clone(), HeaderValue::from_static(TEST_ORIGIN));
+        Self { router, state, engine: fake, exporter, data_dir }
     }
 
     pub async fn send(&self, request: Request<Body>) -> (StatusCode, HeaderMap, Bytes) {
@@ -314,7 +316,7 @@ impl TestApp {
     }
 }
 
-fn router_with(data_dir: &Path, engine: Option<Arc<dyn SpeechEngine>>, read_ahead: ReadAheadSettings, exporter: Arc<TestExporter>) -> Router {
+fn state_with(data_dir: &Path, engine: Option<Arc<dyn SpeechEngine>>, read_ahead: ReadAheadSettings, exporter: Arc<TestExporter>) -> AppState {
     let library = Arc::new(FsDocumentRepository::new(data_dir));
     let audio_cache = Arc::new(FsAudioCache::open(data_dir, AUDIO_CACHE_MAX_BYTES).unwrap());
     let adapters = Adapters {
@@ -339,7 +341,7 @@ fn router_with(data_dir: &Path, engine: Option<Arc<dyn SpeechEngine>>, read_ahea
     let export = ExportSettings { short_file_names: true, ..ExportSettings::default() };
     let settings = Settings { import_max_bytes: UPLOAD_MAX_BYTES, default_voice: VoiceId::new(DEFAULT_VOICE), read_ahead, export };
     let services = assemble(adapters, settings).unwrap();
-    build_app(AppState { services, upload_max_bytes: UPLOAD_MAX_BYTES }, HeaderValue::from_static(TEST_ORIGIN))
+    AppState { services, upload_max_bytes: UPLOAD_MAX_BYTES }
 }
 
 pub fn get(path: &str) -> Request<Body> {

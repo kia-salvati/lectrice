@@ -41,6 +41,9 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ./build-release.sh                   # release build without /home/<user>/... paths in the binary
 ```
+The server only answers requests that name it (`Host: localhost:7878`, `127.0.0.1:7878` or `[::1]:7878`) and, when
+they change something, come from the configured page: a web page on another site can't read the library or upload
+into it. To upload or delete with `curl`, add `-H 'Origin: http://localhost:5173'` (`server.allowed_origin`).
 `cargo test -- --ignored` also runs tests that read the user's books in `~/Desktop`. They never write
 into the repo: `pdf_fixtures` only checks that `test-data/books/*.jsonl` still match the books.
 

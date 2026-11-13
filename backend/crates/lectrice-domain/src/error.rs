@@ -64,6 +64,8 @@ error_registry! {
     MethodNotAllowed        => (1007, 405, true,  "This address doesn't accept that method."),
     // 499 is the de facto "client closed request" status; the client is gone, so nobody receives it.
     RequestCancelled        => (1008, 499, true,  "The request was cancelled."),
+    RequestForbidden        => (1009, 403, true,  "This request didn't come from the Lectrice page."),
+    PdfTooComplex           => (1010, 422, true,  "This PDF is too long or too complex to open."),
     DocumentNotFound        => (1101, 404, true,  "Document not found."),
     SentenceNotFound        => (1102, 404, true,  "Sentence not found."),
     VoiceUnknown            => (2001, 400, true,  "Unknown voice."),
@@ -181,8 +183,9 @@ mod tests {
 
     /// Spec §8, plus `RequestInvalid` (B4), `RouteNotFound`, `MethodNotAllowed`, `RequestCancelled` (B-fixes)
     /// the five device-neutral 4xxx names (Android spec C4), `FileUnreadable` (C26), the three audiobook names (C39)
-    /// and the six helper names 5001–5006 (file 24 C47; `HelperBusy` from security review S15).
-    const SPEC_ERROR_COUNT: usize = 35;
+    /// the six helper names 5001–5006 (file 24 C47; `HelperBusy` from security review S15), and `RequestForbidden`
+    /// and `PdfTooComplex` (security review S2 and S7).
+    const SPEC_ERROR_COUNT: usize = 37;
 
     #[test]
     fn every_name_has_a_unique_code() {

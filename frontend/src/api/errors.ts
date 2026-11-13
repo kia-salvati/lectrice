@@ -1,6 +1,6 @@
 import type { ApiErrorName, AppErrorName, ClientErrorName } from '../types/errors';
 
-const API_ERROR_NAMES: readonly ApiErrorName[] = ['RequestInvalid', 'UploadMissingFile', 'UploadTooLarge', 'PdfInvalid', 'PdfEncrypted', 'PdfNoText', 'RouteNotFound', 'MethodNotAllowed', 'RequestCancelled', 'DocumentNotFound', 'SentenceNotFound', 'VoiceUnknown', 'SpeechEngineUnavailable', 'SpeechSynthesisFailed', 'ExportNotFound', 'ExportNotReady', 'ExportFormatUnsupported', 'ExporterUnavailable', 'StorageFailed', 'Internal'];
+const API_ERROR_NAMES: readonly ApiErrorName[] = ['RequestInvalid', 'UploadMissingFile', 'UploadTooLarge', 'PdfInvalid', 'PdfEncrypted', 'PdfNoText', 'RouteNotFound', 'MethodNotAllowed', 'RequestCancelled', 'RequestForbidden', 'PdfTooComplex', 'DocumentNotFound', 'SentenceNotFound', 'VoiceUnknown', 'SpeechEngineUnavailable', 'SpeechSynthesisFailed', 'ExportNotFound', 'ExportNotReady', 'ExportFormatUnsupported', 'ExporterUnavailable', 'StorageFailed', 'Internal'];
 
 const CLIENT_ERROR_MESSAGES: Record<ClientErrorName, string> = {
   NetworkError: "Can't reach the Lectrice server. Is it running?",
