@@ -112,7 +112,13 @@ pulls by tag. While in beta (0.x), a change to a core trait, public type or save
     `seconds × rate`: a paired computer that named 4 GHz could make the phone reserve gigabytes), and `decode_clip`
     never sizes its output beyond the longest clip the protocol allows.
   - The phone no longer queues what it didn't ask for: unasked `Ready` / `Refused` answers end the session, and at
-    most 8 unread `Load` events are kept.
+    most 8 unread `Load` events are kept. The session's sample rate is noted on the thread that reads the clips (a
+    clip right after `Ready` could be judged before the rate was known).
+  - **Fixed: the computer dropped a phone in the middle of a long stream of clips.** The phone sent its pings only
+    when a read timed out, so while clips kept arriving (no 200 ms pause) for longer than `dead_after` it sent
+    nothing and was taken for gone. It now checks after every frame too.
+  - A wrong pairing code is reported as "wrong code" also when the computer hangs up before the phone has sent its
+    hello (it was a network error then: "the computer isn't reachable").
   - Per phone, the computer keeps at most 256 waiting items (`MAX_QUEUED_ITEMS_PER_PHONE`), stops making clips while
     8 MB of them wait unread (`CLIP_BACKLOG_BYTES`, answered `HelperBusy`), and ends a session with 16 MB unwritten
     (`MAX_OUTBOX_BYTES`): a phone that floods pings or asks for clips and never reads can't grow the computer's memory.

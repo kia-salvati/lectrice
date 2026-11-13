@@ -89,6 +89,12 @@ fn checked(hello: PairHello) -> LinkResult<PairHello> {
     Ok(hello)
 }
 
+/// The other side closed the connection while we were still talking to it.
+fn is_hang_up(error: &std::io::Error) -> bool {
+    use std::io::ErrorKind::{BrokenPipe, ConnectionAborted, ConnectionReset};
+    matches!(error.kind(), BrokenPipe | ConnectionAborted | ConnectionReset)
+}
+
 /// The phone's side, after the TCP connect: sends the prologue, runs SPAKE2 and the handshake, swaps hellos.
 pub(crate) fn pair_as_phone<R: Read, W: Write>(
     reader: &mut FrameReader<R>,
@@ -120,16 +126,15 @@ pub(crate) fn pair_as_phone<R: Read, W: Write>(
     let computer_key = remote_key(&state)?;
     let channel = Channel::new(state.into_transport_mode()?);
 
-    send(&channel, writer, hello)?;
-    // A wrong code shows up here: the computer can't read our last handshake message and closes.
-    let computer_hello: PairHello = receive_by(&mut channel.opener(), reader, deadline).map_err(|error| match error {
-        LinkError::Disconnected | LinkError::Crypto => LinkError::PairingFailed("wrong code"),
-        // The computer closes with our hello unread, which some systems report as a reset.
-        LinkError::Io(error) if matches!(error.kind(), std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::ConnectionAborted) => {
-            LinkError::PairingFailed("wrong code")
-        }
-        other => other,
-    })?;
+    // A wrong code shows up here: the computer can't read our last handshake message and closes. Depending on who
+    // is quicker, that is seen when the hello is sent (a broken pipe) or when the answer is read (the end, or a reset
+    // because our hello was left unread).
+    let computer_hello: PairHello =
+        send(&channel, writer, hello).and_then(|()| receive_by(&mut channel.opener(), reader, deadline)).map_err(|error| match error {
+            LinkError::Disconnected | LinkError::Crypto => LinkError::PairingFailed("wrong code"),
+            LinkError::Io(error) if is_hang_up(&error) => LinkError::PairingFailed("wrong code"),
+            other => other,
+        })?;
     let computer_hello = checked(computer_hello)?;
     Ok(Paired { peer: PeerRecord::new(computer_hello.device_name.clone(), computer_key), hello: computer_hello })
 }

@@ -46,6 +46,26 @@ fn pairs_then_makes_clips_identical_to_local_pcm() {
     assert!(computer.events.any(|event| matches!(event, ServerEvent::SessionStarted { .. })));
 }
 
+/// Clips that arrive one right after the other, for longer than `dead_after`: the phone's read never times out, so
+/// it has to send its pings between clips too, or the computer takes it for gone in the middle of the stream.
+#[test]
+fn a_phone_that_only_listens_through_a_long_stream_stays_connected() {
+    let computer = Computer::start(Duration::from_millis(60));
+    let mut phone = Phone::new("Test phone");
+    phone.pair_with(&computer, computer.address);
+    let session = phone.open_session(computer.address);
+
+    // 32 items at 60 ms each: about 2 s of clips without a 200 ms pause, with `dead_after` at 1 s.
+    session.make(Make { batch_id: 1, items: (1..=32).map(|id| item(id, false)).collect() }).unwrap();
+    for expected in 1..=32 {
+        match next_result(&session, WAIT) {
+            Some(ClientEvent::Clip { item_id, .. }) => assert_eq!(item_id, expected),
+            other => panic!("clip {expected}: {other:?}"),
+        }
+    }
+    assert_eq!(computer.server().sessions().len(), 1, "still the same session");
+}
+
 #[test]
 fn a_long_clip_crosses_several_chunks() {
     let computer = Computer::start(Duration::ZERO);

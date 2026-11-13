@@ -234,10 +234,7 @@ impl Session {
     pub fn open(&self, open: Open, timeout: Duration) -> LinkResult<Ready> {
         self.send(&ClientMessage::Open(open))?;
         match self.opened.recv_timeout(timeout) {
-            Ok(Routed::Opened(Ok(ready))) => {
-                self.pending.lock().unwrap_or_else(PoisonError::into_inner).sample_rate = Some(ready.sample_rate);
-                Ok(ready)
-            }
+            Ok(Routed::Opened(Ok(ready))) => Ok(ready),
             Ok(Routed::Opened(Err(Refusal::ModelMissing { bundle_id }))) => Err(LinkError::ModelMissing { bundle_id }),
             Ok(Routed::Opened(Err(Refusal::RevisionMismatch { .. }))) => Err(LinkError::Incompatible("front-end revision")),
             Ok(Routed::Opened(Err(Refusal::Busy))) => Err(LinkError::Closed(ByeReason::Quit)),
@@ -343,6 +340,11 @@ impl ReaderLoop {
             match self.reader.read_frame() {
                 Ok(Some(frame)) => {
                     self.last_received = Instant::now();
+                    // Also while clips keep arriving: the read never times out then, and a phone that only listens
+                    // for longer than `dead_after` would be taken for gone by the computer.
+                    if let Err(error) = self.ping_if_quiet() {
+                        return ClosedReason::Broken(error.to_string());
+                    }
                     let message = match self.opener.open(&frame) {
                         Ok(Some(bytes)) => crate::codec::decode::<ServerMessage>(&bytes),
                         Ok(None) => continue,
@@ -383,8 +385,16 @@ impl ReaderLoop {
         match message {
             ServerMessage::Ping { t_ms } => self.writer.lock().unwrap_or_else(PoisonError::into_inner).send(&ClientMessage::Pong { t_ms })?,
             ServerMessage::Pong { .. } => {}
-            ServerMessage::Ready(ready) => self.open_reply(Ok(ready))?,
-            ServerMessage::Refused(refusal) => self.open_reply(Err(refusal))?,
+            // The rate clips must have is noted here, on the thread that reads them: noted by the caller of `open`
+            // it could come after the first clip.
+            ServerMessage::Ready(ready) => {
+                self.set_sample_rate(Some(ready.sample_rate));
+                self.open_reply(Ok(ready))?;
+            }
+            ServerMessage::Refused(refusal) => {
+                self.set_sample_rate(None);
+                self.open_reply(Err(refusal))?;
+            }
             ServerMessage::Clip(chunk) => self.take_chunk(chunk)?,
             ServerMessage::ItemFailed { item_id, error } => {
                 if self.pending.lock().unwrap_or_else(PoisonError::into_inner).items.remove(&item_id).is_some() {
@@ -401,6 +411,10 @@ impl ReaderLoop {
             ServerMessage::Welcome(_) => return Err(LinkError::Protocol("a second Welcome")),
         }
         Ok(None)
+    }
+
+    fn set_sample_rate(&self, sample_rate: Option<u32>) {
+        self.pending.lock().unwrap_or_else(PoisonError::into_inner).sample_rate = sample_rate;
     }
 
     fn open_reply(&self, reply: Result<Ready, Refusal>) -> LinkResult<()> {

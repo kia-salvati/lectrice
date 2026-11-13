@@ -11,7 +11,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use lectrice_link::client::{ClientEvent, ClosedReason, Session};
-use lectrice_link::limits::{MAX_HALF_OPEN_PER_ADDRESS, MAX_ITEMS_PER_BATCH, MAX_TEXT_BYTES, PHONE_ITEMS_PER_MINUTE, SESSION_PROLOGUE};
+use lectrice_link::limits::{MAX_HALF_OPEN_PER_ADDRESS, MAX_ITEMS_PER_BATCH, MAX_TEXT_BYTES, PHONE_ITEMS_PER_MINUTE, SESSION_PROLOGUE, Timing};
 use lectrice_link::server::{PairingStatus, ServerEvent};
 use lectrice_link::testing::{RawComputer, RawPhone};
 use lectrice_link::{
@@ -19,11 +19,29 @@ use lectrice_link::{
 };
 use support::*;
 
-const WAIT: Duration = Duration::from_secs(10);
+const WAIT: Duration = Duration::from_secs(20);
+/// Floods need time in a debug build.
+const FLOOD_WAIT: Duration = Duration::from_secs(60);
+
+/// Nothing here gives up on its own within a test: what ends a session must be the rule under test, not a
+/// one-second silence on a busy machine or a write that stalled.
+fn patient() -> Timing {
+    Timing { handshake: Duration::from_secs(10), dead_after: Duration::from_secs(30), write_stall: Duration::from_secs(120), ..timing() }
+}
+
+fn patient_computer() -> Computer {
+    Computer::start_with(Duration::ZERO, patient())
+}
+
+fn patient_phone(name: &str) -> Phone {
+    let mut phone = Phone::new(name);
+    phone.config.timing = patient();
+    phone
+}
 
 fn paired() -> (Computer, Phone) {
-    let computer = Computer::start(Duration::ZERO);
-    let mut phone = Phone::new("Test phone");
+    let computer = patient_computer();
+    let mut phone = patient_phone("Test phone");
     phone.pair_with(&computer, computer.address);
     (computer, phone)
 }
@@ -92,7 +110,7 @@ fn a_phone_that_floods_pings_and_never_reads_is_dropped() {
     let started = Instant::now();
     let mut sent = 0u64;
     // Every ping gets a pong the phone never reads: the computer must end the session, not queue pongs for ever.
-    while !session_ended(&computer) && started.elapsed() < WAIT {
+    while !session_ended(&computer) && started.elapsed() < FLOOD_WAIT {
         if raw.send(&ClientMessage::Ping { t_ms: sent }).is_err() {
             break;
         }
@@ -100,6 +118,8 @@ fn a_phone_that_floods_pings_and_never_reads_is_dropped() {
     }
     assert!(wait_until(WAIT, || session_ended(&computer)), "the session ended after {sent} unread pongs");
     assert!(computer.server().sessions().is_empty());
+    // The limit is 16 MB of waiting pongs (128 bytes each in the count), on top of what the sockets hold.
+    assert!(sent > 16 * 1024 * 1024 / 128, "{sent} pings: the outbox limit ended it, not something earlier");
 }
 
 #[test]
@@ -112,10 +132,16 @@ fn a_phone_that_never_reads_its_clips_stops_getting_them_made() {
         let first = batch * MAX_ITEMS_PER_BATCH as u32;
         raw.send(&ClientMessage::Make(Make { batch_id: batch, items: (first..first + MAX_ITEMS_PER_BATCH as u32).map(long_item).collect() })).unwrap();
     }
-    // Each clip is about 1 MB of FLAC. Unread, they fill the socket and then the backlog; the rest are refused
-    // without being made, or the session ends because writes stall. Either way the engine stops early.
+    // Each clip is 1-2 MB of FLAC. Unread, they fill the sockets and then the 8 MB backlog; the rest are refused
+    // (`HelperBusy`) without being made. The phone keeps saying it is alive, so the session stays.
     let made = || computer.engine.made.load(Ordering::SeqCst);
-    assert!(wait_until(WAIT, || computer.server().sessions().first().is_none_or(|session| session.queued == 0 && !session.making)));
+    let drained = || computer.server().sessions().first().is_some_and(|session| session.queued == 0 && !session.making);
+    let started = Instant::now();
+    while !drained() && started.elapsed() < FLOOD_WAIT {
+        raw.send(&ClientMessage::Ping { t_ms: 0 }).unwrap();
+        thread::sleep(Duration::from_millis(50));
+    }
+    assert!(drained(), "the queue was worked off while the session stayed");
     assert!(made() < items as usize / 2, "{} of {items} clips were made for a phone that reads nothing", made());
 }
 
@@ -149,7 +175,7 @@ fn items_past_the_minute_budget_are_refused_as_helper_busy() {
 #[test]
 fn garbage_inside_the_channel_ends_only_that_session() {
     let (computer, phone) = paired();
-    let mut other = Phone::new("Other phone");
+    let mut other = patient_phone("Other phone");
     other.pair_with(&computer, computer.address);
     let healthy = other.open_session(computer.address);
 
@@ -229,7 +255,7 @@ fn one_address_cannot_hold_every_half_open_slot() {
 
 #[test]
 fn stalled_and_garbage_pairing_attempts_are_not_wrong_codes_and_leave_no_phone() {
-    let computer = Computer::start(Duration::ZERO);
+    let computer = patient_computer();
     let code = computer.open_pairing();
     for garbage in [&b""[..], &[0, 3, 1, 2, 3][..], &[0xff; 40][..]] {
         let mut stream = TcpStream::connect(computer.address).unwrap();
@@ -242,7 +268,7 @@ fn stalled_and_garbage_pairing_attempts_are_not_wrong_codes_and_leave_no_phone()
     assert!(wait_until(WAIT, || matches!(computer.server().pairing_status(), PairingStatus::Showing { wrong_codes: 0, ref trying, .. } if trying.is_empty())));
     assert!(computer.peers.peers.lock().unwrap().is_empty());
     // The real phone still pairs with the same code.
-    let phone = Phone::new("Test phone");
+    let phone = patient_phone("Test phone");
     assert!(lectrice_link::client::pair(computer.address, &code, &phone.keys, &phone.config).is_ok());
 }
 
@@ -276,7 +302,7 @@ fn against_raw_computer(drive: impl FnOnce(lectrice_link::testing::RawComputerSe
     let computer = RawComputer::bind(keys.clone()).unwrap();
     let address = computer.address().unwrap();
     let driver = thread::spawn(move || drive(computer.accept(welcome()).unwrap()));
-    let phone = Phone::new("Test phone");
+    let phone = patient_phone("Test phone");
     let session = Session::connect(address, &phone.keys, keys.public(), &phone.config).unwrap();
     (session, driver)
 }
@@ -372,6 +398,9 @@ fn unasked_clips_and_failures_never_reach_the_app() {
             computer.send(&ServerMessage::ItemFailed { item_id, error: lectrice_link::ItemError { name: "Internal".into(), code: 9999 } }).unwrap();
         }
         computer.send(&ServerMessage::Bye(ByeReason::Quit)).unwrap();
+        // Until the phone has hung up: closing with one of its pings unread would reset the connection and could
+        // cost it the messages above.
+        while computer.receive(WAIT).is_ok() {}
     });
     session.open(open_request(), WAIT).unwrap();
     let mut events = Vec::new();

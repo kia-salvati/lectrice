@@ -145,6 +145,10 @@ pub struct Computer {
 
 impl Computer {
     pub fn start(delay: Duration) -> Self {
+        Self::start_with(delay, timing())
+    }
+
+    pub fn start_with(delay: Duration, timing: Timing) -> Self {
         let keys = StaticKeys::generate().unwrap();
         let peers = Arc::new(MemoryPeers::default());
         let engine = FakeEngine::new(delay);
@@ -158,7 +162,7 @@ impl Computer {
             gate: gate.clone(),
             observer: events.clone(),
         };
-        let config = ServerConfig { computer_name: "Test laptop".into(), app_version: "0.2.0".into(), timing: timing(), allow_loopback: true };
+        let config = ServerConfig { computer_name: "Test laptop".into(), app_version: "0.2.0".into(), timing, allow_loopback: true };
         let server = Server::start(vec![listener], deps, config).unwrap();
         let address = server.local_addresses()[0];
         Self { server: Some(server), address, keys, peers, engine, gate, events }
