@@ -236,14 +236,6 @@ pub fn assemble_with(adapters: Adapters, settings: Settings, options: SpeechOpti
     let Some((engine, worker, read_ahead)) = speech else {
         return Ok(Services { documents, library, speech: None, exports: None });
     };
-    let prepare = Arc::new(PrepareJobs::new(PrepareDeps {
-        engine: engine.clone(),
-        worker: worker.clone(),
-        reader: reader.clone(),
-        cache: audio_cache.clone(),
-        retention: audio_retention.clone(),
-        encoder: audio_encoder.clone(),
-    }));
     let helper = options.helper.map(|helper| {
         HelperFill::new(HelperFillDeps {
             helper,
@@ -255,6 +247,15 @@ pub fn assemble_with(adapters: Adapters, settings: Settings, options: SpeechOpti
             read_ahead: read_ahead.clone(),
         })
     });
+    let prepare = Arc::new(PrepareJobs::new(PrepareDeps {
+        engine: engine.clone(),
+        worker: worker.clone(),
+        reader: reader.clone(),
+        cache: audio_cache.clone(),
+        retention: audio_retention.clone(),
+        encoder: audio_encoder.clone(),
+        helper: helper.clone(),
+    }));
     let speech = SpeechServices {
         list_voices: ListVoices::new(engine.clone(), settings.default_voice),
         speak_sentence: SpeakSentence::new(SpeakSentenceDeps {

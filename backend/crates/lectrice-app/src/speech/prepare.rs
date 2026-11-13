@@ -2,6 +2,9 @@
 //! speech slower than real time. One job per document; it runs on its own thread, one sentence at a time at export
 //! priority (listening comes first), skips what is already cached, and pins the range so the listener's cache window
 //! doesn't delete it. The shell decides when it runs (e.g. while charging) and lifts the pin.
+//!
+//! With a helper computer connected (file 24 §3.13), [`PrepareJobs::start_on_helper`] has the computer make the range
+//! instead (after the listener's own plan); the phone's engine does nothing and no charger is needed.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -13,6 +16,7 @@ use lectrice_domain::{
 };
 use tracing::{info, warn};
 
+use super::helper_fill::HelperFill;
 use super::read_ahead_plan::playable_in_order;
 use super::worker::{SpeechJob, SpeechPriority, SpeechWorker};
 
@@ -44,6 +48,8 @@ pub struct PrepareDeps {
     pub cache: Arc<dyn AudioCache>,
     pub retention: Arc<dyn AudioRetention>,
     pub encoder: Arc<dyn AudioEncoder>,
+    /// The helper computer's fill, when the shell has one: ranges can then be made there.
+    pub helper: Option<Arc<HelperFill>>,
 }
 
 struct Job {
@@ -70,25 +76,8 @@ impl PrepareJobs {
 
     /// Replaces the document's job (and pin) with this range; already-cached sentences count as ready at once.
     pub fn start(&self, args: PrepareArgs) -> AppResult<PrepareStatus> {
-        let PrepareArgs { document_id, voice_id, read_skipped, from, to } = args;
-        if !self.deps.engine.voices().iter().any(|voice| voice.id == voice_id) {
-            return Err(AppError::new(ErrorName::VoiceUnknown).with_detail(format!("voice {voice_id}")));
-        }
-        let document = self.deps.reader.find(&document_id)?.ok_or_else(|| AppError::new(ErrorName::DocumentNotFound))?;
-        let (low, high) = (from.0.min(to.0), from.0.max(to.0));
-        let sentences: Vec<(SentenceId, String)> = playable_in_order(&document, read_skipped)
-            .into_iter()
-            .filter(|(_, sentence)| (low..=high).contains(&sentence.id.0) && !sentence.spoken_text().trim().is_empty())
-            .map(|(_, sentence)| (sentence.id, sentence.spoken_text().to_string()))
-            .collect();
-        let scope = AudioKey {
-            document_id: document_id.clone(),
-            cleaner_version: document.cleaner_version,
-            engine_id: self.deps.engine.id().to_string(),
-            voice_id,
-            sentence_id: SentenceId(low),
-        };
-        self.deps.retention.pin(&scope, SentenceId(low), SentenceId(high))?;
+        let document_id = args.document_id.clone();
+        let (scope, sentences) = self.range(args)?;
         self.stop(&document_id);
 
         let total = u32::try_from(sentences.len()).unwrap_or(u32::MAX);
@@ -104,10 +93,55 @@ impl PrepareJobs {
         Ok(status)
     }
 
-    /// Stops the document's job after the sentence being made; the pin and the made clips stay.
+    /// Has the helper computer make the range (file 24 §3.13) instead of this phone's engine; replaces the document's
+    /// job and pin like [`Self::start`]. `HelperUnreachable` when no helper is connected.
+    pub fn start_on_helper(&self, args: PrepareArgs) -> AppResult<PrepareStatus> {
+        let helper = self
+            .deps
+            .helper
+            .clone()
+            .filter(|helper| helper.makes_clips())
+            .ok_or_else(|| AppError::new(ErrorName::HelperUnreachable).with_detail("no helper computer is connected"))?;
+        let document_id = args.document_id.clone();
+        let (scope, sentences) = self.range(args)?;
+        self.stop(&document_id);
+        let progress = helper.prepare(scope, sentences)?;
+        info!(service = NAME, doc_id = %document_id, sentences = progress.total, ready = progress.ready, "prepare started on the helper");
+        Ok(PrepareStatus { ready: progress.ready, total: progress.total, running: progress.running })
+    }
+
+    /// The playable sentences of the range, pinned so the cache window keeps them.
+    fn range(&self, args: PrepareArgs) -> AppResult<(AudioKey, Vec<(SentenceId, String)>)> {
+        let PrepareArgs { document_id, voice_id, read_skipped, from, to } = args;
+        if !self.deps.engine.voices().iter().any(|voice| voice.id == voice_id) {
+            return Err(AppError::new(ErrorName::VoiceUnknown).with_detail(format!("voice {voice_id}")));
+        }
+        let document = self.deps.reader.find(&document_id)?.ok_or_else(|| AppError::new(ErrorName::DocumentNotFound))?;
+        let (low, high) = (from.0.min(to.0), from.0.max(to.0));
+        let sentences: Vec<(SentenceId, String)> = playable_in_order(&document, read_skipped)
+            .into_iter()
+            .filter(|(_, sentence)| (low..=high).contains(&sentence.id.0) && !sentence.spoken_text().trim().is_empty())
+            .map(|(_, sentence)| (sentence.id, sentence.spoken_text().to_string()))
+            .collect();
+        let scope = AudioKey {
+            document_id,
+            cleaner_version: document.cleaner_version,
+            engine_id: self.deps.engine.id().to_string(),
+            voice_id,
+            sentence_id: SentenceId(low),
+        };
+        self.deps.retention.pin(&scope, SentenceId(low), SentenceId(high))?;
+        Ok((scope, sentences))
+    }
+
+    /// Stops the document's job (on this phone after the sentence being made, or on the helper); the pin and the
+    /// made clips stay.
     pub fn stop(&self, document_id: &DocumentId) {
         if let Some(job) = self.lock().remove(document_id) {
             job.stop.store(true, Ordering::SeqCst);
+        }
+        if let Some(helper) = &self.deps.helper {
+            helper.stop_prepare(document_id);
         }
     }
 
@@ -117,12 +151,22 @@ impl PrepareJobs {
         self.deps.retention.unpin(document_id)
     }
 
+    /// The document's job on this phone, else its range on the helper (whose `running` stays true while the link is
+    /// lost: the range continues when the helper is back).
     pub fn status(&self, document_id: &DocumentId) -> PrepareStatus {
-        self.lock().get(document_id).map_or_else(PrepareStatus::default, |job| PrepareStatus {
-            ready: job.ready.load(Ordering::SeqCst),
-            total: job.total,
-            running: job.running.load(Ordering::SeqCst),
+        if let Some(job) = self.lock().get(document_id) {
+            return PrepareStatus { ready: job.ready.load(Ordering::SeqCst), total: job.total, running: job.running.load(Ordering::SeqCst) };
+        }
+        self.deps.helper.as_ref().and_then(|helper| helper.prepare_progress(document_id)).map_or_else(PrepareStatus::default, |progress| PrepareStatus {
+            ready: progress.ready,
+            total: progress.total,
+            running: progress.running,
         })
+    }
+
+    /// Whether the document's range is being made by the helper (the shell keeps the helper open meanwhile).
+    pub fn on_helper(&self, document_id: &DocumentId) -> bool {
+        self.deps.helper.as_ref().is_some_and(|helper| helper.prepare_progress(document_id).is_some())
     }
 }
 
@@ -220,6 +264,7 @@ mod tests {
             cache: cache.clone(),
             retention: cache.clone(),
             encoder: Arc::new(CountingEncoder),
+            helper: None,
         });
         let cached = AudioKey {
             document_id: document.id.clone(),

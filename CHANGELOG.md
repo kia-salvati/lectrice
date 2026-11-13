@@ -60,6 +60,10 @@ pulls by tag. While in beta (0.x), a change to a core trait, public type or save
   - `lectrice-link`: `client::SocketFactory` with `Session::connect_via` / `pair_via` (Android binds the socket to the
     Wi-Fi network; the link still checks the address before and the peer after), `DirectSockets`,
     `limits::reconnect_delay`, `LinkErrorName::HelperBusy` and `LinkErrorName::ALL`.
+  - Prepare through the computer (file 24 §3.13): `PrepareJobs::start_on_helper` sends a pinned range to
+    `HelperFill::prepare` (made after the listener's own plan, kept across a lost link; `stop_prepare`,
+    `prepare_progress` → `HelperPrepareProgress`); `PrepareJobs::status` reports either kind, `on_helper` tells which.
+    **Breaking:** `PrepareDeps` gains `helper`.
   - Registry names (C47): `HelperNotPaired` 5001, `HelperPairingFailed` 5002, `HelperUnreachable` 5003,
     `HelperModelMissing` 5004, `HelperIncompatible` 5005, `HelperBusy` 5006.
   - Tests: the link-drop simulator on a virtual clock (1 000 random runs, no gap, file 24 §13 assertions 1, 3, 4, 5,

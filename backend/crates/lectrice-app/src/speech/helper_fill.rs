@@ -100,13 +100,12 @@ struct Anchor {
 
 impl Anchor {
     fn same_scope(&self, key: &AudioKey) -> bool {
-        let own = &self.key;
-        own.document_id == key.document_id && own.cleaner_version == key.cleaner_version && own.engine_id == key.engine_id && own.voice_id == key.voice_id
+        same_scope(&self.key, key)
     }
+}
 
-    fn key_for(&self, sentence_id: SentenceId) -> AudioKey {
-        AudioKey { sentence_id, ..self.key.clone() }
-    }
+fn same_scope(own: &AudioKey, key: &AudioKey) -> bool {
+    own.document_id == key.document_id && own.cleaner_version == key.cleaner_version && own.engine_id == key.engine_id && own.voice_id == key.voice_id
 }
 
 struct Planned {
@@ -122,16 +121,36 @@ struct Target {
     failed: HashSet<SentenceId>,
 }
 
+/// A Prepare range (file 24 §3.13, C21) the helper makes after the listener's plan, in playback order.
+struct PrepareTarget {
+    /// Book, cleaner version, engine and voice of the range (its `sentence_id` means nothing).
+    scope: AudioKey,
+    plan: Vec<Planned>,
+    failed: HashSet<SentenceId>,
+}
+
+/// How far a Prepare range made by the helper has come, counted in its playable sentences.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct HelperPrepareProgress {
+    pub ready: u32,
+    pub total: u32,
+    /// Some sentences are still to be made (not cached, not refused by the helper).
+    pub running: bool,
+}
+
 struct InFlight {
     key: AudioKey,
     text: String,
     estimated_ms: u64,
     urgent: bool,
+    /// Asked for a Prepare range, not the listener's plan.
+    prepare: bool,
 }
 
 struct FillState {
     link: HelperState,
     target: Option<Target>,
+    prepare: Option<PrepareTarget>,
     in_flight: HashMap<u32, InFlight>,
     /// Clips taken out of flight and being written; still counted as asked for.
     storing: HashSet<AudioKey>,
@@ -178,6 +197,7 @@ impl HelperFill {
             state: Mutex::new(FillState {
                 link: HelperState::Off,
                 target: None,
+                prepare: None,
                 in_flight: HashMap::new(),
                 storing: HashSet::new(),
                 next_item: 0,
@@ -248,7 +268,7 @@ impl HelperFill {
             None => {
                 let item_id = state.new_item_id();
                 let estimated_ms = estimated_ms(text);
-                state.in_flight.insert(item_id, InFlight { key: key.clone(), text: text.to_string(), estimated_ms, urgent: true });
+                state.in_flight.insert(item_id, InFlight { key: key.clone(), text: text.to_string(), estimated_ms, urgent: true, prepare: false });
                 item_id
             }
         };
@@ -266,13 +286,80 @@ impl HelperFill {
     /// Stops filling `document_id` (removed, or switched to its audiobook file): the helper's queue is dropped.
     pub fn stop_document(&self, document_id: &DocumentId) {
         let mut state = self.lock();
+        self.drop_prepare(&mut state, document_id);
         if state.target.as_ref().is_some_and(|target| target.anchor.key.document_id == *document_id) {
             state.target = None;
             self.cancel_on_helper(&mut state);
             state.in_flight.clear();
             self.resume_local(&mut state);
             info!(service = NAME, doc_id = %document_id, "helper fill stopped for the document");
+            self.top_up(&mut state);
         }
+    }
+
+    /// Has the helper make these sentences of one book (a Prepare range, file 24 §3.13) after the listener's plan,
+    /// replacing any earlier range. `scope` names the book, cleaner version, engine and voice. Survives a lost link:
+    /// the range continues once the helper is back. `HelperUnreachable` when the helper can't make clips now.
+    pub fn prepare(&self, scope: AudioKey, sentences: Vec<(SentenceId, String)>) -> AppResult<HelperPrepareProgress> {
+        let mut state = self.lock();
+        if !state.link.makes_clips() {
+            return Err(AppError::new(ErrorName::HelperUnreachable).with_detail("the computer isn't connected"));
+        }
+        if let Some(previous) = state.prepare.as_ref().map(|prepare| prepare.scope.document_id.clone()) {
+            self.drop_prepare(&mut state, &previous);
+        }
+        let plan = sentences.into_iter().map(|(sentence_id, text)| Planned { sentence_id, estimated_ms: estimated_ms(&text), text }).collect();
+        info!(service = NAME, doc_id = %scope.document_id, voice_id = %scope.voice_id, "helper prepare started");
+        state.prepare = Some(PrepareTarget { scope, plan, failed: HashSet::new() });
+        self.top_up(&mut state);
+        Ok(self.progress_of(&state))
+    }
+
+    /// Stops the document's Prepare range on the helper (what was made stays cached). `false` when it had none.
+    pub fn stop_prepare(&self, document_id: &DocumentId) -> bool {
+        self.drop_prepare(&mut self.lock(), document_id)
+    }
+
+    /// The document's Prepare range on the helper, if it has one.
+    pub fn prepare_progress(&self, document_id: &DocumentId) -> Option<HelperPrepareProgress> {
+        let state = self.lock();
+        state.prepare.as_ref().filter(|prepare| prepare.scope.document_id == *document_id)?;
+        Some(self.progress_of(&state))
+    }
+
+    fn progress_of(&self, state: &FillState) -> HelperPrepareProgress {
+        let Some(prepare) = state.prepare.as_ref() else { return HelperPrepareProgress::default() };
+        let ready = prepare
+            .plan
+            .iter()
+            .filter(|planned| {
+                let key = AudioKey { sentence_id: planned.sentence_id, ..prepare.scope.clone() };
+                !state.storing.contains(&key) && self.deps.retention.contains(&key).unwrap_or(false)
+            })
+            .count();
+        let total = prepare.plan.len();
+        let refused = prepare.failed.len();
+        HelperPrepareProgress {
+            ready: u32::try_from(ready).unwrap_or(u32::MAX),
+            total: u32::try_from(total).unwrap_or(u32::MAX),
+            running: ready + refused < total,
+        }
+    }
+
+    fn drop_prepare(&self, state: &mut FillState, document_id: &DocumentId) -> bool {
+        if state.prepare.as_ref().is_none_or(|prepare| prepare.scope.document_id != *document_id) {
+            return false;
+        }
+        state.prepare = None;
+        let dropped: Vec<u32> = state.in_flight.iter().filter(|(_, flight)| flight.prepare).map(|(item_id, _)| *item_id).collect();
+        if !dropped.is_empty() {
+            // The helper can only drop its whole queue: the listener's items are asked for again below.
+            self.cancel_on_helper(state);
+            state.in_flight.retain(|_, flight| !flight.prepare);
+            self.resend_in_flight(state);
+        }
+        info!(service = NAME, doc_id = %document_id, cancelled = dropped.len(), "helper prepare stopped");
+        true
     }
 
     fn replan(&self, state: &mut FillState, position: ListenerPosition<'_>, anchor: Anchor) {
@@ -292,84 +379,100 @@ impl HelperFill {
             })
             .collect();
         let wanted: HashSet<SentenceId> = plan.iter().map(|planned| planned.sentence_id).collect();
-        // The sentence asked for now and urgent items stay: the player is waiting for them.
+        // The sentence asked for now and urgent items stay: the player is waiting for them. A Prepare range's items
+        // don't depend on where the listener is.
         let keep = |flight: &InFlight| {
-            anchor.same_scope(&flight.key) && (flight.urgent || flight.key.sentence_id == anchor.key.sentence_id || wanted.contains(&flight.key.sentence_id))
+            flight.prepare
+                || (anchor.same_scope(&flight.key)
+                    && (flight.urgent || flight.key.sentence_id == anchor.key.sentence_id || wanted.contains(&flight.key.sentence_id)))
         };
         let stale = state.in_flight.values().filter(|flight| !keep(flight)).count();
         let failed = match state.target.take() {
             Some(previous) if previous.anchor.same_scope(&anchor.key) => previous.failed,
             _ => HashSet::new(),
         };
-        if stale > 0 {
-            self.cancel_on_helper(state);
-            state.in_flight.retain(|_, flight| keep(flight));
-            // Asked again in the order they are needed: urgent first, then in playback order.
-            let place: HashMap<SentenceId, usize> = plan.iter().enumerate().map(|(index, planned)| (planned.sentence_id, index)).collect();
-            let mut kept: Vec<(&u32, &InFlight)> = state.in_flight.iter().collect();
-            kept.sort_by_key(|(_, flight)| (!flight.urgent, place.get(&flight.key.sentence_id).copied().unwrap_or(0)));
-            let kept: Vec<HelperItem> = kept
-                .into_iter()
-                .map(|(item_id, flight)| HelperItem {
-                    item_id: *item_id,
-                    voice_id: flight.key.voice_id.clone(),
-                    text: flight.text.clone(),
-                    urgent: flight.urgent,
-                })
-                .collect();
-            if !kept.is_empty() && self.send(state, kept).is_err() {
-                state.in_flight.clear();
-            }
-        }
-        if state.paused.as_ref().is_some_and(|paused| *paused != anchor.key.document_id) {
-            self.resume_local(state);
-        }
+        let planned = plan.len();
+        let document_id = anchor.key.document_id.clone();
         info!(
             service = NAME,
             doc_id = %anchor.key.document_id,
             voice_id = %anchor.key.voice_id,
             sentence_id = anchor.key.sentence_id.0,
             rate = anchor.rate,
-            planned = plan.len(),
+            planned,
             cancelled = stale,
-            in_flight = state.in_flight.len(),
             "helper fill planned"
         );
+        if stale > 0 {
+            self.cancel_on_helper(state);
+            state.in_flight.retain(|_, flight| keep(flight));
+        }
         state.target = Some(Target { anchor, plan, failed });
+        if stale > 0 {
+            self.resend_in_flight(state);
+        }
+        if state.paused.as_ref().is_some_and(|paused| *paused != document_id) {
+            self.resume_local(state);
+        }
     }
 
-    /// Asks for the nearest planned sentences that aren't cached or asked for, within the flow-control limits.
+    /// After the helper's queue was dropped: asks again for what is still in flight, in the order it is needed
+    /// (urgent first, then the listener's plan in playback order, then the Prepare range).
+    fn resend_in_flight(&self, state: &mut FillState) {
+        let listener: HashMap<SentenceId, usize> =
+            state.target.iter().flat_map(|target| target.plan.iter()).enumerate().map(|(index, planned)| (planned.sentence_id, index)).collect();
+        let range: HashMap<SentenceId, usize> =
+            state.prepare.iter().flat_map(|prepare| prepare.plan.iter()).enumerate().map(|(index, planned)| (planned.sentence_id, index)).collect();
+        let mut kept: Vec<(&u32, &InFlight)> = state.in_flight.iter().collect();
+        kept.sort_by_key(|(_, flight)| {
+            let places = if flight.prepare { &range } else { &listener };
+            (!flight.urgent, flight.prepare, places.get(&flight.key.sentence_id).copied().unwrap_or(0))
+        });
+        let kept: Vec<HelperItem> = kept
+            .into_iter()
+            .map(|(item_id, flight)| HelperItem { item_id: *item_id, voice_id: flight.key.voice_id.clone(), text: flight.text.clone(), urgent: flight.urgent })
+            .collect();
+        if !kept.is_empty() && self.send(state, kept).is_err() {
+            state.in_flight.clear();
+        }
+    }
+
+    /// Asks for the nearest planned sentences that aren't cached or asked for, within the flow-control limits: the
+    /// listener's plan first, then the Prepare range.
     fn top_up(&self, state: &mut FillState) {
         if !state.link.makes_clips() {
             return;
         }
-        let Some(target) = state.target.as_ref() else { return };
         let mut count = state.in_flight.len();
         let mut in_flight_ms = state.in_flight_ms();
-        let mut wanted = Vec::new();
-        for planned in &target.plan {
-            if count >= HELPER_MAX_IN_FLIGHT_ITEMS || in_flight_ms >= HELPER_MAX_IN_FLIGHT_MS {
-                break;
+        let mut wanted: Vec<(AudioKey, String, u64, bool)> = Vec::new();
+        let listener = state.target.iter().map(|target| (&target.anchor.key, &target.plan, &target.failed, false));
+        let range = state.prepare.iter().map(|prepare| (&prepare.scope, &prepare.plan, &prepare.failed, true));
+        'plans: for (scope, plan, failed, prepare) in listener.chain(range) {
+            for planned in plan {
+                if count >= HELPER_MAX_IN_FLIGHT_ITEMS || in_flight_ms >= HELPER_MAX_IN_FLIGHT_MS {
+                    break 'plans;
+                }
+                if failed.contains(&planned.sentence_id) {
+                    continue;
+                }
+                let key = AudioKey { sentence_id: planned.sentence_id, ..scope.clone() };
+                if state.asked_for(&key) || wanted.iter().any(|(other, ..)| *other == key) || self.deps.retention.contains(&key).unwrap_or(false) {
+                    continue;
+                }
+                count += 1;
+                in_flight_ms += planned.estimated_ms;
+                wanted.push((key, planned.text.clone(), planned.estimated_ms, prepare));
             }
-            if target.failed.contains(&planned.sentence_id) {
-                continue;
-            }
-            let key = target.anchor.key_for(planned.sentence_id);
-            if state.asked_for(&key) || self.deps.retention.contains(&key).unwrap_or(false) {
-                continue;
-            }
-            count += 1;
-            in_flight_ms += planned.estimated_ms;
-            wanted.push((key, planned.text.clone(), planned.estimated_ms));
         }
         if wanted.is_empty() {
             return;
         }
         let mut items = Vec::with_capacity(wanted.len());
-        for (key, text, estimated_ms) in wanted {
+        for (key, text, estimated_ms, prepare) in wanted {
             let item_id = state.new_item_id();
             items.push(HelperItem { item_id, voice_id: key.voice_id.clone(), text: text.clone(), urgent: false });
-            state.in_flight.insert(item_id, InFlight { key, text, estimated_ms, urgent: false });
+            state.in_flight.insert(item_id, InFlight { key, text, estimated_ms, urgent: false, prepare });
         }
         let sent: Vec<u32> = items.iter().map(|item| item.item_id).collect();
         if self.send(state, items).is_err() {
@@ -489,7 +592,11 @@ impl HelperFill {
         let Some(flight) = state.in_flight.remove(&item_id) else { return };
         state.stats.failed += 1;
         warn!(service = NAME, doc_id = %flight.key.document_id, sentence_id = flight.key.sentence_id.0, error = %error, "helper could not make an item");
-        if let Some(target) = state.target.as_mut().filter(|target| target.anchor.same_scope(&flight.key)) {
+        if flight.prepare {
+            if let Some(prepare) = state.prepare.as_mut().filter(|prepare| same_scope(&prepare.scope, &flight.key)) {
+                prepare.failed.insert(flight.key.sentence_id);
+            }
+        } else if let Some(target) = state.target.as_mut().filter(|target| target.anchor.same_scope(&flight.key)) {
             target.failed.insert(flight.key.sentence_id);
         }
         self.top_up(&mut state);
@@ -897,6 +1004,135 @@ mod tests {
         assert!(setup.engine.spoken()[0].starts_with("0050"), "made locally first; the local read-ahead follows");
         assert!(!setup.read_ahead.is_paused(&document.id));
         assert!(setup.helper.made().is_empty());
+    }
+
+    fn range(document: &Document, from: u32, to: u32) -> Vec<(SentenceId, String)> {
+        document
+            .blocks
+            .iter()
+            .flat_map(|block| &block.sentences)
+            .filter(|sentence| (from..=to).contains(&sentence.id.0))
+            .map(|s| (s.id, s.text.clone()))
+            .collect()
+    }
+
+    /// File 24 §3.13: a Prepare range goes to the helper after the listener's plan, survives a lost link, and is
+    /// counted from the cache.
+    #[test]
+    fn a_prepare_range_is_made_by_the_helper_after_the_listeners_plan() {
+        let setup = connected();
+        let document = book(&setup, 2, 15, 1);
+        let other = book(&setup, 3, 40, 1);
+
+        follow(&setup, &document, 0);
+        let listener = setup.helper.take_made();
+        assert_eq!(listener.len(), HELPER_MAX_IN_FLIGHT_ITEMS);
+        let progress = setup.fill.prepare(key(&other, 0), range(&other, 20, 29)).unwrap();
+
+        assert_eq!((progress.ready, progress.total, progress.running), (0, 10, true));
+        assert!(setup.helper.take_made().is_empty(), "the listener's plan fills the flow control first");
+        for item in &listener {
+            setup.helper.deliver(item);
+        }
+        let made = setup.helper.take_made();
+        assert_eq!(sentences(&made), [13, 14, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "the rest of the listener's plan, then the range");
+        assert!(setup.fill.prepare_progress(&other.id).unwrap().running);
+
+        setup.helper.emit(HelperEvent::State(HelperState::Lost));
+        assert!(setup.fill.prepare_progress(&other.id).is_some(), "the range waits for the helper");
+        setup.helper.connect();
+        assert!(setup.fill.stop_prepare(&other.id));
+        assert!(setup.fill.prepare_progress(&other.id).is_none());
+        assert!(setup.engine.spoken().is_empty(), "the phone's engine never ran");
+    }
+
+    #[test]
+    fn a_prepare_range_alone_fills_and_finishes() {
+        let setup = connected();
+        let document = book(&setup, 3, 40, 1);
+        setup.cache.put(&key(&document, 12), b"x").unwrap();
+
+        let progress = setup.fill.prepare(key(&document, 0), range(&document, 10, 19)).unwrap();
+        assert_eq!(progress.ready, 1);
+        let made = setup.helper.take_made();
+        assert_eq!(sentences(&made), [10, 11, 13, 14, 15, 16, 17, 18, 19]);
+        for item in &made {
+            setup.helper.deliver(item);
+        }
+
+        let progress = setup.fill.prepare_progress(&document.id).unwrap();
+        assert_eq!((progress.ready, progress.total, progress.running), (10, 10, false));
+    }
+
+    #[test]
+    fn a_jump_keeps_the_prepare_items_and_a_refused_one_ends_the_range() {
+        let setup = connected();
+        let document = book(&setup, 3, 40, 1);
+        setup.fill.prepare(key(&document, 0), range(&document, 10, 12)).unwrap();
+        let made = setup.helper.take_made();
+
+        let listener_book = book(&setup, 2, 400, 1);
+        follow(&setup, &listener_book, 0);
+        follow(&setup, &listener_book, 200);
+        let resent = setup.helper.take_made();
+        assert!(made.iter().all(|item| resent.iter().any(|other| other.item_id == item.item_id)), "prepare items asked again after the cancel");
+
+        setup.helper.deliver(&made[0]);
+        setup.helper.deliver(&made[1]);
+        setup.helper.emit(HelperEvent::ItemFailed { item_id: made[2].item_id, error: ErrorName::HelperBusy });
+
+        let progress = setup.fill.prepare_progress(&document.id).unwrap();
+        assert_eq!((progress.ready, progress.total, progress.running), (2, 3, false));
+    }
+
+    #[test]
+    fn prepare_jobs_send_the_range_to_the_helper_and_pin_it() {
+        use crate::speech::prepare::{PrepareArgs, PrepareDeps, PrepareJobs};
+        let setup = connected();
+        let document = book(&setup, 3, 40, 1);
+        let jobs = PrepareJobs::new(PrepareDeps {
+            engine: setup.engine.clone(),
+            worker: Arc::new(SpeechWorker::start(setup.engine.clone()).unwrap()),
+            reader: setup.library.reader(),
+            cache: setup.cache.clone(),
+            retention: setup.cache.clone(),
+            encoder: Arc::new(CountingEncoder),
+            helper: Some(setup.fill.clone()),
+        });
+        let args = || PrepareArgs {
+            document_id: document.id.clone(),
+            voice_id: VoiceId::new("af_heart"),
+            read_skipped: false,
+            from: SentenceId(5),
+            to: SentenceId(7),
+        };
+
+        let status = jobs.start_on_helper(args()).unwrap();
+
+        assert_eq!((status.total, status.running), (3, true));
+        assert!(jobs.on_helper(&document.id));
+        assert_eq!(setup.cache.pins(), [(document.id.clone(), 5, 7)]);
+        for item in &setup.helper.take_made() {
+            setup.helper.deliver(item);
+        }
+        assert_eq!(jobs.status(&document.id).ready, 3);
+        jobs.cancel(&document.id).unwrap();
+        assert!(!jobs.on_helper(&document.id));
+        assert!(setup.cache.pins().is_empty());
+        assert!(setup.engine.spoken().is_empty());
+
+        setup.helper.emit(HelperEvent::State(HelperState::Lost));
+        assert_eq!(jobs.start_on_helper(args()).unwrap_err().primary(), ErrorName::HelperUnreachable);
+    }
+
+    #[test]
+    fn prepare_needs_a_connected_helper() {
+        let setup = setup_with(GatedEngine::open(), WAIT_LIMIT);
+        let document = book(&setup, 3, 40, 1);
+
+        let refused = setup.fill.prepare(key(&document, 0), range(&document, 0, 3)).unwrap_err();
+
+        assert_eq!(refused.primary(), ErrorName::HelperUnreachable);
     }
 
     #[test]

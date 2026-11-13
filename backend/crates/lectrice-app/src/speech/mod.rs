@@ -18,7 +18,7 @@ mod worker;
 pub use control::{GetSpeechStats, SetReadAheadMinutes, SpeechStats, StopAllReadAhead, StopReadAhead};
 pub use helper_fill::{
     GREEN_RTF_TIMES_RATE, HELPER_AHEAD_MINUTES, HELPER_MAX_IN_FLIGHT_ITEMS, HELPER_MAX_IN_FLIGHT_MS, HELPER_NOW_GRACE, HelperFill, HelperFillDeps,
-    HelperFillStats, HelperFillStatus, UrgentWait, lost_read_ahead_minutes,
+    HelperFillStats, HelperFillStatus, HelperPrepareProgress, UrgentWait, lost_read_ahead_minutes,
 };
 pub use list_voices::{ListVoices, VoiceList};
 pub use prepare::{PrepareArgs, PrepareDeps, PrepareJobs, PrepareStatus};
