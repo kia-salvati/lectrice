@@ -1,11 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { AudioExport } from '../../types/api';
-import type { AppInfo, DesktopCommands, DesktopOs, Licenses, ModelDeleteResult, ModelStatus, SaveAsResult } from './types';
+import type { AppInfo, DesktopCommands, DesktopOs, Licenses, ModelDeleteResult, ModelStatus, PhoneHelperStatus, SaveAsResult } from './types';
 import { toDesktopError, toExportAvailability, toModelStatus } from './wire';
 import type { ExportAvailabilityDto, ModelStatusDto } from './wire';
 
 const MODEL_STATUS_EVENT = 'model-status';
+const PHONE_HELPER_EVENT = 'phone-helper';
 
 interface AppInfoDto { version: string; coreVersion: string; os: DesktopOs; arch: string; }
 
@@ -29,6 +30,12 @@ export const createTauriDesktopCommands = (): DesktopCommands => {
     const status = toModelStatus(event.payload);
     listeners.forEach((listener) => listener(status));
   }).catch((cause: unknown) => console.error('Cannot listen for the model status', cause));
+
+  // The shell sends the phone helper status in the UI's own shape (lectrice-desktop `commands/phone_helper.rs`).
+  const phoneListeners = new Set<(status: PhoneHelperStatus) => void>();
+  listen<PhoneHelperStatus>(PHONE_HELPER_EVENT, (event) => {
+    phoneListeners.forEach((listener) => listener(event.payload));
+  }).catch((cause: unknown) => console.error('Cannot listen for the phone helper status', cause));
 
   const statusCommand = async (command: string, args?: Record<string, unknown>): Promise<void> => {
     await call<unknown>(command, args);
@@ -71,5 +78,21 @@ export const createTauriDesktopCommands = (): DesktopCommands => {
     },
 
     openLink: (linkId) => call<void>('open_link', { linkId }),
+
+    phoneHelperStatus: () => call<PhoneHelperStatus>('phone_helper_status'),
+    onPhoneHelperStatus(listener) {
+      phoneListeners.add(listener);
+      return () => phoneListeners.delete(listener);
+    },
+    phoneHelperSetEnabled: (enabled) => call<void>('phone_helper_set_enabled', { enabled }),
+    phoneHelperPairStart: () => call<void>('phone_helper_pair_start'),
+    phoneHelperPairCancel: () => call<void>('phone_helper_pair_cancel'),
+    phoneHelperForget: (peerId) => call<void>('phone_helper_forget', { peerId }),
+    phoneHelperRename: (name) => call<void>('phone_helper_rename', { name }),
+    phoneHelperSetDownloadVoices: (on) => call<void>('phone_helper_set_download_voices', { on }),
+    phoneHelperSetPort: (port) => call<void>('phone_helper_set_port', { port }),
+    phoneHelperDismissModelRequest: () => call<void>('phone_helper_dismiss_model_request'),
+    phoneHelperDismissVersionMismatch: () => call<void>('phone_helper_dismiss_version_mismatch'),
+    phoneHelperAllowThisNetwork: () => call<void>('phone_helper_allow_this_network'),
   };
 };

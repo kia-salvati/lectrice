@@ -1,4 +1,5 @@
 import type { EngineStatus, ModelBundle, ModelStatus } from '../commands/types';
+import { RECOMMENDED_VARIANT } from '../config.ts';
 
 /** The core keeps this much free beyond the archive and the unpacked files while installing (spec §9.2). */
 export const INSTALL_SPARE_BYTES = 200 * 1_000_000;
@@ -16,11 +17,12 @@ export const installNeedsBytes = (bundle: ModelBundle): number => bundle.downloa
 
 export const bundleById = (status: ModelStatus, id: string | null): ModelBundle | null => status.bundles.find((bundle) => bundle.id === id) ?? null;
 
-/** The Smaller bundle when it would still install in the free space; what the no-space message offers instead. */
+/** The recommended bundle when it is smaller than the one that didn't fit and would still install; what the no-space message offers instead. */
 export const smallerThatFits = (status: ModelStatus, failedBundle: ModelBundle | null): ModelBundle | null => {
-  if (failedBundle === null || failedBundle.variant !== 'fp32') return null;
-  const smaller = status.bundles.find((bundle) => bundle.variant === 'int8') ?? null;
-  return smaller !== null && status.freeBytes !== null && installNeedsBytes(smaller) <= status.freeBytes ? smaller : null;
+  if (failedBundle === null) return null;
+  const smaller = status.bundles.find((bundle) => bundle.variant === RECOMMENDED_VARIANT) ?? null;
+  if (smaller === null || status.freeBytes === null || installNeedsBytes(smaller) >= installNeedsBytes(failedBundle)) return null;
+  return installNeedsBytes(smaller) <= status.freeBytes ? smaller : null;
 };
 
 /** A transfer blocks a second one, so "Import from file…" waits for it. */

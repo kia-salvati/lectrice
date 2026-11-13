@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMockDesktopCommands } from '../src/desktop/commands/mock.ts';
 import { hasDesktopErrorName } from '../src/desktop/commands/errors.ts';
-import type { ModelStatus, ModelTransfer } from '../src/desktop/commands/types.ts';
+import type { ModelStatus, ModelTransfer, PairedPhone } from '../src/desktop/commands/types.ts';
 import { toDesktopError, toExportAvailability, toModelStatus } from '../src/desktop/commands/wire.ts';
 import type { ModelStatusDto } from '../src/desktop/commands/wire.ts';
 import { desktopExportPhase } from '../src/desktop/utils/exportPhase.ts';
@@ -10,12 +10,13 @@ import { afterRevealed, afterRevealFailed, savedPathOfEntry, saveStateOfEntry } 
 import { newlyEnded, toastKindOf } from '../src/desktop/utils/exportToasts.ts';
 import { folderNameOf, formatApproxTimeLeft, formatDuration, formatMb, formatProgressMb, formatRetryIn, formatSpace, m4bSeconds, percentOf, versionLine } from '../src/desktop/utils/format.ts';
 import { installNeedsBytes, installPhase, smallerThatFits } from '../src/desktop/utils/modelSetup.ts';
+import { chipText, codeAriaLabel, coolDownMinutes, countdownPercent, formatCountdown, groupCode, lastSeenText, makingAudioText, otherNetworkText, parsePort, phoneMetaText, tryingText, versionToastText, wrongCodesText } from '../src/desktop/utils/phoneHelper.ts';
 import { voiceStatusText } from '../src/desktop/utils/voiceStatus.ts';
 import type { AudioExport } from '../src/types/api.ts';
 
 const MB = 1_000_000;
 const FP32 = 'kokoro-en-v1_0-fp32';
-const INT8 = 'kokoro-en-v1_0-int8';
+const FAST = 'kokoro-en-v1_0-fast';
 
 const untilStatus = (commands: ReturnType<typeof createMockDesktopCommands>, matches: (status: ModelStatus) => boolean): Promise<ModelStatus> => new Promise((resolve) => {
   const stop = commands.onModelStatus((status) => {
@@ -47,7 +48,7 @@ test('the mock shell downloads a bundle, pauses, resumes and ends with a ready e
   const commands = createMockDesktopCommands({ timeScale: 0.01 });
   const initial = await commands.modelStatus();
   assert.equal(installPhase(initial), 'choosing');
-  assert.equal(installNeedsBytes(initial.bundles[0]), 934 * MB);
+  assert.equal(installNeedsBytes(initial.bundles[1]), 934 * MB);
 
   const downloading = untilStatus(commands, (status) => status.transfer.kind === 'downloading');
   await commands.modelDownloadStart(FP32);
@@ -63,7 +64,7 @@ test('the mock shell downloads a bundle, pauses, resumes and ends with a ready e
   await commands.modelDownloadStart(FP32);
   const final = await ready;
   assert.equal(final.transfer.kind, 'none');
-  assert.deepEqual(final.bundles.map((bundle) => [bundle.installed, bundle.active]), [[true, true], [false, false]]);
+  assert.deepEqual(final.bundles.map((bundle) => [bundle.installed, bundle.active]), [[false, false], [true, true], [false, false]]);
   assert.equal(installPhase(final), 'ready');
 });
 
@@ -72,17 +73,18 @@ test('the mock shell refuses a download that does not fit and offers the smaller
   await commands.modelDownloadStart(FP32);
   const status = await commands.modelStatus();
   assert.deepEqual(status.transfer, { kind: 'failed', bundleId: FP32, source: 'download', error: 'StorageFull' });
-  assert.equal(smallerThatFits(status, status.bundles[0])?.id, INT8);
-  assert.equal(smallerThatFits({ ...status, freeBytes: 300 * MB }, status.bundles[0]), null);
+  assert.equal(smallerThatFits(status, status.bundles[1])?.id, FAST);
+  assert.equal(smallerThatFits({ ...status, freeBytes: 300 * MB }, status.bundles[1]), null);
+  assert.equal(smallerThatFits(status, status.bundles[2]), null, 'Small is no bigger than Fast');
 });
 
 test('the mock shell switches, refuses to delete a bundle an export uses, and saves an export', async () => {
-  const commands = createMockDesktopCommands({ bundleUsedByExport: INT8, timeScale: 0.01 });
+  const commands = createMockDesktopCommands({ bundleUsedByExport: FAST, timeScale: 0.01 });
   await commands.modelImport('archive');
   const imported = await untilStatus(commands, (status) => status.engine === 'ready');
-  assert.equal(imported.bundles.find((bundle) => bundle.id === INT8)?.active, true);
+  assert.equal(imported.bundles.find((bundle) => bundle.id === FAST)?.active, true);
 
-  const refused = await commands.modelDelete(INT8);
+  const refused = await commands.modelDelete(FAST);
   assert.equal(refused.deleted, false);
   assert.equal(refused.blockingExports.length, 1);
   assert.deepEqual(await commands.exportSaveAs('export-1'), { outcome: 'saved', path: '/home/sam/Music/Audiobook.m4b' });
@@ -218,4 +220,60 @@ test("a file manager that didn't start is shown until a reveal works, and keeps 
   assert.equal(afterRevealed(gone), gone);
   assert.deepEqual(saveStateOfEntry(saved), { kind: 'idle' });
   assert.equal(savedPathOfEntry(undefined, job({ status: 'done', location: { kind: 'shared', uri: '/media/usb/Book.m4b' } })), '/media/usb/Book.m4b');
+});
+
+test('the pairing card shows the code in two groups, its countdown, wrong tries and who is trying', () => {
+  assert.equal(groupCode('482913'), '482\u2009913');
+  assert.equal(codeAriaLabel('482913'), 'Pairing code 4 8 2 9 1 3');
+  assert.equal(formatCountdown(120_000), '2:00');
+  assert.equal(formatCountdown(64_200), '1:05');
+  assert.equal(formatCountdown(-500), '0:00');
+  assert.equal(countdownPercent(60_000, 120), 50);
+  assert.equal(countdownPercent(-1, 120), 0);
+  assert.equal(countdownPercent(130_000, 120), 100);
+  assert.equal(wrongCodesText(2), 'A wrong code was typed (2 of 3).');
+  assert.equal(tryingText(['192.168.1.34']), 'A device at 192.168.1.34 is pairing…');
+  assert.equal(tryingText(['192.168.1.34', '192.168.1.40']), 'Devices at 192.168.1.34 and 192.168.1.40 are pairing…');
+  assert.equal(coolDownMinutes(1_000_000 + 61_000, 1_000_000), 2);
+  assert.equal(coolDownMinutes(1_000_000, 1_000_000), 1);
+});
+
+test("a phone's row says what it is doing, or when it was last seen", () => {
+  const now = Date.parse('2026-11-13T12:00:00.000Z');
+  const ago = (ms: number) => new Date(now - ms).toISOString();
+  const MINUTE = 60_000;
+  const HOUR = 60 * MINUTE;
+  assert.equal(lastSeenText(null, now), 'Paired, not connected yet');
+  assert.equal(lastSeenText(ago(30_000), now), 'Last seen just now');
+  assert.equal(lastSeenText(ago(5 * MINUTE), now), 'Last seen 5 min ago');
+  assert.equal(lastSeenText(ago(2 * HOUR), now), 'Last seen 2 h ago');
+  assert.equal(lastSeenText(ago(30 * HOUR), now), 'Last seen yesterday');
+  assert.equal(lastSeenText(ago(3 * 24 * HOUR), now), 'Last seen 3 days ago');
+  assert.equal(lastSeenText('2026-10-12T12:00:00.000Z', now), 'Last seen 12 Oct');
+
+  const phone = (name: string, state: PairedPhone['state']): PairedPhone => ({ peerId: name, name, state, lastSeenAt: ago(5 * MINUTE) });
+  assert.equal(phoneMetaText(phone('Galaxy S10+', 'making'), true, now), 'Connected · making audio');
+  assert.equal(phoneMetaText(phone('Pixel 8', 'connected'), true, now), 'Connected');
+  assert.equal(phoneMetaText(phone('Pixel 8', 'connected'), false, now), 'Last seen 5 min ago');
+  assert.equal(phoneMetaText(phone('Old tablet', 'offline'), true, now), 'Last seen 5 min ago');
+
+  const one = [phone('Galaxy S10+', 'making')];
+  const two = [...one, phone('Pixel 8', 'making')];
+  assert.equal(chipText(one), 'Galaxy S10+');
+  assert.equal(chipText(two), 'Galaxy S10+ and 1 more');
+  assert.equal(makingAudioText(one), 'Making audio for Galaxy S10+');
+  assert.equal(makingAudioText(two), 'Making audio for 2 phones');
+});
+
+test('the Phone tab names the other network, checks the port and says which side to update', () => {
+  assert.equal(otherNetworkText(null), "Not on your home network, so your phone can't use this computer here.");
+  assert.equal(otherNetworkText('Cafe Wi-Fi'), "Not on your home network (Cafe Wi-Fi), so your phone can't use this computer here.");
+  assert.equal(parsePort('47878'), 47878);
+  assert.equal(parsePort(' 1024 '), 1024);
+  assert.equal(parsePort('1023'), null);
+  assert.equal(parsePort('65536'), null);
+  assert.equal(parsePort('47.5'), null);
+  assert.equal(parsePort(''), null);
+  assert.equal(versionToastText({ update: 'computer', phoneName: 'Galaxy S10+' }).title, 'Update Lectrice on this computer');
+  assert.equal(versionToastText({ update: 'phone', phoneName: 'Galaxy S10+' }).body, 'Galaxy S10+ has an older Lectrice. Update it to use this computer.');
 });

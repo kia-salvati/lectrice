@@ -126,7 +126,7 @@ const UnmatchedImport = ({ transfer, importKind }: { transfer: ModelTransfer } &
   return null;
 };
 
-/** The Voice model tab: both bundles as cards, import, and the switch / delete questions. */
+/** The Voice model tab: every listed bundle as a card, import, and the switch / delete questions. */
 export const VoiceModelTab = (props: VoiceModelTabProps) => {
   const { status } = props;
   const [confirm, setConfirm] = useState<Confirm | null>(null);
@@ -153,7 +153,7 @@ export const VoiceModelTab = (props: VoiceModelTabProps) => {
       <div className={desktop.actions}>
         <ImportMenu label="Import a model…" disabled={busy} onImport={props.onImport} />
       </div>
-      <p className={desktop.muted}>Both models have the same {VOICE_COUNT} English voices.</p>
+      <p className={desktop.muted}>All models have the same {VOICE_COUNT} English voices.</p>
 
       {confirm?.kind === 'switch' && (
         <ConfirmDialog title={`Switch to ${confirm.to.displayName}?`} text={`“${props.exportingBookTitle}” is being exported with ${confirm.from.displayName}. It will wait until ${confirm.from.displayName} is in use again.`} cancelLabel="Cancel" confirmLabel="Switch" onCancel={() => setConfirm(null)} onConfirm={confirmed} />

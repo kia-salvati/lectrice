@@ -2,23 +2,24 @@ import { useState } from 'react';
 import { ModalDialog } from '../ModalDialog/ModalDialog';
 import styles from './SettingsDialog.module.css';
 
-export type SettingsTab = 'model' | 'about';
+export type SettingsTab = 'model' | 'phone' | 'about';
 
 interface SettingsDialogProps {
   initialTab?: SettingsTab;
   onClose: () => void;
-  /** The two tabs' contents: <VoiceModelTab/> and <AboutTab/>. */
+  /** The tabs' contents: <VoiceModelTab/>, <PhoneTab/> and <AboutTab/>. */
   modelTab: React.ReactNode;
+  phoneTab: React.ReactNode;
   aboutTab: React.ReactNode;
 }
 
-const TAB_LABEL: Record<SettingsTab, string> = { model: 'Voice model', about: 'About' };
-const TABS: readonly SettingsTab[] = ['model', 'about'];
+const TAB_LABEL: Record<SettingsTab, string> = { model: 'Voice model', phone: 'Phone', about: 'About' };
+const TABS: readonly SettingsTab[] = ['model', 'phone', 'about'];
 
 /** UX2-C: a modal over whatever is playing, with a list of tabs on the left (pill tabs on top in a narrow window). */
-export const SettingsDialog = ({ initialTab = 'model', onClose, modelTab, aboutTab }: SettingsDialogProps) => {
+export const SettingsDialog = ({ initialTab = 'model', onClose, modelTab, phoneTab, aboutTab }: SettingsDialogProps) => {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
-  const content: Record<SettingsTab, React.ReactNode> = { model: modelTab, about: aboutTab };
+  const content: Record<SettingsTab, React.ReactNode> = { model: modelTab, phone: phoneTab, about: aboutTab };
   return (
     <ModalDialog title="Settings" size="wide" onClose={onClose}>
       <div className={styles.body}>

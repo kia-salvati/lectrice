@@ -1,0 +1,31 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .2rem .6rem;
+  border: 1px solid var(--line);
+  background: var(--bg2);
+  border-radius: 999px;
+  font-size: .8125rem;
+  line-height: 1.5;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--fg);
+}
+.chip svg, .line svg { flex: none; }
+/* A row of its own under the popover's buttons. */
+.line {
+  flex-basis: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .15rem 0;
+  border: 0;
+  background: none;
+  border-radius: 6px;
+  color: var(--fg2);
+  font-size: .8125rem;
+  text-align: left;
+  cursor: pointer;
+}
+.line:hover { text-decoration: underline; }

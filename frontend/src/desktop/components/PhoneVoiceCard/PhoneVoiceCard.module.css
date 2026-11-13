@@ -1,0 +1,6 @@
+.card {
+  composes: toast from '../ExportToast/ExportToast.module.css';
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 5rem;
+}

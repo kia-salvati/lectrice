@@ -3,16 +3,18 @@ import type { DesktopErrorName } from '../../types/errors.ts';
 import { DesktopError } from './errors.ts';
 import type { AppInfo, DesktopCommands, DesktopOs, ExportAvailability, ExportUse, LicenseTextId, Licenses, ModelBundle, ModelBundleId, ModelStatus, ModelTransfer, SaveAsResult, TransferErrorName } from './types.ts';
 import { installNeedsBytes } from '../utils/modelSetup.ts';
+import { createMockPhoneHelper } from './mockPhoneHelper.ts';
 
 const MB = 1_000_000;
 const GB = 1_000 * MB;
 
-/** The two bundles of spec §9.1, sizes rounded to the manifest's. */
+/** The offered bundles of the desktop manifest, sizes rounded to the manifest's. */
 const BUNDLES: readonly Omit<ModelBundle, 'installed' | 'active' | 'usedByExports'>[] = [
+  { id: 'kokoro-en-v1_0-fast', variant: 'fast', displayName: 'Fast', downloadBytes: 140 * MB, installedBytes: 169 * MB },
   { id: 'kokoro-en-v1_0-fp32', variant: 'fp32', displayName: 'Full quality', downloadBytes: 350 * MB, installedBytes: 384 * MB },
-  { id: 'kokoro-en-v1_0-int8', variant: 'int8', displayName: 'Smaller', downloadBytes: 132 * MB, installedBytes: 173 * MB },
+  { id: 'kokoro-en-v1_0-small', variant: 'small', displayName: 'Small', downloadBytes: 140 * MB, installedBytes: 169 * MB },
 ];
-const IMPORTED_BUNDLE: ModelBundleId = 'kokoro-en-v1_0-int8';
+const IMPORTED_BUNDLE: ModelBundleId = 'kokoro-en-v1_0-fast';
 
 const STARTING_MS = 3000;
 const TICK_MS = 250;
@@ -62,12 +64,16 @@ export interface MockDesktopOptions {
   saveAsError?: MockSaveAsError | null;
   /** "Show in folder" rejects with this name (`ExportNotFound` = the file is gone, `Internal` = no file manager). */
   revealError?: MockRevealError | null;
+  /** Phones paired before this session (shown offline in the Phone tab). */
+  phonesPairedEarlier?: boolean;
+  /** After "Pair a phone", a phone pairs by itself, connects and asks for audio. */
+  simulatePhone?: boolean;
   /** Multiplies every delay; tests pass a small number. */
   timeScale?: number;
 }
 
 /** A desktop shell that exists only in memory: the download, import, switch, delete and save flows, with timers and the chosen failures. */
-export const createMockDesktopCommands = ({ os = 'linux', freeBytes = 23.4 * GB, exportAvailability = { available: true }, bundleUsedByExport = null, importError = null, saveAsError = null, revealError = null, timeScale = 1 }: MockDesktopOptions = {}): DesktopCommands => {
+export const createMockDesktopCommands = ({ os = 'linux', freeBytes = 23.4 * GB, exportAvailability = { available: true }, bundleUsedByExport = null, importError = null, saveAsError = null, revealError = null, phonesPairedEarlier = true, simulatePhone = true, timeScale = 1 }: MockDesktopOptions = {}): DesktopCommands => {
   const listeners = new Set<(status: ModelStatus) => void>();
   const usedBy = (id: ModelBundleId): ExportUse[] => (id === bundleUsedByExport ? [EXPORT_IN_USE] : []);
   let status: ModelStatus = {
@@ -208,5 +214,7 @@ export const createMockDesktopCommands = ({ os = 'linux', freeBytes = 23.4 * GB,
     exportAvailability: async () => exportAvailability,
 
     openLink: async () => {},
+
+    ...createMockPhoneHelper({ os, pairedEarlier: phonesPairedEarlier, simulatePhone, timeScale }),
   };
 };

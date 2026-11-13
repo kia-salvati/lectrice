@@ -25,3 +25,21 @@ export const WarningIcon = () => (
     <circle cx="12" cy="18" r="1.2" fill="currentColor" />
   </Icon>
 );
+
+/** An outline handset. */
+export const PhoneIcon = () => (
+  <Icon size={16}>
+    <rect x="7" y="2.75" width="10" height="18.5" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    <path stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" d="M10.75 18.25h2.5" />
+  </Icon>
+);
+
+export const CopyIcon = () => (
+  <Icon size={16}>
+    <rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    <path fill="none" stroke="currentColor" strokeWidth="1.5" d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" />
+  </Icon>
+);
+
+/** The check of a finished step, larger than the inline one. */
+export const DoneIcon = () => <Icon size={24}><path fill="none" stroke="currentColor" strokeWidth="2.2" d="M5 12l5 5 9-10" /></Icon>;

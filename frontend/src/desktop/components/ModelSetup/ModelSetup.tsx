@@ -1,7 +1,7 @@
 import { LibraryHeader } from '../../../components/LibraryHeader/LibraryHeader';
 import controls from '../../../styles/controls.module.css';
 import type { LinkId, ModelBundle, ModelBundleId, ModelImportKind, ModelStatus, ModelTransfer, TransferErrorName, TransferSource } from '../../commands/types';
-import { IMPORT_TEXT, VARIANT_NOTE, VOICE_COUNT } from '../../config';
+import { IMPORT_TEXT, RECOMMENDED_VARIANT, VARIANT_NOTE, VOICE_COUNT } from '../../config';
 import desktop from '../../styles/controls.module.css';
 import { formatApproxTimeLeft, formatMb, formatProgressMb, formatRetryIn, formatSpace, formatSpeed, percentOf } from '../../utils/format';
 import { INSTALL_SPARE_BYTES, bundleById, installNeedsBytes, installPhase, isTransferBusy, smallerThatFits } from '../../utils/modelSetup';
@@ -80,6 +80,7 @@ const Progress = ({ bundle, transfer, children }: { bundle: ModelBundle; transfe
 const choosingParts = (props: ModelSetupProps): SetupParts => {
   const { status, selectedBundleId } = props;
   const selected = bundleById(status, selectedBundleId);
+  const recommended = status.bundles.find((bundle) => bundle.variant === RECOMMENDED_VARIANT) ?? null;
   return {
     heading: 'Choose a voice to get started',
     main: (
@@ -89,8 +90,8 @@ const choosingParts = (props: ModelSetupProps): SetupParts => {
           {status.bundles.map((bundle) => <RadioCard key={bundle.id} bundle={bundle} checked={bundle.id === selectedBundleId} onSelect={() => props.onSelect(bundle.id)} />)}
         </div>
         <div className={styles.stack}>
-          <p>Not sure? Pick Full quality.</p>
-          <p>Both have the same {VOICE_COUNT} English voices. You can switch later in Settings.</p>
+          {recommended && <p>Not sure? Pick {recommended.displayName}.</p>}
+          <p>All have the same {VOICE_COUNT} English voices. You can switch later in Settings.</p>
           {status.freeBytes !== null && <p className={desktop.muted}>Free space on this drive: {formatSpace(status.freeBytes)}</p>}
         </div>
       </>
@@ -135,7 +136,7 @@ const failedParts = (props: ModelSetupProps, transfer: FailedTransfer): SetupPar
   const noSpace = (heading?: string): SetupParts => ({
     heading,
     main: <>{collapsed}<NoSpaceBox status={props.status} bundle={bundle} smaller={smaller} /></>,
-    actions: <>{tryAgain}{smaller && <button type="button" className={controls.button} onClick={() => props.onDownload(smaller.id)}>Download Smaller instead</button>}</>,
+    actions: <>{tryAgain}{smaller && <button type="button" className={controls.button} onClick={() => props.onDownload(smaller.id)}>Download {smaller.displayName} instead</button>}</>,
   });
 
   const BY_ERROR: Record<TransferSource, Record<TransferErrorName, SetupParts>> = {
