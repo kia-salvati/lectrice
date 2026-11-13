@@ -3,4 +3,4 @@
 mod pdfium_text_source;
 mod run_builder;
 
-pub use pdfium_text_source::PdfiumTextSource;
+pub use pdfium_text_source::{PdfLimits, PdfiumTextSource};

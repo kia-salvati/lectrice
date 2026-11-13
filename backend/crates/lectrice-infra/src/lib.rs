@@ -23,7 +23,7 @@ pub use clock::SystemClock;
 #[cfg(feature = "ffmpeg-export")]
 pub use export::FfmpegExporter;
 #[cfg(feature = "pdfium")]
-pub use pdf::PdfiumTextSource;
+pub use pdf::{PdfLimits, PdfiumTextSource};
 pub use speech::{DeferredEngineInfo, DeferredSpeechEngine, WavDecoder, WavEncoder};
 #[cfg(feature = "kokoro")]
 pub use speech::{KokoroSettings, KokoroSpeechEngine, KokoroVariant};
