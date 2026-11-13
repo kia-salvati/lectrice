@@ -1,0 +1,39 @@
+# cargo-fuzz targets (nightly): `cargo +nightly fuzz run <target>` from this folder. A stable smoke version of the same
+# inputs runs with the normal tests (tests/fuzz_smoke.rs). Its own workspace, so the core workspace never builds it.
+[package]
+name = "lectrice-link-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.10"
+lectrice-link = { path = ".." }
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "frames"
+path = "fuzz_targets/frames.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "messages"
+path = "fuzz_targets/messages.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "flac"
+path = "fuzz_targets/flac.rs"
+test = false
+doc = false
+bench = false

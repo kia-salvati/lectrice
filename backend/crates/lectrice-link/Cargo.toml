@@ -1,0 +1,42 @@
+[package]
+name = "lectrice-link"
+description = "The phone ↔ computer helper link: wire protocol, SPAKE2 pairing, Noise sessions, FLAC clips, client and server."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# The phone's side: pair with a computer and ask it for clips.
+client = []
+# The computer's side: accept paired phones and make their clips.
+server = []
+# FaultyLink (a TCP proxy that cuts, stalls, throttles and delays), for the link-drop tests of both shells.
+testing = []
+
+# Exact versions on purpose (file 24 §14): the crypto crates are pinned, not ranges.
+[dependencies]
+thiserror = "=2.0.21"
+serde = { version = "=1.0.229", features = ["derive"] }
+tracing = "=0.1.44"
+postcard = { version = "=1.1.3", default-features = false, features = ["use-std"] }
+# Only the pure-Rust primitives this protocol uses (X25519, ChaCha20-Poly1305, BLAKE2s); no ring.
+snow = { version = "=0.10.0", default-features = false, features = ["use-curve25519", "use-chacha20poly1305", "use-blake2", "use-getrandom"] }
+spake2 = "=0.4.0"
+hkdf = "=0.13.0"
+sha2 = "=0.11.1"
+getrandom = "=0.3.4"
+flacenc = { version = "=0.5.1", default-features = false }
+claxon = "=0.4.3"
+# X25519 public keys from stored private keys (already in the tree through snow and spake2).
+curve25519-dalek = "=4.1.3"
+
+[dev-dependencies]
+lectrice-link = { path = ".", features = ["client", "server", "testing"] }
+rand_core = "=0.6.4"
+serde_json = "=1.0.154"
+
+[lints]
+workspace = true

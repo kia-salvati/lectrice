@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/lectrice-domain", "crates/lectrice-infra", "crates/lectrice-app", "crates/lectrice-api"]
+members = ["crates/lectrice-domain", "crates/lectrice-infra", "crates/lectrice-app", "crates/lectrice-api", "crates/lectrice-link"]
 
 [workspace.package]
 version = "0.3.0"
@@ -13,6 +13,7 @@ publish = false
 lectrice-domain = { path = "crates/lectrice-domain" }
 lectrice-infra = { path = "crates/lectrice-infra" }
 lectrice-app = { path = "crates/lectrice-app" }
+lectrice-link = { path = "crates/lectrice-link" }
 
 # domain
 thiserror = "=2.0.21"
@@ -46,6 +47,11 @@ toml = "=1.1.8"
 # api tests
 tower = { version = "=0.5.3", features = ["util"] }
 http-body-util = "=0.1.5"
+
+# The helper link-drop simulator (`lectrice-app`, file 24 §13) plays a thousand virtual listening sessions; optimised
+# test code keeps it at a few seconds instead of minutes.
+[profile.test.package.lectrice-app]
+opt-level = 2
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
