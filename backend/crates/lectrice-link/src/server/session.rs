@@ -3,7 +3,7 @@
 
 use std::collections::VecDeque;
 use std::net::{IpAddr, Shutdown, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -19,7 +19,10 @@ use crate::error::{LinkError, LinkErrorName, LinkResult};
 use crate::flac::{MIN_CLIP_SAMPLES, encode_clip};
 use crate::frame::FrameReader;
 use crate::identity::{KEY_BYTES, PeerRecord};
-use crate::limits::{CLIP_CHUNK_BYTES, MAX_SESSIONS, PHONE_ITEMS_PER_MINUTE, PROTOCOL_MINOR, SESSION_PROLOGUE, max_clip_samples};
+use crate::limits::{
+    CLIP_BACKLOG_BYTES, CLIP_CHUNK_BYTES, MAX_OUTBOX_BYTES, MAX_QUEUED_ITEMS_PER_PHONE, MAX_SESSIONS, PHONE_ITEMS_PER_MINUTE, PROTOCOL_MINOR, SESSION_PROLOGUE,
+    max_clip_samples,
+};
 use crate::messages::{ByeReason, CancelScope, ClientMessage, ClipChunk, Item, ItemError, Load, Make, Open, Ready, ServerMessage, Welcome, speakable_text};
 use crate::noise::{Channel, IK_PARAMS, Opener, params, receive_handshake, send_handshake};
 use crate::pcm::pcm16_from_f32;
@@ -36,8 +39,22 @@ fn item_error((name, code): (&str, u32)) -> ItemError {
     ItemError { name: name.into(), code }
 }
 
+/// What a waiting message counts for besides its payload.
+const MESSAGE_OVERHEAD_BYTES: usize = 128;
+
+/// Roughly what `message` holds in memory while it waits in the outbox.
+fn outbox_cost(message: &ServerMessage) -> usize {
+    let payload = match message {
+        ServerMessage::Clip(chunk) => chunk.flac.len(),
+        ServerMessage::Ready(ready) => ready.voices.iter().map(String::len).sum(),
+        _ => 0,
+    };
+    MESSAGE_OVERHEAD_BYTES + payload
+}
+
 enum Outgoing {
-    Message(ServerMessage),
+    /// The message and its [`outbox_cost`].
+    Message(ServerMessage, usize),
     Close,
 }
 
@@ -45,6 +62,10 @@ pub(crate) struct SessionHandle {
     key: SessionKey,
     pub(crate) peer: PeerRecord,
     outbox: Sender<Outgoing>,
+    /// The cost of everything in `outbox` that isn't written yet.
+    outbox_bytes: AtomicUsize,
+    /// To cut the connection from any thread (the writer may be blocked in a write).
+    socket: TcpStream,
     engine: Mutex<Option<Arc<dyn ClipEngine>>>,
     /// (batch, item) being made now.
     making: Mutex<Option<(u32, u32)>>,
@@ -65,8 +86,27 @@ impl SessionHandle {
         lock(&self.making).is_some()
     }
 
+    /// Queues `message` for the writer. A phone that sends without reading would grow the queue for as long as it
+    /// likes (every ping gets a pong); past `MAX_OUTBOX_BYTES` the session ends instead.
     fn send(&self, message: ServerMessage) {
-        let _ = self.outbox.send(Outgoing::Message(message));
+        let cost = outbox_cost(&message);
+        if self.outbox_bytes.fetch_add(cost, Ordering::SeqCst) + cost > MAX_OUTBOX_BYTES {
+            self.outbox_bytes.fetch_sub(cost, Ordering::SeqCst);
+            if !self.closed.swap(true, Ordering::SeqCst) {
+                warn!(service = SERVICE, peer = self.peer.peer_id.short(), "Phone isn't reading; session ended");
+            }
+            let _ = self.outbox.send(Outgoing::Close);
+            let _ = self.socket.shutdown(Shutdown::Both);
+            return;
+        }
+        if self.outbox.send(Outgoing::Message(message, cost)).is_err() {
+            self.outbox_bytes.fetch_sub(cost, Ordering::SeqCst);
+        }
+    }
+
+    /// True while clips already made for this phone wait to be read: making more would only pile them up.
+    fn is_backlogged(&self) -> bool {
+        self.outbox_bytes.load(Ordering::SeqCst) > CLIP_BACKLOG_BYTES
     }
 
     /// Says goodbye and ends the session (once).
@@ -149,6 +189,8 @@ pub(super) fn serve_session(shared: &Arc<Shared>, stream: TcpStream, from: IpAdd
         key,
         peer: peer.clone(),
         outbox,
+        outbox_bytes: AtomicUsize::new(0),
+        socket: stream.try_clone()?,
         engine: Mutex::new(None),
         making: Mutex::new(None),
         discard_current: AtomicBool::new(false),
@@ -176,12 +218,23 @@ pub(super) fn serve_session(shared: &Arc<Shared>, stream: TcpStream, from: IpAdd
     let writer_thread = {
         let handle = handle.clone();
         let channel = channel.clone();
-        thread::Builder::new().name("link-writer".into()).spawn(move || write_loop(&handle, &channel, writer, &outgoing))?
+        thread::Builder::new().name("link-writer".into()).spawn(move || write_loop(&handle, &channel, writer, &outgoing))
     };
-    let end = SessionReader { shared, handle: &handle, opener, reader, phone_app_version: hello.app_version, last_received: Instant::now() }.run();
-    handle.closed.store(true, Ordering::SeqCst);
-    let _ = handle.outbox.send(Outgoing::Close);
-    let _ = writer_thread.join();
+    let (end, spawn_error) = match writer_thread {
+        Ok(writer_thread) => {
+            let reader = SessionReader { shared, handle: &handle, opener, reader, phone_app_version: hello.app_version, last_received: Instant::now() };
+            let end = reader.run();
+            handle.closed.store(true, Ordering::SeqCst);
+            let _ = handle.outbox.send(Outgoing::Close);
+            let _ = writer_thread.join();
+            (end, None)
+        }
+        // Without a writer the session can't run; it still has to leave the session list below.
+        Err(error) => {
+            handle.closed.store(true, Ordering::SeqCst);
+            (SessionEnd::Broken, Some(error))
+        }
+    };
     let _ = stream.shutdown(Shutdown::Both);
     lock(&handle.engine).take();
 
@@ -199,14 +252,16 @@ pub(super) fn serve_session(shared: &Arc<Shared>, stream: TcpStream, from: IpAdd
     if removed {
         shared.notify(ServerEvent::SessionEnded { peer_id: peer.peer_id, end });
     }
-    Ok(())
+    spawn_error.map_or(Ok(()), |error| Err(error.into()))
 }
 
 fn write_loop(handle: &SessionHandle, channel: &Channel, mut writer: TcpStream, outgoing: &Receiver<Outgoing>) {
     while let Ok(next) = outgoing.recv() {
         match next {
-            Outgoing::Message(message) => {
-                if let Err(error) = send(channel, &mut writer, &message) {
+            Outgoing::Message(message, cost) => {
+                let sent = send(channel, &mut writer, &message);
+                handle.outbox_bytes.fetch_sub(cost, Ordering::SeqCst);
+                if let Err(error) = sent {
                     debug!(service = SERVICE, error = %error, "Session write failed");
                     break;
                 }
@@ -316,9 +371,10 @@ impl SessionReader<'_> {
         };
         let (known, unknown): (Vec<Item>, Vec<Item>) = items.into_iter().partition(|item| voices.contains(&item.voice_id));
         unknown.iter().for_each(|item| self.fail(item.item_id, VOICE_UNKNOWN));
-        let allowed = self.handle.take_budget(known.len());
+        let room = MAX_QUEUED_ITEMS_PER_PHONE.saturating_sub(lock(&self.shared.queue).len_of(self.handle.key));
+        let allowed = self.handle.take_budget(known.len().min(room));
         if allowed < known.len() {
-            warn!(service = SERVICE, peer = self.handle.peer.peer_id.short(), refused = known.len() - allowed, "Phone over its item budget");
+            warn!(service = SERVICE, peer = self.handle.peer.peer_id.short(), refused = known.len() - allowed, room, "Phone over its item budget");
         }
         known[allowed..].iter().for_each(|item| self.fail(item.item_id, HELPER_BUSY));
         let accepted: Vec<Item> = known.into_iter().take(allowed).collect();
@@ -372,6 +428,11 @@ pub(super) fn maker_loop(shared: &Arc<Shared>) {
             session.send(ServerMessage::ItemFailed { item_id: next.item.item_id, error: item_error(ENGINE_UNAVAILABLE) });
             continue;
         };
+        if session.is_backlogged() {
+            debug!(service = SERVICE, peer = session.peer.peer_id.short(), item_id = next.item.item_id, "Item refused: the phone is behind on reading clips");
+            session.send(ServerMessage::ItemFailed { item_id: next.item.item_id, error: item_error(HELPER_BUSY) });
+            continue;
+        }
         *lock(&session.making) = Some((next.batch_id, next.item.item_id));
         session.discard_current.store(false, Ordering::SeqCst);
         notify_activity(shared, &session);

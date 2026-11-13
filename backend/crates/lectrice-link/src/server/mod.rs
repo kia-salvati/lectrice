@@ -14,7 +14,7 @@ mod session;
 use std::collections::HashMap;
 use std::io::Read;
 use std::net::{IpAddr, Shutdown, SocketAddr, TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -28,11 +28,11 @@ use crate::error::{LinkError, LinkResult};
 use crate::frame::FrameReader;
 use crate::identity::{PeerId, PeerRecord, PeerStore, StaticKeys};
 use crate::limits::{
-    FAILED_HANDSHAKES_BEFORE_BACKOFF, HANDSHAKE_BACKOFF, MAX_HALF_OPEN_CONNECTIONS, MAX_PROLOGUE_BYTES, PAIR_PROLOGUE, PAIR_STEP_TIMEOUT, PROTOCOL_MINOR,
-    SESSION_PROLOGUE, Timing,
+    FAILED_HANDSHAKES_BEFORE_BACKOFF, HANDSHAKE_BACKOFF, MAX_BACKOFF_ADDRESSES, MAX_HALF_OPEN_CONNECTIONS, MAX_HALF_OPEN_PER_ADDRESS, MAX_PROLOGUE_BYTES,
+    PAIR_PROLOGUE, PAIR_STEP_TIMEOUT, PROTOCOL_MINOR, SESSION_PROLOGUE, Timing,
 };
 use crate::messages::{ByeReason, EngineOffer, ItemError, PairHello, Refusal};
-use crate::pairing::pair_as_computer;
+use crate::pairing::{Paired, pair_as_computer};
 use crate::socket::{POLL, check_peer, prepare};
 use pairing_window::{AttemptEnd, PairingWindow};
 use queue::{Queue, SessionKey};
@@ -126,10 +126,20 @@ pub struct SessionInfo {
     pub making: bool,
 }
 
-#[derive(Default)]
 struct Backoff {
     failures: u32,
+    last_failure: Instant,
     blocked_until: Option<Instant>,
+}
+
+impl Backoff {
+    /// Nothing to remember any more: the block ran out, or the failures are old.
+    fn is_over(&self, now: Instant) -> bool {
+        match self.blocked_until {
+            Some(until) => now >= until,
+            None => now.duration_since(self.last_failure) >= HANDSHAKE_BACKOFF,
+        }
+    }
 }
 
 struct Shared {
@@ -144,7 +154,8 @@ struct Shared {
     next_key: AtomicU64,
     queue: Mutex<Queue>,
     work: Condvar,
-    half_open: AtomicUsize,
+    /// Handshakes under way, per source address.
+    half_open: Mutex<HashMap<IpAddr, usize>>,
     backoff: Mutex<HashMap<IpAddr, Backoff>>,
 }
 
@@ -173,7 +184,7 @@ impl Server {
             next_key: AtomicU64::new(1),
             queue: Mutex::new(Queue::default()),
             work: Condvar::new(),
-            half_open: AtomicUsize::new(0),
+            half_open: Mutex::new(HashMap::new()),
             backoff: Mutex::new(HashMap::new()),
         });
         let accept = {
@@ -289,25 +300,59 @@ impl Shared {
 
     fn blocked(&self, address: IpAddr) -> bool {
         let mut backoff = lock(&self.backoff);
-        let Some(entry) = backoff.get_mut(&address) else { return false };
-        match entry.blocked_until {
-            Some(until) if Instant::now() < until => true,
-            Some(_) => {
-                backoff.remove(&address);
-                false
-            }
-            None => false,
+        let Some(entry) = backoff.get(&address) else { return false };
+        if entry.is_over(Instant::now()) {
+            backoff.remove(&address);
+            return false;
         }
+        entry.blocked_until.is_some()
     }
 
     /// A failed session handshake from `address` (per address only: it never blocks pairing or other phones).
+    /// The list is bounded: entries that are over go first, then the oldest, so a machine that fails from many
+    /// addresses can't grow it.
     fn handshake_failed(&self, address: IpAddr) {
+        let now = Instant::now();
         let mut backoff = lock(&self.backoff);
-        let entry = backoff.entry(address).or_default();
+        if !backoff.contains_key(&address) && backoff.len() >= MAX_BACKOFF_ADDRESSES {
+            backoff.retain(|_, entry| !entry.is_over(now));
+            if backoff.len() >= MAX_BACKOFF_ADDRESSES
+                && let Some(oldest) = backoff.iter().min_by_key(|(_, entry)| entry.last_failure).map(|(address, _)| *address)
+            {
+                backoff.remove(&oldest);
+            }
+        }
+        let entry = backoff.entry(address).or_insert(Backoff { failures: 0, last_failure: now, blocked_until: None });
+        if entry.is_over(now) {
+            entry.failures = 0;
+            entry.blocked_until = None;
+        }
         entry.failures += 1;
+        entry.last_failure = now;
         if entry.failures >= FAILED_HANDSHAKES_BEFORE_BACKOFF {
-            entry.blocked_until = Some(Instant::now() + HANDSHAKE_BACKOFF);
+            entry.blocked_until = Some(now + HANDSHAKE_BACKOFF);
             warn!(service = SERVICE, "Address blocked after failed handshakes");
+        }
+    }
+
+    /// Counts a new connection as half-open unless too many are (in all, or from this address).
+    fn begin_half_open(&self, address: IpAddr) -> bool {
+        let mut half_open = lock(&self.half_open);
+        let from_address = half_open.get(&address).copied().unwrap_or(0);
+        if half_open.values().sum::<usize>() >= MAX_HALF_OPEN_CONNECTIONS || from_address >= MAX_HALF_OPEN_PER_ADDRESS {
+            return false;
+        }
+        half_open.insert(address, from_address + 1);
+        true
+    }
+
+    fn end_half_open(&self, address: IpAddr) {
+        let mut half_open = lock(&self.half_open);
+        match half_open.get_mut(&address) {
+            Some(count) if *count > 1 => *count -= 1,
+            _ => {
+                half_open.remove(&address);
+            }
         }
     }
 
@@ -353,23 +398,25 @@ fn housekeeping(shared: &Shared) {
 }
 
 fn admit(shared: &Arc<Shared>, stream: TcpStream, address: SocketAddr) {
-    if check_peer(address, shared.allow_loopback).is_err() || shared.blocked(address.ip()) {
-        debug!(service = SERVICE, "Connection refused: address not allowed or blocked");
+    if check_peer(address, shared.allow_loopback).is_err() {
+        debug!(service = SERVICE, "Connection refused: not an address on the home network");
         return;
     }
-    if shared.half_open.fetch_add(1, Ordering::SeqCst) >= MAX_HALF_OPEN_CONNECTIONS {
-        shared.half_open.fetch_sub(1, Ordering::SeqCst);
+    if !shared.begin_half_open(address.ip()) {
         debug!(service = SERVICE, "Connection refused: too many handshakes under way");
         return;
     }
+    let shared_for_error = shared;
     let shared = shared.clone();
     let spawned = thread::Builder::new().name("link-conn".into()).spawn(move || {
-        let mut half_open = HalfOpen { shared: &shared, done: false };
+        let mut half_open = HalfOpen { shared: &shared, address: address.ip(), done: false };
         if let Err(error) = serve(&shared, stream, address, &mut half_open) {
             debug!(service = SERVICE, error = %error, "Connection ended during set-up");
         }
     });
     if let Err(error) = spawned {
+        // The closure (and its `HalfOpen`) never ran.
+        shared_for_error.end_half_open(address.ip());
         warn!(service = SERVICE, error = %error, "Cannot start a connection thread");
     }
 }
@@ -377,13 +424,14 @@ fn admit(shared: &Arc<Shared>, stream: TcpStream, address: SocketAddr) {
 /// Counts the connection as half-open until its handshake is done (or it ends).
 struct HalfOpen<'a> {
     shared: &'a Shared,
+    address: IpAddr,
     done: bool,
 }
 
 impl HalfOpen<'_> {
     fn finish(&mut self) {
         if !std::mem::replace(&mut self.done, true) {
-            self.shared.half_open.fetch_sub(1, Ordering::SeqCst);
+            self.shared.end_half_open(self.address);
         }
     }
 }
@@ -403,6 +451,11 @@ fn serve(shared: &Arc<Shared>, stream: TcpStream, address: SocketAddr, half_open
         serve_pairing(shared, stream, address.ip());
         Ok(())
     } else if prologue == SESSION_PROLOGUE {
+        // Only sessions are backed off: pairing has its own limits, and a phone the computer forgot must be able to
+        // pair again at once, whatever its failed sessions before.
+        if shared.blocked(address.ip()) {
+            return Err(LinkError::LimitExceeded("this address is backed off after failed handshakes"));
+        }
         session::serve_session(shared, stream, address.ip(), deadline, half_open)
     } else {
         shared.handshake_failed(address.ip());
@@ -438,38 +491,42 @@ fn serve_pairing(shared: &Shared, stream: TcpStream, from: IpAddr) {
     };
     shared.pairing_changed();
     let hello = PairHello { device_name: lock(&shared.computer_name).clone(), app_version: shared.app_version.clone(), proto_minor: PROTOCOL_MINOR };
-    let end = match stream.try_clone() {
-        Ok(mut writer) => {
-            let mut reader = FrameReader::new(stream);
-            let result = pair_as_computer(&mut reader, &mut writer, &attempt.code, &shared.deps.keys, &hello, PAIR_STEP_TIMEOUT);
-            let _ = writer.shutdown(Shutdown::Both);
-            match result {
-                Ok(paired) => match shared.deps.peers.put(paired.peer.clone()) {
-                    Ok(()) => {
-                        info!(service = SERVICE, peer = paired.peer.peer_id.short(), "Phone paired");
-                        AttemptEnd::Paired(paired.peer)
-                    }
-                    Err(error) => {
-                        warn!(service = SERVICE, error = %error, "Cannot save the paired phone");
-                        AttemptEnd::Abandoned
-                    }
-                },
-                Err(LinkError::PairingFailed(_)) => {
-                    warn!(service = SERVICE, "Wrong pairing code");
-                    AttemptEnd::WrongCode
-                }
-                Err(error) => {
-                    debug!(service = SERVICE, error = %error, "Pairing attempt abandoned");
-                    AttemptEnd::Abandoned
-                }
-            }
+    let mut saved = false;
+    // Runs when the phone has proved it knows the code, before it is told so. The window stays locked from the check
+    // to `end`: of two attempts with the right code only the first is saved, and none after the window closed (the
+    // attempts in the other slots outlive the third wrong code), so the user sees every phone that was paired.
+    let mut save = |paired: &Paired| {
+        let mut pairing = lock(&shared.pairing);
+        if !pairing.is_open_for(&attempt) {
+            warn!(service = SERVICE, "Pairing finished after its window closed; the phone isn't saved");
+            return Err(LinkError::Timeout("the pairing window closed"));
         }
-        Err(error) => {
-            warn!(service = SERVICE, error = %error, "Cannot clone the pairing socket");
-            AttemptEnd::Abandoned
-        }
+        shared.deps.peers.put(paired.peer.clone()).inspect_err(|error| warn!(service = SERVICE, error = %error, "Cannot save the paired phone"))?;
+        info!(service = SERVICE, peer = paired.peer.peer_id.short(), "Phone paired");
+        pairing.end(&attempt, AttemptEnd::Paired(paired.peer.clone()), Instant::now());
+        saved = true;
+        Ok(())
     };
-    lock(&shared.pairing).end(&attempt, end, Instant::now());
+    let result = stream.try_clone().map_err(LinkError::from).and_then(|mut writer| {
+        let mut reader = FrameReader::new(stream);
+        let result = pair_as_computer(&mut reader, &mut writer, &attempt.code, &shared.deps.keys, &hello, PAIR_STEP_TIMEOUT, &mut save);
+        let _ = writer.shutdown(Shutdown::Both);
+        result
+    });
+    if !saved {
+        let end = match result {
+            Err(LinkError::PairingFailed(_)) => {
+                warn!(service = SERVICE, "Wrong pairing code");
+                AttemptEnd::WrongCode
+            }
+            Err(error) => {
+                debug!(service = SERVICE, error = %error, "Pairing attempt abandoned");
+                AttemptEnd::Abandoned
+            }
+            Ok(_) => AttemptEnd::Abandoned,
+        };
+        lock(&shared.pairing).end(&attempt, end, Instant::now());
+    }
     shared.pairing_changed();
 }
 

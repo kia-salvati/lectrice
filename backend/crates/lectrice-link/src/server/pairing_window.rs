@@ -87,18 +87,30 @@ impl PairingWindow {
         self.window = Window::Closed;
     }
 
-    /// Starts an attempt if the window is open and a slot is free.
+    /// Starts an attempt if the window is open, a slot is free and this address has no attempt under way.
     pub fn begin(&mut self, from: IpAddr, now: Instant) -> Option<Attempt> {
         self.expire(now);
         let Window::Open { code, trying, .. } = &mut self.window else { return None };
-        if trying.len() >= MAX_PARALLEL_PAIRINGS {
+        if trying.len() >= MAX_PARALLEL_PAIRINGS || trying.contains(&from) {
             return None;
         }
         trying.push(from);
         Some(Attempt { code: code.clone(), from })
     }
 
+    /// True while the window this attempt began in is still open (the caller saves a paired phone only then).
+    pub fn is_open_for(&self, attempt: &Attempt) -> bool {
+        matches!(&self.window, Window::Open { code, .. } if *code == attempt.code)
+    }
+
     pub fn end(&mut self, attempt: &Attempt, end: AttemptEnd, now: Instant) {
+        // A wrong code is a guess made, also when its window closed while the attempt ran (attempts in the other
+        // slots outlive the third wrong code): it always counts towards the hourly limit.
+        if matches!(end, AttemptEnd::WrongCode) && self.count_wrong_code(now) {
+            self.cooldown_until = Some(now + PAIR_COOLDOWN);
+            self.window = Window::TooManyWrongCodes(Some(attempt.from));
+            return;
+        }
         let Window::Open { code, wrong_codes, trying, .. } = &mut self.window else { return };
         if *code != attempt.code {
             return;
@@ -111,19 +123,20 @@ impl PairingWindow {
             AttemptEnd::Abandoned => {}
             AttemptEnd::WrongCode => {
                 *wrong_codes += 1;
-                let closed = *wrong_codes >= PAIR_MAX_FAILURES;
-                self.failures.push_back(now);
-                while self.failures.front().is_some_and(|at| now.duration_since(*at) > PAIR_FAILURE_WINDOW) {
-                    self.failures.pop_front();
-                }
-                if self.failures.len() >= PAIR_FAILURES_PER_HOUR {
-                    self.cooldown_until = Some(now + PAIR_COOLDOWN);
-                    self.window = Window::TooManyWrongCodes(Some(attempt.from));
-                } else if closed {
+                if *wrong_codes >= PAIR_MAX_FAILURES {
                     self.window = Window::TooManyWrongCodes(Some(attempt.from));
                 }
             }
         }
+    }
+
+    /// Notes a wrong code; true when this hour's limit is reached.
+    fn count_wrong_code(&mut self, now: Instant) -> bool {
+        self.failures.push_back(now);
+        while self.failures.front().is_some_and(|at| now.duration_since(*at) > PAIR_FAILURE_WINDOW) {
+            self.failures.pop_front();
+        }
+        self.failures.len() >= PAIR_FAILURES_PER_HOUR
     }
 
     /// Closes an open window whose code ran out; true when it just expired.
@@ -234,5 +247,61 @@ mod tests {
         let peer = PeerRecord::new("Phone".into(), [7; 32]);
         window.end(&attempt, AttemptEnd::Paired(peer.clone()), now);
         assert_eq!(window.status(now), PairingStatus::Paired { peer });
+    }
+
+    #[test]
+    fn one_address_gets_one_slot() {
+        let now = Instant::now();
+        let mut window = PairingWindow::new();
+        window.open(now).unwrap();
+        let first = window.begin(address(1), now).unwrap();
+        assert!(window.begin(address(1), now).is_none(), "the same address again");
+        assert!(window.begin(address(2), now).is_some());
+        window.end(&first, AttemptEnd::Abandoned, now);
+        assert!(window.begin(address(1), now).is_some());
+    }
+
+    #[test]
+    fn attempts_that_outlive_their_window_pair_nobody_but_their_wrong_codes_count() {
+        let now = Instant::now();
+        let mut window = PairingWindow::new();
+        window.open(now).unwrap();
+        // Three attempts run; as each wrong one ends, another starts in its slot.
+        let mut running: Vec<Attempt> = (1..=3).map(|last| window.begin(address(last), now).unwrap()).collect();
+        for last in 4..=5 {
+            window.end(&running.remove(0), AttemptEnd::WrongCode, now);
+            running.push(window.begin(address(last), now).unwrap());
+        }
+        window.end(&running.remove(0), AttemptEnd::WrongCode, now);
+        assert!(matches!(window.status(now), PairingStatus::TooManyWrongCodes { .. }));
+        // Two attempts are still running. One had the right code: too late, its window is closed.
+        assert!(!window.is_open_for(&running[0]));
+        window.end(&running[0], AttemptEnd::Paired(PeerRecord::new("Late".into(), [9; 32])), now);
+        assert!(matches!(window.status(now), PairingStatus::TooManyWrongCodes { .. }));
+        // The other was wrong: it still counts towards the hour's limit (4 so far).
+        window.end(&running[1], AttemptEnd::WrongCode, now);
+        assert_eq!(window.failures.len(), 4);
+        // A new window: the old attempts don't belong to it.
+        window.open(now).unwrap();
+        assert!(!window.is_open_for(&running[0]));
+    }
+
+    #[test]
+    fn the_hourly_limit_closes_whatever_window_is_open() {
+        let now = Instant::now();
+        let mut window = PairingWindow::new();
+        window.open(now).unwrap();
+        let late = window.begin(address(9), now).unwrap();
+        for _ in 0..PAIR_FAILURES_PER_HOUR - 1 {
+            window.open(now).unwrap();
+            let attempt = window.begin(address(1), now).unwrap();
+            window.end(&attempt, AttemptEnd::WrongCode, now);
+        }
+        window.open(now).unwrap();
+        // The tenth wrong code comes from an attempt of an earlier window.
+        window.end(&late, AttemptEnd::WrongCode, now);
+        assert!(matches!(window.status(now), PairingStatus::TooManyWrongCodes { .. }));
+        assert!(window.begin(address(2), now).is_none());
+        assert!(matches!(window.open(now).unwrap(), PairingStatus::CoolingDown { .. }));
     }
 }

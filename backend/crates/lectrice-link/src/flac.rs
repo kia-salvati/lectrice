@@ -6,11 +6,13 @@ use flacenc::component::BitRepr;
 use flacenc::error::Verify;
 
 use crate::error::{LinkError, LinkResult};
+use crate::limits::{MAX_CLIP_SECONDS, MAX_SAMPLE_RATE};
 
 const CHANNELS: usize = 1;
 const BITS_PER_SAMPLE: usize = 16;
 /// FLAC's smallest block; decoders reject a stream whose only block is shorter. The server pads shorter clips.
 pub const MIN_CLIP_SAMPLES: usize = 16;
+const LONGEST_CLIP_SAMPLES: u64 = MAX_CLIP_SECONDS as u64 * MAX_SAMPLE_RATE as u64;
 
 /// Encodes mono 16-bit samples at `sample_rate` (flacenc's default settings, single-threaded).
 pub fn encode_clip(samples: &[i16], sample_rate: u32) -> LinkResult<Vec<u8>> {
@@ -31,8 +33,10 @@ pub fn encode_clip(samples: &[i16], sample_rate: u32) -> LinkResult<Vec<u8>> {
     Ok(sink.into_inner())
 }
 
-/// Decodes a clip, refusing anything but mono 16-bit at `sample_rate` with at most `max_samples` samples.
+/// Decodes a clip, refusing anything but mono 16-bit at `sample_rate` with at most `max_samples` samples (and never
+/// more than the longest clip the protocol allows, whatever the caller asks for).
 pub fn decode_clip(flac: &[u8], sample_rate: u32, max_samples: u64) -> LinkResult<Vec<i16>> {
+    let max_samples = max_samples.min(LONGEST_CLIP_SAMPLES);
     let mut reader = claxon::FlacReader::new(flac).map_err(|error| LinkError::Codec(error.to_string()))?;
     let info = reader.streaminfo();
     if info.channels as usize != CHANNELS || info.bits_per_sample as usize != BITS_PER_SAMPLE || info.sample_rate != sample_rate {

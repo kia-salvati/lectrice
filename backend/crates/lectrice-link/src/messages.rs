@@ -6,7 +6,9 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{LinkError, LinkResult};
-use crate::limits::{CLIP_CHUNK_BYTES, MAX_ENGINES, MAX_ITEMS_PER_BATCH, MAX_NAME_CHARS, MAX_SHORT_TEXT_BYTES, MAX_TEXT_BYTES, MAX_VOICES};
+use crate::limits::{
+    CLIP_CHUNK_BYTES, MAX_ENGINES, MAX_ITEMS_PER_BATCH, MAX_NAME_CHARS, MAX_SAMPLE_RATE, MAX_SHORT_TEXT_BYTES, MAX_TEXT_BYTES, MAX_VOICES, MIN_SAMPLE_RATE,
+};
 
 /// Exchanged once inside the pairing channel, both ways.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -168,9 +170,14 @@ pub(crate) trait Validate {
     fn validate(&self) -> LinkResult<()>;
 }
 
+/// Ids, versions and names: short, and without control or direction-changing characters (they reach the other
+/// side's log lines and screens).
 fn short(text: &str) -> LinkResult<()> {
     if text.len() > MAX_SHORT_TEXT_BYTES {
         return Err(LinkError::LimitExceeded("short text"));
+    }
+    if text.chars().any(is_disguising) {
+        return Err(LinkError::Protocol("control characters in an id"));
     }
     Ok(())
 }
@@ -192,6 +199,13 @@ fn is_disguising(character: char) -> bool {
 /// Item text goes into the speech engine's C front end: control characters become spaces before it gets there.
 pub fn speakable_text(text: &str) -> String {
     text.chars().map(|character| if character.is_control() || is_disguising(character) { ' ' } else { character }).collect()
+}
+
+fn sample_rate(rate: u32) -> LinkResult<()> {
+    if !(MIN_SAMPLE_RATE..=MAX_SAMPLE_RATE).contains(&rate) {
+        return Err(LinkError::LimitExceeded("sample rate"));
+    }
+    Ok(())
 }
 
 fn voices(list: &[String]) -> LinkResult<()> {
@@ -248,19 +262,22 @@ impl Validate for ServerMessage {
                 }
                 welcome.engines.iter().try_for_each(|offer| {
                     short(&offer.engine_id)?;
-                    short(&offer.revision)
+                    short(&offer.revision)?;
+                    sample_rate(offer.sample_rate)
                 })
             }
             Self::Ready(ready) => {
                 short(&ready.engine_id)?;
                 short(&ready.revision)?;
+                sample_rate(ready.sample_rate)?;
                 voices(&ready.voices)
             }
             Self::Refused(Refusal::ModelMissing { bundle_id }) => short(bundle_id),
             Self::Refused(Refusal::RevisionMismatch { revision }) => short(revision),
             Self::Clip(chunk) if chunk.flac.len() > CLIP_CHUNK_BYTES => Err(LinkError::LimitExceeded("clip chunk")),
+            Self::Clip(chunk) => sample_rate(chunk.sample_rate),
             Self::ItemFailed { error, .. } => short(&error.name),
-            Self::Refused(Refusal::Busy) | Self::Clip(_) | Self::Load(_) | Self::Ping { .. } | Self::Pong { .. } | Self::Bye(_) => Ok(()),
+            Self::Refused(Refusal::Busy) | Self::Load(_) | Self::Ping { .. } | Self::Pong { .. } | Self::Bye(_) => Ok(()),
         }
     }
 }

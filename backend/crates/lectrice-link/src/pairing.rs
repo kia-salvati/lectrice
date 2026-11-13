@@ -137,6 +137,9 @@ pub(crate) fn pair_as_phone<R: Read, W: Write>(
 /// The computer's side, after it read the pair prologue while its code was showing.
 /// Each step must arrive within `step` (a stalled attempt frees its slot quickly); only
 /// `PairingFailed("wrong code")` means a guess was made.
+///
+/// `accept` runs once the phone proved it knows the code, before the computer's hello goes out: the caller saves the
+/// phone there (or refuses it), so a phone that hears "paired" is always one the computer has saved.
 pub(crate) fn pair_as_computer<R: Read, W: Write>(
     reader: &mut FrameReader<R>,
     writer: &mut W,
@@ -144,6 +147,7 @@ pub(crate) fn pair_as_computer<R: Read, W: Write>(
     keys: &StaticKeys,
     hello: &PairHello,
     step: Duration,
+    accept: &mut dyn FnMut(&Paired) -> LinkResult<()>,
 ) -> LinkResult<Paired> {
     let by = || Instant::now() + step;
     let message_a = read_frame_by(reader, by())?;
@@ -168,8 +172,10 @@ pub(crate) fn pair_as_computer<R: Read, W: Write>(
 
     let phone_hello: PairHello = receive_by(&mut channel.opener(), reader, by())?;
     let phone_hello = checked(phone_hello)?;
+    let paired = Paired { peer: PeerRecord::new(phone_hello.device_name.clone(), phone_key), hello: phone_hello };
+    accept(&paired)?;
     send(&channel, writer, hello)?;
-    Ok(Paired { peer: PeerRecord::new(phone_hello.device_name.clone(), phone_key), hello: phone_hello })
+    Ok(paired)
 }
 
 #[cfg(test)]
@@ -199,7 +205,7 @@ mod tests {
             let mut prologue = [0u8; PAIR_PROLOGUE.len()];
             reader_read_exact(&mut reader, &mut prologue);
             assert_eq!(prologue, PAIR_PROLOGUE);
-            let result = pair_as_computer(&mut reader, &mut writer, &computer_code, &keys, &hello("Laptop"), Duration::from_secs(2));
+            let result = pair_as_computer(&mut reader, &mut writer, &computer_code, &keys, &hello("Laptop"), Duration::from_secs(2), &mut |_| Ok(()));
             drop(writer);
             result
         });

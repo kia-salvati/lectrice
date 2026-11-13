@@ -104,4 +104,30 @@ mod tests {
         let chunk = ServerMessage::Clip(ClipChunk { item_id: 1, sample_rate: 24_000, samples: 1, make_ms: 1, seq: 0, last: true, flac: vec![0; 60_001] });
         assert!(decode::<ServerMessage>(&encode(&chunk).unwrap()).is_err());
     }
+
+    #[test]
+    fn refuses_sample_rates_no_engine_has() {
+        for rate in [0, 7_999, 48_001, u32::MAX] {
+            let ready = ServerMessage::Ready(Ready { engine_id: "e".into(), revision: "r".into(), sample_rate: rate, voices: Vec::new() });
+            assert!(matches!(decode::<ServerMessage>(&encode(&ready).unwrap()), Err(LinkError::LimitExceeded(_))), "{rate}");
+            let chunk = ServerMessage::Clip(ClipChunk { item_id: 1, sample_rate: rate, samples: 1, make_ms: 1, seq: 0, last: true, flac: Vec::new() });
+            assert!(decode::<ServerMessage>(&encode(&chunk).unwrap()).is_err(), "{rate}");
+            let offer = EngineOffer { engine_id: "e".into(), revision: "r".into(), installed: false, sample_rate: rate };
+            let welcome = ServerMessage::Welcome(Welcome { proto_minor: 0, app_version: "1".into(), computer_name: "C".into(), engines: vec![offer] });
+            assert!(decode::<ServerMessage>(&encode(&welcome).unwrap()).is_err(), "{rate}");
+        }
+    }
+
+    #[test]
+    fn refuses_control_and_direction_characters_in_ids() {
+        for id in ["engine\n\"injected\":1", "eng\u{202e}ine", "tab\tid", "nul\0"] {
+            let open = ClientMessage::Open(Open { engine_id: id.into(), revision: "r".into(), voice_ids: Vec::new() });
+            assert!(decode::<ClientMessage>(&encode(&open).unwrap()).is_err(), "{id:?}");
+            let voice = Item { item_id: 1, voice_id: id.into(), text: "Hi.".into(), urgent: false };
+            let make = ClientMessage::Make(Make { batch_id: 1, items: vec![voice] });
+            assert!(decode::<ClientMessage>(&encode(&make).unwrap()).is_err(), "{id:?}");
+            let failed = ServerMessage::ItemFailed { item_id: 1, error: ItemError { name: id.into(), code: 1 } };
+            assert!(decode::<ServerMessage>(&encode(&failed).unwrap()).is_err(), "{id:?}");
+        }
+    }
 }

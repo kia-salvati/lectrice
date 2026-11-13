@@ -35,6 +35,10 @@ pub const MAX_ENGINES: usize = 16;
 pub const MAX_CLIP_SECONDS: u32 = 120;
 pub const MIN_CLIP_BOUND_SECONDS: u32 = 10;
 pub const CHARS_PER_SECOND_BOUND: u32 = 6;
+/// Sample rates a speech engine can have. Every clip bound is `seconds × rate`, so a rate the other side made up
+/// (up to 4 GHz fits the field) would lift them all.
+pub const MIN_SAMPLE_RATE: u32 = 8_000;
+pub const MAX_SAMPLE_RATE: u32 = 48_000;
 
 pub const PAIR_CODE_DIGITS: usize = 6;
 pub const PAIR_CODE_LIFETIME: Duration = Duration::from_secs(120);
@@ -47,7 +51,8 @@ pub const PAIR_FAILURE_WINDOW: Duration = Duration::from_secs(3600);
 pub const PAIR_COOLDOWN: Duration = Duration::from_secs(600);
 /// A pairing attempt that makes no progress for this long is dropped (it learned nothing, so it isn't a wrong code).
 pub const PAIR_STEP_TIMEOUT: Duration = Duration::from_secs(2);
-/// Pairing attempts at the same time, so a staller can't hold the only slot.
+/// Pairing attempts at the same time, so a staller can't hold the only slot; one per address, so one machine needs
+/// several addresses to hold them all.
 pub const MAX_PARALLEL_PAIRINGS: usize = 3;
 pub const SPAKE2_ID_PHONE: &[u8] = b"lectrice-phone";
 pub const SPAKE2_ID_COMPUTER: &[u8] = b"lectrice-desktop";
@@ -61,13 +66,26 @@ pub const MAX_PAIRED_COMPUTERS: usize = 4;
 /// items per minute per phone (more are answered `ItemFailed` / `HelperBusy`).
 pub const PHONE_URGENT_IN_A_ROW: u32 = 4;
 pub const PHONE_ITEMS_PER_MINUTE: usize = 240;
+/// What one phone may have waiting on the computer (security review pass 3). The phone's own flow control keeps a
+/// dozen items in flight; a phone that ignores it gets `HelperBusy` for the items past this many waiting ones.
+pub const MAX_QUEUED_ITEMS_PER_PHONE: usize = 256;
+/// Made clips waiting for a slow phone to read them: past this many bytes the computer stops making that phone's
+/// items (`HelperBusy`) until it has caught up.
+pub const CLIP_BACKLOG_BYTES: usize = 8 * 1024 * 1024;
+/// Everything waiting to be written to one phone (clips, pongs, failures): past this the phone isn't reading and
+/// the session ends, so a phone that only sends can't grow the computer's memory.
+pub const MAX_OUTBOX_BYTES: usize = 16 * 1024 * 1024;
 
 /// The server's guards against floods (file 24 §14). Session (IK) failures are counted per source address and never
 /// lock out pairing or other phones.
 pub const MAX_HALF_OPEN_CONNECTIONS: usize = 16;
+/// Handshakes under way from one address, so one machine can't hold every half-open slot.
+pub const MAX_HALF_OPEN_PER_ADDRESS: usize = 4;
 pub const MAX_SESSIONS: usize = 8;
 pub const FAILED_HANDSHAKES_BEFORE_BACKOFF: u32 = 3;
 pub const HANDSHAKE_BACKOFF: Duration = Duration::from_secs(60);
+/// Addresses the back-off remembers; the oldest entry goes first (a machine can take many addresses).
+pub const MAX_BACKOFF_ADDRESSES: usize = 1024;
 
 /// The phone's waits between reconnect attempts (file 24 §3.9): 1, 2, 5, 10, 30 s, then every 60 s.
 pub const RECONNECT_DELAYS: [Duration; 6] =

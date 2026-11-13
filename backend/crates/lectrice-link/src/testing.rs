@@ -1,6 +1,11 @@
 //! `FaultyLink` (feature `testing`, file 24 §13): a TCP proxy on loopback between a phone client and a computer
 //! server that can cut the link (both ways or one way), stall it (bytes held, no reset), throttle it, add latency with
 //! jitter, and cut after a number of bytes towards the phone (mid-chunk). For tests only.
+//! [`RawPhone`] and [`RawComputer`] are hand-driven peers for the malicious-peer tests.
+
+mod raw;
+
+pub use raw::{RawComputer, RawComputerSession, RawPhone};
 
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};

@@ -5,8 +5,8 @@
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::net::{Shutdown, SocketAddr, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, SyncSender, TrySendError};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -30,6 +30,11 @@ const SERVICE: &str = "link_client";
 /// Room for FLAC's headers on top of the PCM bound.
 const FLAC_OVERHEAD_BYTES: u64 = 8 * 1024;
 const BYTES_PER_SAMPLE: u64 = 2;
+/// Answers to `Open` nobody has read yet. The computer answers each `Open` once; more than this unread means it is
+/// sending them unasked, and the session ends instead of queueing them.
+const MAX_UNREAD_OPEN_REPLIES: usize = 4;
+/// `Load` events nobody has read yet; further ones are dropped until the app catches up (only the latest matters).
+const MAX_UNREAD_LOADS: usize = 8;
 
 #[derive(Debug, Clone)]
 pub struct ClientConfig {
@@ -142,6 +147,7 @@ pub struct Session {
     writer: Arc<Mutex<Writer>>,
     pending: Arc<Mutex<Pending>>,
     events: Receiver<ClientEvent>,
+    unread_loads: Arc<AtomicUsize>,
     opened: Receiver<Routed>,
     welcome: Welcome,
     closing: Arc<AtomicBool>,
@@ -195,14 +201,17 @@ impl Session {
         let writer = Arc::new(Mutex::new(writer));
         let pending = Arc::new(Mutex::new(Pending::default()));
         let closing = Arc::new(AtomicBool::new(false));
+        // Clips and failures are only queued for items this phone asked for, so their number is the phone's own.
         let (event_sender, events) = mpsc::channel();
-        let (opened_sender, opened) = mpsc::channel();
+        let unread_loads = Arc::new(AtomicUsize::new(0));
+        let (opened_sender, opened) = mpsc::sync_channel(MAX_UNREAD_OPEN_REPLIES);
         let loop_state = ReaderLoop {
             reader,
             opener,
             writer: writer.clone(),
             pending: pending.clone(),
             events: event_sender,
+            unread_loads: unread_loads.clone(),
             opened: opened_sender,
             closing: closing.clone(),
             timing: config.timing,
@@ -210,7 +219,7 @@ impl Session {
             last_received: Instant::now(),
         };
         let reader = thread::Builder::new().name("link-client-reader".into()).spawn(move || loop_state.run())?;
-        Ok(Self { writer, pending, events, opened, welcome, closing, reader: Some(reader), computer })
+        Ok(Self { writer, pending, events, unread_loads, opened, welcome, closing, reader: Some(reader), computer })
     }
 
     pub fn welcome(&self) -> &Welcome {
@@ -265,7 +274,11 @@ impl Session {
     }
 
     pub fn next_event(&self, timeout: Duration) -> Option<ClientEvent> {
-        self.events.recv_timeout(timeout).ok()
+        let event = self.events.recv_timeout(timeout).ok()?;
+        if matches!(event, ClientEvent::Load(_)) {
+            self.unread_loads.fetch_sub(1, Ordering::SeqCst);
+        }
+        Some(event)
     }
 
     /// Says goodbye and ends the session.
@@ -306,7 +319,8 @@ struct ReaderLoop {
     writer: Arc<Mutex<Writer>>,
     pending: Arc<Mutex<Pending>>,
     events: Sender<ClientEvent>,
-    opened: Sender<Routed>,
+    unread_loads: Arc<AtomicUsize>,
+    opened: SyncSender<Routed>,
     closing: Arc<AtomicBool>,
     timing: Timing,
     assembling: Option<Assembly>,
@@ -369,12 +383,8 @@ impl ReaderLoop {
         match message {
             ServerMessage::Ping { t_ms } => self.writer.lock().unwrap_or_else(PoisonError::into_inner).send(&ClientMessage::Pong { t_ms })?,
             ServerMessage::Pong { .. } => {}
-            ServerMessage::Ready(ready) => {
-                let _ = self.opened.send(Routed::Opened(Ok(ready)));
-            }
-            ServerMessage::Refused(refusal) => {
-                let _ = self.opened.send(Routed::Opened(Err(refusal)));
-            }
+            ServerMessage::Ready(ready) => self.open_reply(Ok(ready))?,
+            ServerMessage::Refused(refusal) => self.open_reply(Err(refusal))?,
             ServerMessage::Clip(chunk) => self.take_chunk(chunk)?,
             ServerMessage::ItemFailed { item_id, error } => {
                 if self.pending.lock().unwrap_or_else(PoisonError::into_inner).items.remove(&item_id).is_some() {
@@ -382,12 +392,23 @@ impl ReaderLoop {
                 }
             }
             ServerMessage::Load(load) => {
-                let _ = self.events.send(ClientEvent::Load(load));
+                if self.unread_loads.load(Ordering::SeqCst) < MAX_UNREAD_LOADS {
+                    self.unread_loads.fetch_add(1, Ordering::SeqCst);
+                    let _ = self.events.send(ClientEvent::Load(load));
+                }
             }
             ServerMessage::Bye(reason) => return Ok(Some(ClosedReason::Bye(reason))),
             ServerMessage::Welcome(_) => return Err(LinkError::Protocol("a second Welcome")),
         }
         Ok(None)
+    }
+
+    fn open_reply(&self, reply: Result<Ready, Refusal>) -> LinkResult<()> {
+        match self.opened.try_send(Routed::Opened(reply)) {
+            Err(TrySendError::Full(_)) => Err(LinkError::LimitExceeded("unasked Open replies")),
+            // The session was dropped; the reader ends on its own.
+            Ok(()) | Err(TrySendError::Disconnected(_)) => Ok(()),
+        }
     }
 
     /// Clips arrive one at a time, chunks in order; a clip is handed over only after its last chunk decodes within
