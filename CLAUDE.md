@@ -92,6 +92,21 @@ Follow `rules/` (copied from the user's shared rules on 2026-10-06):
   rustup (`~/.cargo/env` is sourced from `~/.zshenv`). The NVIDIA driver now
   works (615.71, RTX 3080 Ti Laptop, 16 GB). Still build CPU first; GPU is an optional later step.
 - Stack details and risks: `research/2026-10-06-rust-stack.md`.
+- **Android decisions (user 2026-11-13):** model cards show the **download size**; export uses
+  **4 threads** (cooler); the release signing key is **stored on this laptop** (gitignored
+  `keystore.properties`, never in git). S10+ may be used freely for tests; **keep the S26 out of
+  tests** (the user tests the NPU build there and reports back).
+- **Next features (user 2026-11-13), build without waiting, as recommended:**
+  1. **Play from an exported audiobook (first):** the phone app can use an M4B (imported from
+     outside or one it exported itself) as the audio source instead of generating speech.
+     **Design: option B confirmed by the user** ("Audio" row in the player sheet → "Listen with"
+     sheet; `design/2026-11-13-audiobook-source-options.html`). Built (`docs/android-logic/23-*`).
+  2. **Desktop helps the phone:** pair the phone with the desktop app; the desktop generates the
+     audio and sends it back. Read-ahead **30 min** in this mode (the link can drop). This
+     replaces the earlier "no server option for the phone" rule for this opt-in mode only.
+- **Security (user 2026-11-13):** finding and fixing security issues in the desktop and Android
+  apps (current code and the new features) is **Fable's job** (an exception to "Fable only writes
+  design code"). Every new feature gets a Fable security review before it's called done.
 
 ## Agents
 The user wants work dispatched to agents and orchestrated: **Opus for everything except design
@@ -278,8 +293,10 @@ Done earlier:
   frontend concepts when they're used; don't repeat them.
 - Minimal comments: comment only non-obvious intent and prefer self-explanatory code.
 - Make code changes as explicit edits the user can review, not sed/python rewrite scripts.
-- Don't run `git commit` until asked. When asked for commits, propose groups and messages first.
-  No "Co-Authored-By: Claude" trailer.
+- **Commits (user 2026-11-13): commit changes as the work goes and push whenever it makes
+  sense**, no need to ask or propose groups first. Still: logical groups, no "Co-Authored-By:
+  Claude" trailer, push only `main` + version tags, scan for book text before every commit, and
+  never commit the personal NPU parts, the QNN research files or unfixed security reports.
 - No published Artifacts. Deliver reports as local HTML/Markdown files.
 - Keep the user's language simple and clear; they write informally, so confirm intent if
   something is ambiguous.

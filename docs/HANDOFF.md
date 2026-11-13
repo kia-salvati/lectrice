@@ -1,7 +1,27 @@
-# Lectrice: session handoff (2026-10-25, evening)
+# Lectrice: session handoff (updated 2026-11-13)
 
-Read this first, then `CLAUDE.md` (the full decision log and rules). The previous session got too
-long; everything needed to continue is here. **No agents are running.**
+Read this first, then `CLAUDE.md` (the full decision log and rules). The sections below
+"Current state" are the 2026-10-25 snapshot and kept for history.
+
+## Current state (2026-11-13)
+- **Android app built** (`lectrice-android`, branch `feature/app-m2`, not committed yet): M2–M4
+  (reader, player, models Fast / Full quality / Small with their own engine ids, export, storage,
+  prepare-first) per `lectrice-android/docs/progress/M2*.md`, `M3.md`, `M4.md`.
+- **New features (user 2026-11-13, build as recommended):**
+  - **23 · Play from an audiobook (M4B)**: spec `docs/android-logic/23-audiobook-source.md`,
+    design option B; built in the Android app (`lectrice-android/docs/progress/F23-*.md`).
+  - **24 · Desktop helps the phone** (pairing, the desktop makes the audio, 30 min read-ahead):
+    spec `docs/android-logic/24-desktop-helper.md`. H0 (spikes, `docs/progress/H0.md`), H1 (core
+    crate `lectrice-link`, worktree `../lectrice-core-android`, branch `feature/core-android`) and
+    H3 (desktop, `lectrice-desktop/docs/progress/H0-H3.md`) built; H2 (core wiring) and H4
+    (Android) next. The desktop Phone tab UI is committed in `frontend/` (main).
+- **Desktop v0.2** (`lectrice-desktop`, branch `feature/v0.2-models`, uncommitted): the three
+  models (Fast recommended); the frontend part is on `main`. Model release
+  `model-kokoro-lectrice-fast-v1` is published.
+- **Security pass 1 done** (2026-11-13, Fable's job per CLAUDE.md): 0 critical, 1 high, 4 medium,
+  10 low. The report stays **local** in `docs/security/` (gitignored) until the fixes (pass 2)
+  land. Every new feature gets a security review before it's called done.
+- **Next core release is v0.4.0**, tagged once the core worktree (link crate, C35–C52) is merged.
 
 ## Repos
 | Repo | Local | State |
@@ -108,8 +128,9 @@ Wireless debugging switches itself off sometimes; the user re-enables it (S26: A
 - **No text from the user's books** (`~/Desktop/*.pdf`) in any tracked file. Scan before every
   commit (9-word overlap check of changed files against `pdftotext` output of the books).
 - **Push only `main` and version tags** (plus model release tags). Feature branches stay local.
-- **Commits only when asked; propose groups first; no Co-Authored-By trailer.** Author
-  `kia <limsclaude@gmail.com>`. Remote alias `personal:`.
+- **Commit as the work goes and push when it makes sense** (user 2026-11-13): logical groups,
+  no Co-Authored-By trailer, author `kia <limsclaude@gmail.com>`, remote alias `personal:`.
+  Never commit the QNN research files, the personal NPU parts or unfixed security reports.
 - **The main session only orchestrates agents.** Opus: research, specs, code, reviews, all UX
   thinking. Fable: design code only, from an Opus brief. **Designs: the user picks from options.**
 - **Downloads:** Google's Android/Maven hosts, SourceForge and sometimes `repo1.maven.org` are
