@@ -94,6 +94,45 @@ pulls by tag. While in beta (0.x), a change to a core trait, public type or save
   is 50–300 %, its sample rate and length are sane, it has at most `MAX_MAP_SENTENCES` (200 000) sentences, each id
   once, 8-hex-digit hashes, and start times that never go back or past the end. `match_audiobook` applies it too, so
   a timeline never has `end_ms < start_ms` or a zero speed.
+- **Web server (`lectrice-api`), security review S2:** every request to the loopback server is checked before its
+  route (`guard::LocalAccess`, `app::build_local_app`). `Host` must be `localhost`, `127.0.0.1` or `[::1]` with the
+  server's port (or the configured page's own loopback host, for a dev server that proxies `/api`), so a page that
+  reaches the server through DNS rebinding is refused. `Origin`, when sent, must be `server.allowed_origin` or the
+  server itself; `POST`, `PUT` and `DELETE` need it, so a cross-site form or multipart upload is refused; a
+  `Sec-Fetch-Site: cross-site` request without an allowed `Origin` is refused too. Refusals are `RequestForbidden`
+  (1009, HTTP 403). **Scripts that change data with `curl` now need `-H 'Origin: http://localhost:5173'`**; reads
+  (`curl localhost:7878/api/health`) work as before. `build_app` stays unguarded for shells that route requests in
+  process (the desktop bridge checks its own host).
+- **PDF import limits (`lectrice-infra`), security review S7:** `PdfLimits` (default 20 000 pages, 20 million
+  characters, 5 minutes; `PdfiumTextSource::with_limits`, `read_runs_within`). A PDF past a limit fails with the new
+  `PdfTooComplex` (1010, HTTP 422) instead of holding the import thread or the memory. The time limit is checked
+  between pages and every 4 096 characters; a single PDFium call that never returns can't be interrupted in process.
+- **`lectrice-link`, security review pass 3:**
+  - Sample rates outside 8 000–48 000 Hz are refused in `Welcome`, `Ready` and `Clip` (every clip bound is
+    `seconds × rate`: a paired computer that named 4 GHz could make the phone reserve gigabytes), and `decode_clip`
+    never sizes its output beyond the longest clip the protocol allows.
+  - The phone no longer queues what it didn't ask for: unasked `Ready` / `Refused` answers end the session, and at
+    most 8 unread `Load` events are kept.
+  - Per phone, the computer keeps at most 256 waiting items (`MAX_QUEUED_ITEMS_PER_PHONE`), stops making clips while
+    8 MB of them wait unread (`CLIP_BACKLOG_BYTES`, answered `HelperBusy`), and ends a session with 16 MB unwritten
+    (`MAX_OUTBOX_BYTES`): a phone that floods pings or asks for clips and never reads can't grow the computer's memory.
+  - Pairing: the phone is saved **before** it is told it is paired and only while its window is still open, so the
+    attempts that outlive the third wrong code can't pair, two right codes in one window save one phone, and a phone
+    that hears "paired" can connect at once. Wrong codes from such late attempts still count towards the hourly limit.
+    One attempt per address at a time.
+  - Floods: at most 4 handshakes under way per address (`MAX_HALF_OPEN_PER_ADDRESS`); the per-address back-off list
+    is capped at 1 024 entries and forgets old failures (it grew without limit, and three failures spread over days
+    blocked an address). The back-off now stops sessions only: a phone the computer forgot can pair again at once.
+  - Ids, versions, revisions, voice ids and error names with control or direction-changing characters are refused
+    (they reach the other side's logs and screens).
+  - `testing::RawPhone` / `RawComputer` (feature `testing`): hand-driven peers for malicious-peer tests
+    (`tests/hostile.rs`: floods, never-reading phones, replayed frames and handshakes, garbage, lying clips).
+- `LinkSpeechHelper` (`lectrice-infra`): a computer that takes the phone and drops it at once, again and again, is
+  retried on the 1-2-5-10-30-60 s schedule. Before, each short session restarted the schedule (a retry every second
+  for ever), and `Bye(engine_switch)` was answered with no wait at all (a busy loop). A session counts as stable
+  after twice `Timing::dead_after` (30 s).
+- The web server makes its data and cache folders the user's only at start (`0700` on Unix, also for folders an
+  older version made; security review S11).
 
 ## [0.3.0] - 2026-10-25
 
