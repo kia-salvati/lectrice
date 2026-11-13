@@ -2,7 +2,7 @@
 //! the model, and loads it only when it first has to speak. While a helper computer makes the audio, the phone's own
 //! model then never takes memory or start-up time; it is ready (`preload`) as soon as the link is lost.
 
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, TryLockError};
 use std::time::Instant;
 
 use lectrice_domain::{AppError, AppResult, Audio, ErrorName, SpeechEngine, SpeechRequest, Voice};
@@ -38,8 +38,13 @@ impl DeferredSpeechEngine {
         self.engine().map(|_| ())
     }
 
+    /// Never waits for a load in progress (that counts as not loaded yet).
     pub fn is_loaded(&self) -> bool {
-        self.lock().is_some()
+        match self.loaded.try_lock() {
+            Ok(loaded) => loaded.is_some(),
+            Err(TryLockError::Poisoned(poisoned)) => poisoned.into_inner().is_some(),
+            Err(TryLockError::WouldBlock) => false,
+        }
     }
 
     /// Lets the model go (its memory is freed once no synthesis holds it); the next sentence loads it again.
@@ -108,6 +113,10 @@ impl SpeechEngine for DeferredSpeechEngine {
 
     fn revision(&self) -> &str {
         &self.info.revision
+    }
+
+    fn is_loaded(&self) -> bool {
+        Self::is_loaded(self)
     }
 }
 

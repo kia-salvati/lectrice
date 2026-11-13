@@ -7,7 +7,7 @@ use lectrice_domain::{
 };
 use tracing::{debug, info, warn};
 
-use super::helper_fill::{HelperFill, UrgentWait};
+use super::helper_fill::{HelperFill, HelperWait, UrgentWait};
 use super::read_ahead::{ListenerPosition, ReadAhead};
 use super::worker::{SpeechJob, SpeechPriority, SpeechTicket, SpeechWorker, audio_seconds, elapsed_ms};
 use crate::{RequestContext, UseCase};
@@ -43,7 +43,9 @@ pub struct SpokenSentence {
 /// Every request also moves the read-ahead and the cache window to this sentence.
 ///
 /// With a helper computer connected (file 24 §3.7), a miss first goes to the helper as urgent and waits up to the
-/// grace; then the local engine makes it too, and whichever finishes first is cached and played.
+/// grace (counted from the moment the link is ready; longer while the phone's engine isn't loaded); then the local
+/// engine makes it too, and whichever finishes first is cached and played. While the first connection after the
+/// helper's start is under way, the miss waits for it.
 pub struct SpeakSentence {
     engine: Arc<dyn SpeechEngine>,
     worker: Arc<SpeechWorker>,
@@ -52,7 +54,7 @@ pub struct SpeakSentence {
     encoder: Arc<dyn AudioEncoder>,
     read_ahead: Arc<ReadAhead>,
     helper: Option<Arc<HelperFill>>,
-    helper_grace: Duration,
+    helper_wait: HelperWait,
 }
 
 pub struct SpeakSentenceDeps {
@@ -64,14 +66,14 @@ pub struct SpeakSentenceDeps {
     pub read_ahead: Arc<ReadAhead>,
     /// The phone's helper computer, when the shell has one (file 24).
     pub helper: Option<Arc<HelperFill>>,
-    /// How long a miss waits for the helper before the local engine starts (`HELPER_NOW_GRACE`).
-    pub helper_grace: Duration,
+    /// How long a miss waits for the helper before the local engine starts.
+    pub helper_wait: HelperWait,
 }
 
 impl SpeakSentence {
     pub fn new(deps: SpeakSentenceDeps) -> Self {
-        let SpeakSentenceDeps { engine, worker, reader, cache, encoder, read_ahead, helper, helper_grace } = deps;
-        Self { engine, worker, reader, cache, encoder, read_ahead, helper, helper_grace }
+        let SpeakSentenceDeps { engine, worker, reader, cache, encoder, read_ahead, helper, helper_wait } = deps;
+        Self { engine, worker, reader, cache, encoder, read_ahead, helper, helper_wait }
     }
 
     fn check_voice(&self, voice_id: &VoiceId) -> AppResult<()> {
@@ -104,22 +106,38 @@ impl SpeakSentence {
         }
     }
 
-    /// The miss path while a helper makes clips: urgent to the helper, then (after the grace) a local race.
-    /// `None` when the helper can't take it; the caller goes the local way.
+    /// The miss path with a helper: wait for its first connection if one is under way, then urgent to the helper,
+    /// then (after the grace) a local race. `None` when the helper never took it; the caller goes the local way.
     fn through_helper(&self, ctx: &RequestContext, key: &AudioKey, text: &str, position: ListenerPosition<'_>, plan_ahead: bool) -> Option<AppResult<Vec<u8>>> {
-        let helper = self.helper.as_ref().filter(|helper| helper.makes_clips())?;
+        let helper = self.helper.as_ref()?;
         let started = Instant::now();
-        // The plan goes first, so its re-plan can't cancel the urgent item.
-        self.follow(position, plan_ahead);
-        let wait = helper.urgent(key, text)?;
-        match wait.wait(self.helper_grace, &ctx.cancellation) {
-            Ok(Some(bytes)) => {
-                info!(service = Self::NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, wait_ms = elapsed_ms(started), source = "helper", "speech received");
-                return Some(Ok(bytes));
+        let engine_loaded = self.engine.is_loaded();
+        // The urgent item and when it was sent: the grace counts from there, not from the request.
+        let mut urgent: Option<(UrgentWait, Instant)> = None;
+        loop {
+            let ready = helper.makes_clips();
+            if ready && urgent.is_none() {
+                // The plan goes first, so its re-plan can't cancel the urgent item.
+                self.follow(position, plan_ahead);
+                urgent = Some((helper.urgent(key, text)?, Instant::now()));
             }
-            Ok(None) => {}
-            Err(error) => return Some(Err(error)),
+            if let Some((wait, _)) = &urgent {
+                match wait.ready() {
+                    Ok(Some(bytes)) => {
+                        info!(service = Self::NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, wait_ms = elapsed_ms(started), source = "helper", "speech received");
+                        return Some(Ok(bytes));
+                    }
+                    Ok(None) => {}
+                    Err(error) => return Some(Err(error)),
+                }
+            }
+            let ready_for = urgent.as_ref().filter(|_| ready).map(|(_, sent)| sent.elapsed());
+            let Some(left) = self.helper_wait.left(helper.first_link_left(), ready_for, engine_loaded) else { break };
+            if let Err(error) = helper.wait_for_change(left, &ctx.cancellation) {
+                return Some(Err(error));
+            }
         }
+        let (wait, _) = urgent?;
         let ticket = self.submit_now(key, text);
         Some(self.receive(ctx, key, ticket, started, Some(&wait)))
     }
@@ -302,7 +320,7 @@ mod tests {
             encoder,
             read_ahead,
             helper: None,
-            helper_grace: Duration::ZERO,
+            helper_wait: HelperWait::default(),
         };
         Setup { library, engine, cache, service: SpeakSentence::new(deps) }
     }

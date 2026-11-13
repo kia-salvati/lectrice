@@ -2,7 +2,6 @@
 //! adapters and settings, then calls [`assemble`], so the shells can't drift apart.
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use lectrice_domain::{
     AppError, AppResult, AudioCache, AudioDecoder, AudioEncoder, AudioExporter, AudioRetention, Clock, ContentHasher, DocumentCleaner, DocumentReader,
@@ -18,7 +17,7 @@ use crate::exports::{
 };
 use crate::library::{ClearAudioCache, ClearDocumentAudio, GetStorageUsage, PurgeRemovedDocuments, PurgeRemovedDocumentsArgs, RemoveDocument, RestoreDocument};
 use crate::speech::{
-    GetSpeechStats, HELPER_NOW_GRACE, HelperFill, HelperFillDeps, ListVoices, PrepareDeps, PrepareJobs, ReadAhead, ReadAheadDeps, ReadAheadSettings,
+    GetSpeechStats, HelperFill, HelperFillDeps, HelperWait, ListVoices, PrepareDeps, PrepareJobs, ReadAhead, ReadAheadDeps, ReadAheadSettings,
     SetReadAheadMinutes, SpeakSentence, SpeakSentenceDeps, SpeakVoiceSample, SpeechWorker, StopAllReadAhead, StopReadAhead, SynthesisGate,
 };
 use crate::{RequestContext, UseCase};
@@ -63,18 +62,13 @@ pub struct Settings {
 
 /// What only some shells give the speech services (file 24): the desktop shares the CPU with the phones it helps, and
 /// the phone may have a helper computer.
+#[derive(Default)]
 pub struct SpeechOptions {
     /// Every synthesis waits for its turn here, ranked by its job's priority.
     pub gate: Option<Arc<dyn SynthesisGate>>,
     /// The phone's helper computer; `SpeechServices::helper` drives it.
     pub helper: Option<Arc<dyn SpeechHelper>>,
-    pub helper_grace: Duration,
-}
-
-impl Default for SpeechOptions {
-    fn default() -> Self {
-        Self { gate: None, helper: None, helper_grace: HELPER_NOW_GRACE }
-    }
+    pub helper_wait: HelperWait,
 }
 
 /// Every use case, built once. Speech and exports are `None` without a speech engine; the library always works.
@@ -266,7 +260,7 @@ pub fn assemble_with(adapters: Adapters, settings: Settings, options: SpeechOpti
             encoder: audio_encoder.clone(),
             read_ahead: read_ahead.clone(),
             helper: helper.clone(),
-            helper_grace: options.helper_grace,
+            helper_wait: options.helper_wait,
         }),
         voice_sample: SpeakVoiceSample::new(engine.clone(), worker.clone(), voice_samples, audio_encoder),
         stats: GetSpeechStats::new(engine.clone(), worker, speech_engine_load_ms),

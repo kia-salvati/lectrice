@@ -134,6 +134,10 @@ impl SpeechEngine for RenamedEngine {
     fn revision(&self) -> &str {
         self.inner.revision()
     }
+
+    fn is_loaded(&self) -> bool {
+        self.inner.is_loaded()
+    }
 }
 
 impl SpeechEngine for KokoroSpeechEngine {

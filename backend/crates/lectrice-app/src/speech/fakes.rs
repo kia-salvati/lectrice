@@ -2,7 +2,7 @@
 //! helper computer the test drives by hand.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 
 use lectrice_domain::{
@@ -113,12 +113,13 @@ struct Gate {
 }
 
 /// Records every text it speaks. With a gate text, it blocks on that text until [`GatedEngine::release`].
-/// Texts `s900` and `s901` fail and panic.
+/// Texts `s900` and `s901` fail and panic. A [`GatedEngine::cold`] one reports itself unloaded until it first speaks.
 pub(crate) struct GatedEngine {
     gate_text: Option<String>,
     gate: Mutex<Gate>,
     changed: Condvar,
     spoken: Mutex<Vec<String>>,
+    loaded: AtomicBool,
 }
 
 impl GatedEngine {
@@ -130,7 +131,11 @@ impl GatedEngine {
     }
 
     pub fn open() -> Self {
-        Self { gate_text: None, gate: Mutex::default(), changed: Condvar::new(), spoken: Mutex::default() }
+        Self { gate_text: None, gate: Mutex::default(), changed: Condvar::new(), spoken: Mutex::default(), loaded: AtomicBool::new(true) }
+    }
+
+    pub fn cold() -> Self {
+        Self { loaded: AtomicBool::new(false), ..Self::open() }
     }
 
     pub fn wait_until_blocked(&self) {
@@ -182,7 +187,12 @@ impl SpeechEngine for GatedEngine {
         REVISION
     }
 
+    fn is_loaded(&self) -> bool {
+        self.loaded.load(Ordering::SeqCst)
+    }
+
     fn synthesize(&self, request: SpeechRequest) -> AppResult<Audio> {
+        self.loaded.store(true, Ordering::SeqCst);
         self.hold_if_gated(&request.text);
         if request.text == format!("s{}", Self::PANICKING) {
             panic!("fake engine panic");

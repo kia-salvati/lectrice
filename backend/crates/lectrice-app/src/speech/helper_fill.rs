@@ -31,12 +31,47 @@ pub const HELPER_AHEAD_MINUTES: u32 = 30;
 pub const HELPER_MAX_IN_FLIGHT_ITEMS: usize = 12;
 pub const HELPER_MAX_IN_FLIGHT_MS: u64 = 3 * 60 * 1000;
 /// How long a sentence the player needs now waits for the helper before the phone makes it itself (H0: the
-/// laptop's p95 for a 10-word sentence is 1.09 s).
+/// laptop's p95 for a 10-word sentence is 1.09 s). Counted from the moment the link is ready.
 pub const HELPER_NOW_GRACE: Duration = Duration::from_millis(1500);
+/// The grace while the phone's engine isn't loaded. The local path then pays the load first (2.2 s on the S10+, H4),
+/// so waiting longer for the computer costs little and keeps the model out of memory (H4: a cold desktop engine or a
+/// voice change during an item answered in 1.95–2.06 s).
+pub const HELPER_COLD_GRACE: Duration = Duration::from_millis(3000);
+/// How long after `start` the first connection may take before the phone stops waiting for it: no local speech or
+/// read-ahead meanwhile (H4: the link was Connecting ~100 ms at play; TCP + Noise IK took 37 ms).
+pub const HELPER_CONNECT_WAIT: Duration = Duration::from_millis(1500);
 /// A phone whose sustained `rtf × rate` is at most this keeps up alone ("green", file 12 §3.3).
 pub const GREEN_RTF_TIMES_RATE: f32 = 0.6;
 /// How often a waiting caller checks whether it was cancelled.
 const WAIT_POLL: Duration = Duration::from_millis(100);
+
+/// How long a sentence the player needs now waits for the helper (file 24 §3.7).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HelperWait {
+    pub grace: Duration,
+    pub cold_grace: Duration,
+}
+
+impl Default for HelperWait {
+    fn default() -> Self {
+        Self { grace: HELPER_NOW_GRACE, cold_grace: HELPER_COLD_GRACE }
+    }
+}
+
+impl HelperWait {
+    /// How much longer the caller may wait for the helper; `None` once the phone should make the sentence itself.
+    /// `first_link_left`: what is left of the first connection's wait ([`HelperFill::first_link_left`]);
+    /// `ready_for`: how long the link has been ready since the sentence was asked for (`None` while it isn't).
+    pub fn left(&self, first_link_left: Option<Duration>, ready_for: Option<Duration>, engine_loaded: bool) -> Option<Duration> {
+        match ready_for {
+            Some(waited) => {
+                let grace = if engine_loaded { self.grace } else { self.cold_grace };
+                grace.checked_sub(waited).filter(|left| !left.is_zero())
+            }
+            None => first_link_left,
+        }
+    }
+}
 
 /// The local read-ahead's length once the link is lost (file 24 §3.6): a green phone waits with its normal setting
 /// (the 30 buffered minutes last long), any other phone (or one without stats yet) starts at the far end of the
@@ -116,6 +151,9 @@ struct Planned {
 
 struct Target {
     anchor: Anchor,
+    /// The listener's own sentence (when it has speech). Asked for first and urgent while it isn't cached: when the
+    /// link becomes ready while the player waits for it, the fill must not start the computer on a later one first.
+    current: Option<Planned>,
     plan: Vec<Planned>,
     /// The helper refused these; the phone makes them when the player gets there.
     failed: HashSet<SentenceId>,
@@ -157,10 +195,19 @@ struct FillState {
     next_item: u32,
     /// The document whose local read-ahead this use case paused.
     paused: Option<DocumentId>,
+    /// Until when the first connection after `start` is waited for (`HELPER_CONNECT_WAIT`).
+    first_link_until: Option<Instant>,
     stats: HelperFillStats,
 }
 
 impl FillState {
+    fn first_link_left(&self) -> Option<Duration> {
+        if self.link != HelperState::Connecting {
+            return None;
+        }
+        self.first_link_until?.checked_duration_since(Instant::now()).filter(|left| !left.is_zero())
+    }
+
     fn asked_for(&self, key: &AudioKey) -> bool {
         self.storing.contains(key) || self.in_flight.values().any(|flight| flight.key == *key)
     }
@@ -202,6 +249,7 @@ impl HelperFill {
                 storing: HashSet::new(),
                 next_item: 0,
                 paused: None,
+                first_link_until: None,
                 stats: HelperFillStats::default(),
             }),
             changed: Condvar::new(),
@@ -218,6 +266,7 @@ impl HelperFill {
         let engine = &self.deps.engine;
         let wanted = HelperEngine { engine_id: engine.id().to_string(), revision: engine.revision().to_string(), sample_rate: engine.sample_rate() };
         info!(service = NAME, engine_id = %wanted.engine_id, revision = %wanted.revision, "helper started");
+        self.lock().first_link_until = Some(Instant::now() + HELPER_CONNECT_WAIT);
         self.on_state(HelperState::Connecting);
         self.deps.helper.open(wanted, Arc::new(Events(self.me.clone())))
     }
@@ -238,6 +287,23 @@ impl HelperFill {
         self.lock().link.makes_clips()
     }
 
+    /// While the first connection after `start` is still being set up: how much longer it is waited for. Meanwhile
+    /// the local read-ahead stays paused and a sentence the player needs waits ([`HelperWait`]), so a link that is
+    /// about to be ready never makes the phone load its own engine.
+    pub fn first_link_left(&self) -> Option<Duration> {
+        self.lock().first_link_left()
+    }
+
+    /// Waits up to `timeout` (at most a poll interval) for a clip to be stored or the link to change.
+    pub fn wait_for_change(&self, timeout: Duration, cancellation: &Cancellation) -> AppResult<()> {
+        if cancellation.is_cancelled() {
+            return Err(AppError::new(ErrorName::RequestCancelled).with_detail("the caller stopped waiting for the helper"));
+        }
+        let state = self.lock();
+        let _ = self.changed.wait_timeout(state, timeout.min(WAIT_POLL)).unwrap_or_else(PoisonError::into_inner);
+        Ok(())
+    }
+
     /// Re-plans from the listener's position (every audio request calls it) and asks for what is missing. Items the
     /// new plan doesn't want any more are cancelled on the helper (a jump wastes at most the item being made).
     pub fn follow(&self, position: ListenerPosition<'_>) {
@@ -246,8 +312,10 @@ impl HelperFill {
         if state.target.as_ref().is_none_or(|target| target.anchor != anchor) {
             self.replan(&mut state, position, anchor);
         }
-        if state.link.makes_clips() {
+        if state.link.makes_clips() || state.first_link_left().is_some() {
             self.pause_local(&mut state);
+        } else {
+            self.resume_local(&mut state);
         }
         self.top_up(&mut state);
     }
@@ -273,6 +341,11 @@ impl HelperFill {
             }
         };
         let flight = state.in_flight.get_mut(&item_id)?;
+        if flight.urgent {
+            // Already first in the helper's queue (or being made): asking again could only make it twice.
+            debug!(service = NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, item_id, "urgent item already asked for");
+            return Some(UrgentWait { fill, key: key.clone() });
+        }
         flight.urgent = true;
         let item = HelperItem { item_id, voice_id: key.voice_id.clone(), text: flight.text.clone(), urgent: true };
         if let Err(error) = self.send(&mut state, vec![item]) {
@@ -407,7 +480,16 @@ impl HelperFill {
             self.cancel_on_helper(state);
             state.in_flight.retain(|_, flight| keep(flight));
         }
-        state.target = Some(Target { anchor, plan, failed });
+        let current = position
+            .document
+            .blocks
+            .iter()
+            .flat_map(|block| block.sentences.iter().chain(block.cue.iter()))
+            .find(|sentence| sentence.id == anchor.key.sentence_id)
+            .map(|sentence| sentence.spoken_text().to_string())
+            .filter(|text| !text.trim().is_empty())
+            .map(|text| Planned { sentence_id: anchor.key.sentence_id, estimated_ms: estimated_ms(&text), text });
+        state.target = Some(Target { anchor, current, plan, failed });
         if stale > 0 {
             self.resend_in_flight(state);
         }
@@ -438,14 +520,26 @@ impl HelperFill {
     }
 
     /// Asks for the nearest planned sentences that aren't cached or asked for, within the flow-control limits: the
-    /// listener's plan first, then the Prepare range.
+    /// listener's own sentence first (urgent), then the listener's plan, then the Prepare range.
     fn top_up(&self, state: &mut FillState) {
         if !state.link.makes_clips() {
             return;
         }
         let mut count = state.in_flight.len();
         let mut in_flight_ms = state.in_flight_ms();
-        let mut wanted: Vec<(AudioKey, String, u64, bool)> = Vec::new();
+        // (key, text, estimated ms, prepare, urgent)
+        let mut wanted: Vec<(AudioKey, String, u64, bool, bool)> = Vec::new();
+        if let Some(target) = &state.target
+            && let Some(current) = &target.current
+            && !target.failed.contains(&current.sentence_id)
+        {
+            let key = AudioKey { sentence_id: current.sentence_id, ..target.anchor.key.clone() };
+            if !state.asked_for(&key) && !self.deps.retention.contains(&key).unwrap_or(false) {
+                count += 1;
+                in_flight_ms += current.estimated_ms;
+                wanted.push((key, current.text.clone(), current.estimated_ms, false, true));
+            }
+        }
         let listener = state.target.iter().map(|target| (&target.anchor.key, &target.plan, &target.failed, false));
         let range = state.prepare.iter().map(|prepare| (&prepare.scope, &prepare.plan, &prepare.failed, true));
         'plans: for (scope, plan, failed, prepare) in listener.chain(range) {
@@ -462,17 +556,17 @@ impl HelperFill {
                 }
                 count += 1;
                 in_flight_ms += planned.estimated_ms;
-                wanted.push((key, planned.text.clone(), planned.estimated_ms, prepare));
+                wanted.push((key, planned.text.clone(), planned.estimated_ms, prepare, false));
             }
         }
         if wanted.is_empty() {
             return;
         }
         let mut items = Vec::with_capacity(wanted.len());
-        for (key, text, estimated_ms, prepare) in wanted {
+        for (key, text, estimated_ms, prepare, urgent) in wanted {
             let item_id = state.new_item_id();
-            items.push(HelperItem { item_id, voice_id: key.voice_id.clone(), text: text.clone(), urgent: false });
-            state.in_flight.insert(item_id, InFlight { key, text, estimated_ms, urgent: false, prepare });
+            items.push(HelperItem { item_id, voice_id: key.voice_id.clone(), text: text.clone(), urgent });
+            state.in_flight.insert(item_id, InFlight { key, text, estimated_ms, urgent, prepare });
         }
         let sent: Vec<u32> = items.iter().map(|item| item.item_id).collect();
         if self.send(state, items).is_err() {
@@ -531,6 +625,9 @@ impl HelperFill {
         let was_making = state.link.makes_clips();
         info!(service = NAME, from = ?state.link, to = ?next, in_flight = state.in_flight.len(), stats = ?state.stats, "helper state changed");
         state.link = next;
+        if state.link != HelperState::Connecting {
+            state.first_link_until = None;
+        }
         if state.link.makes_clips() {
             if !was_making {
                 self.pause_local(&mut state);
@@ -619,29 +716,6 @@ impl UrgentWait {
         }
         self.fill.deps.cache.get(&self.key)
     }
-
-    /// Waits up to `grace` for the clip. `None` when it didn't come in time or the link went; `RequestCancelled` once
-    /// the caller gives up.
-    pub fn wait(&self, grace: Duration, cancellation: &Cancellation) -> AppResult<Option<Vec<u8>>> {
-        let deadline = Instant::now() + grace;
-        loop {
-            if let Some(bytes) = self.ready()? {
-                return Ok(Some(bytes));
-            }
-            if cancellation.is_cancelled() {
-                return Err(AppError::new(ErrorName::RequestCancelled).with_detail("the caller stopped waiting for the helper"));
-            }
-            let state = self.fill.lock();
-            if !state.link.makes_clips() {
-                return Ok(None);
-            }
-            let now = Instant::now();
-            if now >= deadline {
-                return Ok(None);
-            }
-            let _ = self.fill.changed.wait_timeout(state, (deadline - now).min(WAIT_POLL)).unwrap_or_else(PoisonError::into_inner);
-        }
-    }
 }
 
 fn estimated_ms(text: &str) -> u64 {
@@ -673,6 +747,11 @@ mod tests {
     }
 
     fn setup_with(engine: GatedEngine, grace: Duration) -> Setup {
+        setup_waiting(engine, HelperWait { grace, cold_grace: grace })
+    }
+
+    fn setup_waiting(engine: GatedEngine, wait: HelperWait) -> Setup {
+        let HelperWait { grace, cold_grace } = wait;
         let library = Library::new(1);
         let engine = Arc::new(engine);
         let cache = Arc::new(MemoryCache::default());
@@ -700,7 +779,7 @@ mod tests {
             encoder,
             read_ahead: read_ahead.clone(),
             helper: Some(fill.clone()),
-            helper_grace: grace,
+            helper_wait: HelperWait { grace, cold_grace },
         });
         fill.start().unwrap();
         Setup { library, engine, cache, helper, read_ahead, fill, speak }
@@ -751,8 +830,12 @@ mod tests {
         }
     }
 
+    /// The listener plays `sentence` (so it is cached, as when a player follows along).
     fn follow(setup: &Setup, document: &Document, sentence: u32) {
         let key = key(document, sentence);
+        if !setup.cache.contains(&key).unwrap() {
+            setup.cache.put(&key, b"playing").unwrap();
+        }
         setup.fill.follow(ListenerPosition { document, key: &key, rate: 1.0, read_skipped: false });
     }
 
@@ -1004,6 +1087,107 @@ mod tests {
         assert!(setup.engine.spoken()[0].starts_with("0050"), "made locally first; the local read-ahead follows");
         assert!(!setup.read_ahead.is_paused(&document.id));
         assert!(setup.helper.made().is_empty());
+    }
+
+    /// H4 open item 1a: play while the first connection is still under way. The miss waits for the link instead of
+    /// starting the phone's engine, and the local read-ahead stays paused meanwhile.
+    #[test]
+    fn a_miss_while_the_first_link_connects_waits_for_it() {
+        let setup = Arc::new(setup_waiting(GatedEngine::cold(), HelperWait::default()));
+        let document = book(&setup, 2, 100, 1);
+        let computer = {
+            let setup = setup.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(300));
+                setup.helper.connect();
+                wait_until(|| setup.helper.made().iter().any(|item| item.urgent));
+                let urgent = setup.helper.made().into_iter().find(|item| item.urgent).unwrap();
+                setup.helper.deliver(&urgent);
+                urgent
+            })
+        };
+
+        let bytes = speak(&setup, &document, 50).unwrap();
+
+        let urgent = computer.join().unwrap();
+        assert_eq!(sentence_of(&urgent), 50);
+        assert_eq!(bytes, format!("{SAMPLE_RATE}:{}", urgent.text.len() * 100).into_bytes());
+        assert!(setup.engine.spoken().is_empty(), "the phone's engine never ran");
+        assert!(!setup.engine.is_loaded());
+        assert_eq!(setup.helper.made().iter().filter(|item| item.urgent).count(), 1, "the listener's sentence is asked for once");
+    }
+
+    #[test]
+    fn the_local_read_ahead_waits_for_the_first_link_but_not_for_a_failed_one() {
+        let setup = setup_with(GatedEngine::open(), WAIT_LIMIT);
+        let document = book(&setup, 2, 100, 1);
+
+        follow(&setup, &document, 0);
+        assert!(setup.read_ahead.is_paused(&document.id));
+        assert!(setup.fill.first_link_left().is_some());
+
+        setup.helper.emit(HelperEvent::State(HelperState::Lost));
+        assert!(!setup.read_ahead.is_paused(&document.id));
+        setup.helper.emit(HelperEvent::State(HelperState::Connecting));
+        assert_eq!(setup.fill.first_link_left(), None, "a reconnect is not the first connection");
+        follow(&setup, &document, 1);
+        assert!(!setup.read_ahead.is_paused(&document.id));
+    }
+
+    /// A first connection that takes too long: after the connect wait the phone makes the sentence itself.
+    #[test]
+    fn the_connect_wait_ends() {
+        let setup = setup_with(GatedEngine::open(), WAIT_LIMIT);
+        let document = book(&setup, 2, 100, 1);
+
+        let started = Instant::now();
+        speak(&setup, &document, 50).unwrap();
+
+        let waited = started.elapsed();
+        assert!(waited >= HELPER_CONNECT_WAIT - Duration::from_millis(50) && waited < WAIT_LIMIT, "{waited:?}");
+        assert!(setup.engine.spoken()[0].starts_with("0050"));
+        assert!(!setup.read_ahead.is_paused(&document.id));
+    }
+
+    /// H4 open item 1b: with the phone's engine still unloaded, a computer that answers after the normal grace still
+    /// wins (the cold grace), and the model is never loaded.
+    #[test]
+    fn an_unloaded_engine_waits_the_cold_grace() {
+        let wait = HelperWait { grace: Duration::from_millis(20), cold_grace: WAIT_LIMIT };
+        let setup = Arc::new(setup_waiting(GatedEngine::cold(), wait));
+        setup.helper.connect();
+        let document = book(&setup, 2, 100, 1);
+        let computer = {
+            let setup = setup.clone();
+            std::thread::spawn(move || {
+                wait_until(|| setup.helper.made().iter().any(|item| item.urgent));
+                std::thread::sleep(Duration::from_millis(300));
+                let urgent = setup.helper.made().into_iter().find(|item| item.urgent).unwrap();
+                setup.helper.deliver(&urgent);
+            })
+        };
+
+        speak(&setup, &document, 50).unwrap();
+
+        computer.join().unwrap();
+        assert!(setup.engine.spoken().is_empty());
+    }
+
+    /// The link becomes ready while the player waits: the listener's sentence is the first item, urgent, ahead of
+    /// the fill (so a cold computer doesn't start on a later sentence first).
+    #[test]
+    fn the_listeners_sentence_goes_first_when_the_link_becomes_ready() {
+        let setup = setup_with(GatedEngine::open(), WAIT_LIMIT);
+        let document = book(&setup, 2, 100, 1);
+        let waited_for = key(&document, 40);
+        setup.fill.follow(ListenerPosition { document: &document, key: &waited_for, rate: 1.0, read_skipped: false });
+
+        setup.helper.connect();
+
+        let made = setup.helper.take_made();
+        assert_eq!(sentence_of(&made[0]), 40);
+        assert!(made[0].urgent && made[1..].iter().all(|item| !item.urgent));
+        assert_eq!(made.len(), HELPER_MAX_IN_FLIGHT_ITEMS);
     }
 
     fn range(document: &Document, from: u32, to: u32) -> Vec<(SentenceId, String)> {

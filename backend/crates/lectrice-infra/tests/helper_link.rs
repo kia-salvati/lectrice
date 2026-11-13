@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use lectrice_app::speech::{
-    HelperFill, HelperFillDeps, ListenerPosition, ReadAhead, ReadAheadDeps, ReadAheadSettings, SpeakSentence, SpeakSentenceArgs, SpeakSentenceDeps,
+    HelperFill, HelperFillDeps, HelperWait, ListenerPosition, ReadAhead, ReadAheadDeps, ReadAheadSettings, SpeakSentence, SpeakSentenceArgs, SpeakSentenceDeps,
     SpeechWorker,
 };
 use lectrice_app::{RequestContext, UseCase};
@@ -305,7 +305,7 @@ impl Phone {
             encoder,
             read_ahead: read_ahead.clone(),
             helper: Some(fill.clone()),
-            helper_grace: Duration::from_secs(3),
+            helper_wait: HelperWait { grace: Duration::from_secs(3), cold_grace: Duration::from_secs(3) },
         });
         Self { _dir: dir, document, engine, cache, sockets, helper, read_ahead, fill, speak }
     }

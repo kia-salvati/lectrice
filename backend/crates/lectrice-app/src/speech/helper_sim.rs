@@ -1,16 +1,19 @@
 //! The link-drop simulator (file 24 §13) on a virtual clock, so a thousand long listening sessions run in seconds.
 //!
-//! Real code under test: `HelperFill` (plan, flow control, urgent items, cancel on jumps, first writer wins) with its
-//! `ReadAhead` pause and resume, and `lost_read_ahead_minutes`. Simulated: the computer (one item at a time at its
-//! RTF), the link (cut, noticed at once or after the dead time, reconnect on the 1-2-5-10-30-60 s schedule once
-//! healed), the phone's local read-ahead (runs only while `ReadAhead` isn't paused for the book, at the phone's RTF, up
-//! to the horizon the shell sets for a lost link) and the player (plays at `rate`; a sentence that isn't cached when
-//! its turn comes is a gap).
+//! Real code under test: `HelperFill` (plan, flow control, urgent items, cancel on jumps, first writer wins, the
+//! first connection after `start`) with its `ReadAhead` pause and resume, `HelperWait` (how long a sentence the player
+//! needs waits for the computer) and `lost_read_ahead_minutes`. Simulated: the computer (one item at a time at its RTF,
+//! the first one slower while its engine is cold), the link (first connection, cut, noticed at once or after the dead
+//! time, reconnect on the 1-2-5-10-30-60 s schedule once healed), the phone's engine (loads before its first sentence),
+//! its local read-ahead (runs only while `ReadAhead` isn't paused for the book, at the phone's RTF, up to the horizon
+//! the shell sets for a lost link) and the player (plays at `rate`; a sentence that isn't cached when its turn comes is
+//! a gap; a sentence it waits for goes local when `HelperWait` says so, like `SpeakSentence`).
 //!
 //! The same story over real sockets (fewer runs, real time) is `lectrice-infra/tests/helper_link.rs`.
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use lectrice_domain::{
     AppError, AppResult, AudioCache, AudioKey, AudioRetention, Block, BlockKind, Document, DocumentId, ErrorName, HelperEngine, HelperEvent, HelperEvents,
@@ -18,7 +21,9 @@ use lectrice_domain::{
 };
 
 use super::fakes::{CountingEncoder, ENGINE_ID, GatedEngine, ListedReader, MemoryCache, SAMPLE_RATE};
-use super::helper_fill::{GREEN_RTF_TIMES_RATE, HELPER_AHEAD_MINUTES, HelperFill, HelperFillDeps, lost_read_ahead_minutes};
+use super::helper_fill::{
+    GREEN_RTF_TIMES_RATE, HELPER_AHEAD_MINUTES, HELPER_COLD_GRACE, HELPER_CONNECT_WAIT, HelperFill, HelperFillDeps, HelperWait, lost_read_ahead_minutes,
+};
 use super::read_ahead::{ListenerPosition, ReadAhead, ReadAheadDeps, ReadAheadSettings};
 use super::read_ahead_plan::{CHARS_PER_SECOND, SECONDS_PER_MINUTE, playable_in_order};
 use super::worker::SpeechWorker;
@@ -32,7 +37,12 @@ const LISTEN_SECONDS: f64 = 75.0 * 60.0;
 const RECONNECT_DELAYS: [f64; 6] = [1.0, 2.0, 5.0, 10.0, 30.0, 60.0];
 /// A reconnect attempt succeeds once the link has been back this long (TCP + Noise IK on a LAN).
 const CONNECT_SECONDS: f64 = 0.2;
-const NOW_GRACE_SECONDS: f64 = 1.5;
+/// The phone's model load before its first sentence (S10+, H4).
+const PHONE_LOAD_SECONDS: f64 = 2.2;
+/// A first connection to a computer that isn't there fails after this long (TCP timeout on the LAN).
+const FIRST_FAIL_SECONDS: f64 = 3.0;
+/// A sentence of about ten words (63 characters, 3.5 s of speech) for the first-sentence runs.
+const SHORT_SENTENCE_CHARS: usize = 63;
 /// The listener's own read-ahead setting.
 const LOCAL_SETTING_MINUTES: u32 = 10;
 const DEAD_AFTER_SECONDS: f64 = 15.0;
@@ -138,6 +148,30 @@ struct Scenario {
     /// A TCP error is noticed at once, a silent stall after the dead time.
     noticed_after: f64,
     jump_at: Option<f64>,
+    /// When the first connection after `start` is ready; `None`: the computer isn't there (the attempt fails after
+    /// `FIRST_FAIL_SECONDS` and it never comes).
+    first_link_after: Option<f64>,
+    /// Extra time the computer's first item takes (its engine is cold).
+    cold_start: f64,
+}
+
+/// How the player decides to make a sentence itself. `CURRENT` is the core's rule; `BEFORE_H5` is the rule H4
+/// measured on the S10+ (1.5 s from the request, no wait for a link that is still connecting).
+#[derive(Debug, Clone, Copy)]
+struct Policy {
+    wait: HelperWait,
+    connect_wait: bool,
+}
+
+impl Policy {
+    fn current() -> Self {
+        Self { wait: HelperWait::default(), connect_wait: true }
+    }
+
+    fn before_h5() -> Self {
+        let grace = Duration::from_millis(1500);
+        Self { wait: HelperWait { grace, cold_grace: grace }, connect_wait: false }
+    }
 }
 
 impl Scenario {
@@ -155,6 +189,24 @@ impl Scenario {
             outage: rng.between(1.0, 25.0 * 60.0),
             noticed_after: if rng.next().is_multiple_of(2) { 0.0 } else { DEAD_AFTER_SECONDS },
             jump_at: jump.then(|| rng.between(60.0, 60.0 * 60.0)),
+            first_link_after: Some(rng.between(0.02, 1.2)),
+            cold_start: rng.between(0.0, 1.5),
+        }
+    }
+
+    /// A session start with nothing else happening: the link takes up to 1.2 s, the computer's first item up to
+    /// 1.5 s more (H4 measured 1.95–2.06 s for a cold desktop's first sentence).
+    fn start(rng: &mut Rng) -> Self {
+        Self {
+            rate: 1.0,
+            phone_rtf: 1.11,
+            computer_rtf: [0.186, 0.254][(rng.next() % 2) as usize],
+            cut_at: f64::INFINITY,
+            outage: 0.0,
+            noticed_after: 0.0,
+            jump_at: None,
+            first_link_after: Some(rng.between(0.02, 1.2)),
+            cold_start: rng.between(0.5, 1.5),
         }
     }
 
@@ -180,10 +232,18 @@ struct Outcome {
     jump_waste: Option<u64>,
     puts: usize,
     cached: usize,
+    /// Sentences the player was waiting for that the phone made itself, and when the first one started.
+    player_local_starts: u32,
+    first_player_local: Option<f64>,
+    /// When the phone's engine was first needed (it loads then).
+    engine_loaded_at: Option<f64>,
+    first_sound_at: Option<f64>,
 }
 
 struct World {
     scenario: Scenario,
+    policy: Policy,
+    listen_seconds: f64,
     document: Arc<Document>,
     order: Vec<SentenceId>,
     keys: Vec<AudioKey>,
@@ -194,6 +254,10 @@ struct World {
     now: f64,
     /// The computer's item being made, and when it is done.
     making: Option<(f64, HelperItem)>,
+    /// The first connection after `start` is done (or failed).
+    first_link_done: bool,
+    /// What is left of the computer's cold start.
+    cold_left: f64,
     link_up: bool,
     lost_noticed_at: Option<f64>,
     healed_at: f64,
@@ -201,10 +265,13 @@ struct World {
     failures: usize,
     /// The phone's own engine: when it is done, and with which playlist index.
     local: Option<(f64, usize)>,
+    engine_loaded: bool,
     /// The player: its playlist index, when the sentence playing ends, or since when it waits (start and jumps).
     playing: usize,
     play_end: Option<f64>,
     waiting_since: Option<f64>,
+    /// When the sentence the player waits for went to the computer as urgent.
+    urgent_sent_at: Option<f64>,
     outcome: Outcome,
 }
 
@@ -212,7 +279,7 @@ fn seconds_of(sentence: &Sentence) -> f64 {
     sentence.spoken_text().chars().count() as f64 / CHARS_PER_SECOND
 }
 
-fn book() -> Document {
+fn book(sentence_chars: usize) -> Document {
     let blocks = (0..SENTENCES)
         .map(|id| Block {
             id,
@@ -221,7 +288,7 @@ fn book() -> Document {
             page_index: 1,
             spoken: true,
             text: None,
-            sentences: vec![Sentence { id: SentenceId(id), text: format!("{id:04}{}.", "a".repeat(SENTENCE_CHARS - 5)), page_index: 1, speech_text: None }],
+            sentences: vec![Sentence { id: SentenceId(id), text: format!("{id:04}{}.", "a".repeat(sentence_chars - 5)), page_index: 1, speech_text: None }],
             cue: None,
         })
         .collect();
@@ -238,7 +305,7 @@ fn book() -> Document {
 }
 
 impl World {
-    fn new(scenario: Scenario, document: Arc<Document>, worker: &Arc<SpeechWorker>) -> Self {
+    fn new(scenario: Scenario, policy: Policy, listen_seconds: f64, document: Arc<Document>, worker: &Arc<SpeechWorker>) -> Self {
         let cache = Arc::new(MemoryCache::default());
         let helper = Arc::new(SimHelper::default());
         let reader = Arc::new(ListedReader::default());
@@ -256,7 +323,7 @@ impl World {
             read_ahead: read_ahead.clone(),
         });
         fill.start().unwrap();
-        helper.emit(HelperEvent::State(HelperState::Connected));
+        helper.emit(HelperEvent::State(HelperState::Connecting));
         let order: Vec<SentenceId> = playable_in_order(&document, false).into_iter().map(|(_, sentence)| sentence.id).collect();
         let keys = order
             .iter()
@@ -270,6 +337,8 @@ impl World {
             .collect();
         Self {
             scenario,
+            policy,
+            listen_seconds,
             document,
             order,
             keys,
@@ -279,17 +348,36 @@ impl World {
             fill,
             now: 0.0,
             making: None,
-            link_up: true,
+            first_link_done: false,
+            cold_left: scenario.cold_start,
+            link_up: scenario.first_link_after.is_some(),
             lost_noticed_at: None,
             healed_at: f64::INFINITY,
             next_attempt: None,
             failures: 0,
             local: None,
+            engine_loaded: false,
             playing: 0,
             play_end: None,
             waiting_since: Some(0.0),
+            urgent_sent_at: None,
             outcome: Outcome::default(),
         }
+    }
+
+    /// `HelperFill::first_link_left` on the virtual clock (the real one counts on the wall clock from `start`).
+    fn first_link_left(&self) -> Option<Duration> {
+        let left = HELPER_CONNECT_WAIT.as_secs_f64() - self.now;
+        (self.policy.connect_wait && !self.first_link_done && left > 0.0).then(|| Duration::from_secs_f64(left))
+    }
+
+    /// The phone's engine starts on a sentence, loading first if it has to.
+    fn start_local(&mut self, index: usize) {
+        let load = if self.engine_loaded { 0.0 } else { PHONE_LOAD_SECONDS };
+        self.engine_loaded = true;
+        self.outcome.engine_loaded_at.get_or_insert(self.now);
+        let seconds = seconds_of(self.sentence(index));
+        self.local = Some((self.now + load + seconds * f64::from(self.scenario.phone_rtf), index));
     }
 
     fn key(&self, index: usize) -> &AudioKey {
@@ -324,9 +412,8 @@ impl World {
 
     fn run(mut self) -> Outcome {
         self.request(0);
-        self.ask_urgently(0);
         let mut dropped_before_jump = None;
-        while self.now < LISTEN_SECONDS && self.playing + 1 < self.order.len() {
+        while self.now < self.listen_seconds && self.playing + 1 < self.order.len() {
             self.step();
             if let Some(at) = self.scenario.jump_at
                 && dropped_before_jump.is_none()
@@ -352,10 +439,8 @@ impl World {
         self.playing = target;
         self.play_end = None;
         self.waiting_since = Some(self.now);
+        self.urgent_sent_at = None;
         self.request(target);
-        if !self.cached(target) {
-            self.ask_urgently(target);
-        }
     }
 
     /// Moves the clock to the next thing that happens and handles everything due then.
@@ -369,7 +454,7 @@ impl World {
             (!self.link_up && self.healed_at.is_infinite()).then_some(scenario.cut_at + scenario.outage),
             self.lost_noticed_at,
             self.next_attempt,
-            self.waiting_since.map(|since| since + NOW_GRACE_SECONDS),
+            (!self.first_link_done).then(|| scenario.first_link_after.unwrap_or(FIRST_FAIL_SECONDS)),
         ];
         let next = candidates.into_iter().flatten().filter(|at| *at > self.now).fold(f64::INFINITY, f64::min);
         // A waiting player looks at the cache at least every 100 ms.
@@ -384,6 +469,22 @@ impl World {
 
     fn link(&mut self) {
         let scenario = self.scenario;
+        if !self.first_link_done {
+            match scenario.first_link_after {
+                Some(at) if self.now >= at => {
+                    self.first_link_done = true;
+                    self.helper.emit(HelperEvent::State(HelperState::Connected));
+                }
+                None if self.now >= FIRST_FAIL_SECONDS => {
+                    self.first_link_done = true;
+                    self.outcome.lost_at = Some(self.now);
+                    self.helper.emit(HelperEvent::State(HelperState::Lost));
+                    self.failures = 1;
+                    self.next_attempt = Some(self.now + RECONNECT_DELAYS[0]);
+                }
+                _ => {}
+            }
+        }
         if self.link_up && self.outcome.lost_at.is_none() && self.lost_noticed_at.is_none() && self.now >= scenario.cut_at {
             self.link_up = false;
             self.making = None;
@@ -430,7 +531,8 @@ impl World {
             && let Some(item) = self.helper.next_item()
         {
             let seconds = item.text.chars().count() as f64 / CHARS_PER_SECOND;
-            self.making = Some((self.now + seconds * self.scenario.computer_rtf, item));
+            let cold = std::mem::take(&mut self.cold_left);
+            self.making = Some((self.now + cold + seconds * self.scenario.computer_rtf, item));
         }
     }
 
@@ -464,7 +566,7 @@ impl World {
             if self.outcome.reconnected_at.is_some() {
                 self.outcome.local_starts_after_reconnect += 1;
             }
-            self.local = Some((self.now + seconds * f64::from(self.scenario.phone_rtf), index));
+            self.start_local(index);
             return;
         }
     }
@@ -479,21 +581,38 @@ impl World {
                 self.outcome.gaps += 1;
                 self.outcome.first_gap.get_or_insert((self.now, self.playing));
                 self.waiting_since = Some(self.now);
+                self.urgent_sent_at = None;
                 self.request(self.playing);
-                self.ask_urgently(self.playing);
             }
         }
-        let Some(since) = self.waiting_since else { return };
+        if self.waiting_since.is_none() {
+            return;
+        }
         if self.cached(self.playing) {
             self.start_playing();
-        } else if self.now >= since + NOW_GRACE_SECONDS && self.local.is_none_or(|(_, index)| index != self.playing) {
-            // The grace is over: the phone makes it now (a read-ahead job it was on gives way).
-            let seconds = seconds_of(self.sentence(self.playing));
-            self.local = Some((self.now + seconds * f64::from(self.scenario.phone_rtf), self.playing));
+            return;
+        }
+        // What `SpeakSentence` does for a miss: urgent once the link is ready, then the grace from that moment.
+        let ready = self.fill.makes_clips();
+        if ready && self.urgent_sent_at.is_none() {
+            self.ask_urgently(self.playing);
+            self.urgent_sent_at = Some(self.now);
+        }
+        if self.local.is_some_and(|(_, index)| index == self.playing) {
+            return;
+        }
+        let ready_for = self.urgent_sent_at.filter(|_| ready).map(|sent| Duration::from_secs_f64(self.now - sent));
+        if self.policy.wait.left(self.first_link_left(), ready_for, self.engine_loaded).is_none() {
+            // The phone makes it now (a read-ahead job it was on gives way).
+            self.outcome.player_local_starts += 1;
+            self.outcome.first_player_local.get_or_insert(self.now);
+            self.start_local(self.playing);
         }
     }
 
     fn start_playing(&mut self) {
+        self.outcome.first_sound_at.get_or_insert(self.now);
+        self.urgent_sent_at = None;
         self.waiting_since = None;
         let seconds = seconds_of(self.sentence(self.playing)) / f64::from(self.scenario.rate);
         self.play_end = Some(self.now + seconds);
@@ -504,13 +623,13 @@ impl World {
 /// File 24 §13 assertions 1, 3, 4, 5 and 6 over a thousand random runs.
 #[test]
 fn a_thousand_link_drops_never_make_a_gap() {
-    let document = Arc::new(book());
+    let document = Arc::new(book(SENTENCE_CHARS));
     let worker = Arc::new(SpeechWorker::start(Arc::new(GatedEngine::open())).unwrap());
     let mut rng = Rng(0x5eed_1234_abcd_0001);
     let (mut lost, mut jumps, mut reds) = (0, 0, 0);
     for run in 0..RUNS {
         let scenario = Scenario::draw(&mut rng);
-        let outcome = World::new(scenario, document.clone(), &worker).run();
+        let outcome = World::new(scenario, Policy::current(), LISTEN_SECONDS, document.clone(), &worker).run();
         let context = format!("run {run}: {scenario:?} → {outcome:?}");
 
         assert_eq!(outcome.gaps, 0, "(1) no gap: {context}");
@@ -544,7 +663,7 @@ fn a_thousand_link_drops_never_make_a_gap() {
 /// buffered minutes at once, it plays the rest of the session without a gap (file 24 §3.6: ~5 h at 1x).
 #[test]
 fn a_red_phone_plays_on_without_the_computer() {
-    let document = Arc::new(book());
+    let document = Arc::new(book(SENTENCE_CHARS));
     let worker = Arc::new(SpeechWorker::start(Arc::new(GatedEngine::open())).unwrap());
     let scenario = Scenario {
         rate: 1.0,
@@ -554,11 +673,80 @@ fn a_red_phone_plays_on_without_the_computer() {
         outage: 10.0 * 3600.0,
         noticed_after: DEAD_AFTER_SECONDS,
         jump_at: None,
+        first_link_after: Some(CONNECT_SECONDS),
+        cold_start: 0.0,
     };
 
-    let outcome = World::new(scenario, document, &worker).run();
+    let outcome = World::new(scenario, Policy::current(), LISTEN_SECONDS, document, &worker).run();
 
     assert_eq!(outcome.gaps, 0, "{outcome:?}");
     assert!(outcome.reconnected_at.is_none());
     assert!(outcome.first_local_start.unwrap() - outcome.lost_at.unwrap() < 1.0, "{outcome:?}");
+}
+
+const START_RUNS: u64 = 300;
+const START_LISTEN_SECONDS: f64 = 60.0;
+
+fn start_runs(policy: Policy) -> Vec<(Scenario, Outcome)> {
+    let document = Arc::new(book(SHORT_SENTENCE_CHARS));
+    let worker = Arc::new(SpeechWorker::start(Arc::new(GatedEngine::open())).unwrap());
+    let mut rng = Rng(0x5eed_1234_abcd_0005);
+    (0..START_RUNS)
+        .map(|_| {
+            let scenario = Scenario::start(&mut rng);
+            (scenario, World::new(scenario, policy, START_LISTEN_SECONDS, document.clone(), &worker).run())
+        })
+        .collect()
+}
+
+/// H5 (H4 open item 1): play pressed while the link is still connecting, and a cold computer that answers the first
+/// sentence in up to ~2.6 s. The phone waits for both and never loads its own engine; nothing gaps afterwards.
+#[test]
+fn the_first_sentence_waits_for_the_link_and_a_cold_computer() {
+    for (run, (scenario, outcome)) in start_runs(Policy::current()).into_iter().enumerate() {
+        let context = format!("run {run}: {scenario:?} → {outcome:?}");
+        assert_eq!(outcome.engine_loaded_at, None, "the phone's engine stays unloaded: {context}");
+        assert_eq!(outcome.player_local_starts, 0, "{context}");
+        assert_eq!(outcome.gaps, 0, "{context}");
+        let first_item = f64::from(SHORT_SENTENCE_CHARS as u32) / CHARS_PER_SECOND * scenario.computer_rtf;
+        let expected = scenario.first_link_after.unwrap() + scenario.cold_start + first_item;
+        assert!(outcome.first_sound_at.unwrap() <= expected + 0.15, "the first sentence plays as soon as the computer has it: {context}");
+    }
+}
+
+/// The same starts with the rule H4 measured: most of them load the phone's engine (so the test above tells the two
+/// rules apart).
+#[test]
+fn the_rule_before_h5_loaded_the_engine_at_most_starts() {
+    let loaded = start_runs(Policy::before_h5()).iter().filter(|(_, outcome)| outcome.engine_loaded_at.is_some()).count();
+    assert!(loaded * 4 >= START_RUNS as usize * 3, "{loaded} of {START_RUNS}");
+}
+
+/// The computer isn't there: the first sentence waits only the connect wait, then the phone makes it.
+#[test]
+fn an_absent_computer_costs_at_most_the_connect_wait() {
+    let document = Arc::new(book(SHORT_SENTENCE_CHARS));
+    let worker = Arc::new(SpeechWorker::start(Arc::new(GatedEngine::open())).unwrap());
+    let scenario = Scenario { first_link_after: None, ..Scenario::start(&mut Rng(3)) };
+
+    let outcome = World::new(scenario, Policy::current(), START_LISTEN_SECONDS, document, &worker).run();
+
+    let started = outcome.first_player_local.unwrap();
+    let connect_wait = HELPER_CONNECT_WAIT.as_secs_f64();
+    assert!((connect_wait..connect_wait + 0.15).contains(&started), "{outcome:?}");
+    assert!(outcome.first_local_start.is_some_and(|at| at >= FIRST_FAIL_SECONDS), "the read-ahead follows once the link failed: {outcome:?}");
+}
+
+/// Connected, but the computer never answers: the cold grace, counted from the urgent item, then the phone.
+#[test]
+fn a_computer_that_never_answers_costs_the_cold_grace() {
+    let document = Arc::new(book(SHORT_SENTENCE_CHARS));
+    let worker = Arc::new(SpeechWorker::start(Arc::new(GatedEngine::open())).unwrap());
+    let scenario = Scenario { first_link_after: Some(0.4), cold_start: 3600.0, ..Scenario::start(&mut Rng(4)) };
+
+    let outcome = World::new(scenario, Policy::current(), START_LISTEN_SECONDS, document, &worker).run();
+
+    let started = outcome.first_player_local.unwrap();
+    let expected = 0.4 + HELPER_COLD_GRACE.as_secs_f64();
+    assert!((expected..expected + 0.15).contains(&started), "{outcome:?}");
 }

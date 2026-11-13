@@ -49,7 +49,7 @@ pulls by tag. While in beta (0.x), a change to a core trait, public type or save
   - `ReadAhead::pause_for_helper` / `resume` / `is_paused`; `ReadAheadOutcome.paused`.
   - `SynthesisGate` port and `SpeechWorker::start_gated`: each job takes its turn at a shell's CPU gate with its own
     priority (the desktop ranks its `Now`, read-ahead and exports against the phones' items).
-  - `services::assemble_with(adapters, settings, SpeechOptions { gate, helper, helper_grace })`; `assemble` is
+  - `services::assemble_with(adapters, settings, SpeechOptions { gate, helper, helper_wait })`; `assemble` is
     `assemble_with` with the defaults. `SpeechTicket::wait_timeout`.
   - `lectrice_infra::DeferredSpeechEngine` (+ `KokoroSpeechEngine::deferred`): id, revision, voices and sample rate
     without loading the model; loads on the first sentence or `preload`, can `unload`, refuses a model that isn't the
@@ -70,7 +70,7 @@ pulls by tag. While in beta (0.x), a change to a core trait, public type or save
     6) and the helper end to end over real sockets through `FaultyLink` (`lectrice-infra/tests/helper_link.rs`).
 
 #### Changed
-- **Breaking:** `SpeechServices` gains `prepare` and `helper`; `SpeakSentenceDeps` gains `helper` and `helper_grace`.
+- **Breaking:** `SpeechServices` gains `prepare` and `helper`; `SpeakSentenceDeps` gains `helper` and `helper_wait`.
 - `SpeakSentence` and the read-ahead store clips with `put_if_absent`; when another producer stored the sentence
   first, its clip is the one returned.
 - The test profile builds `lectrice-app` optimised (the simulator's thousand runs).
@@ -80,6 +80,19 @@ pulls by tag. While in beta (0.x), a change to a core trait, public type or save
   version gets no map).
 
 #### Fixed
+- **The phone's model no longer loads in the first-sentence races of a helper session (H4 on the S10+, H5).**
+  (a) Play pressed while the link was still connecting (~100 ms): the miss went straight to the local engine and the
+  local read-ahead started one item. Now, for `HELPER_CONNECT_WAIT` (1.5 s) after `HelperFill::start`, a miss waits
+  for the first connection and the local read-ahead stays paused (`HelperFill::first_link_left`); a reconnect never
+  waits. (b) The grace now counts from the moment the link is ready, and while the phone's engine isn't loaded it is
+  `HELPER_COLD_GRACE` (3 s): the local path would pay the model load (2.2 s on the S10+) first, and a cold computer
+  answered in 1.95–2.06 s. (c) When the link becomes ready while the player waits, the listener's own sentence is the
+  first item, sent urgent, so the computer doesn't start on a later sentence first; an urgent item already asked for
+  isn't sent again (the computer would make it twice). New: `HelperWait` (`grace`, `cold_grace`, `left`; replaces
+  `helper_grace`), `SpeechEngine::is_loaded` (default `true`; `DeferredSpeechEngine` reports its state without
+  waiting for a load), `HelperFill::wait_for_change`; `UrgentWait::wait` is gone. Simulator: first-sentence runs
+  (link up to 1.2 s, cold computer up to 1.5 s more: the engine never loads; the H4 rule loaded it in most runs),
+  a computer that isn't there (local after the connect wait) and one that never answers (local after the cold grace).
 - Chapter headings at the top of a page were dropped when each chapter took one page and started with its number
   (`2 Blossom` on PDF page 2, e.g. HTML printed to PDF by Chrome): the numbers were taken for printed page numbers.
   Page numbers are now inferred only from header/footer lines whose shape repeats across pages. Cleaner version 4, so

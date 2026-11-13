@@ -48,6 +48,11 @@ pub trait SpeechEngine: Send + Sync {
     fn revision(&self) -> &str {
         ""
     }
+    /// `false` while the model must still be loaded before the next sentence (a deferred engine, file 24 C46), so
+    /// speaking now costs the load first. Wrappers must pass it through.
+    fn is_loaded(&self) -> bool {
+        true
+    }
 }
 
 pub trait AudioEncoder: Send + Sync {
