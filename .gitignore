@@ -17,3 +17,6 @@ node_modules/
 # Text from the user's books (copyrighted): regenerate locally, never commit
 /backend/test-data/
 /docs/progress/B2-samples/
+
+# Security reports stay local until their findings are fixed (public repo)
+/docs/security/
