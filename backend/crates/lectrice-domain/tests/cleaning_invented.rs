@@ -37,6 +37,9 @@ const CALIBRE: Layout =
 /// LinkedIn Posts: Google Docs export, Letter pages, Arial.
 const GOOGLE_DOCS: Layout =
     Layout { width: 612.0, height: 792.0, left: 72.0, top: 704.99, body_font: "ArialMT", body_size: 10.5, pitch: 12.07, paragraph_gap: 10.0 };
+/// HTML printed to PDF by headless Chrome: Letter pages, Liberation Serif, no running headers or page numbers.
+const CHROME: Layout =
+    Layout { width: 612.0, height: 792.0, left: 33.75, top: 694.0, body_font: "LiberationSerif", body_size: 12.0, pitch: 13.8, paragraph_gap: 12.0 };
 
 struct Book {
     content: PdfContent,
@@ -636,4 +639,39 @@ fn google_docs_dash_numbered_lines_are_list_items_and_carry_on_without_a_hanging
     let full_loads = block(&document, "Full Loads:");
     assert_eq!(full_loads.kind, BlockKind::ListItem);
     assert!(spoken(full_loads).ends_with("ideally in the evening."), "{:?}", spoken(full_loads));
+}
+
+const CHROME_BOLD: &str = "LiberationSerif-Bold";
+/// An `<h1>` that starts a new page sits this high, inside the top band where running headers live.
+const CHROME_H1_BASELINE: f32 = 727.0;
+const CHROME_H1_SIZE: f32 = 24.0;
+const CHROME_H2_SIZE: f32 = 18.0;
+
+/// Three one-page chapters, each `<h1>` on a new page with its number first, so chapter N sits on PDF page N − 1.
+fn chrome_book() -> Book {
+    let chapters = [("1 Morning Tide", "1.1 Shells"), ("2 Harbour Lights", "2.1 Ropes"), ("3 The Long Pier", "3.1 Nets")];
+    let outline: Vec<(&str, u8, u32)> = chapters.iter().zip(0..).flat_map(|((chapter, section), page)| [(*chapter, 1, page), (*section, 2, page)]).collect();
+    let mut book = Book::new().outline(&outline);
+    for (chapter, section) in chapters {
+        let mut page = book.page(&CHROME, None);
+        page.at(CHROME_H1_BASELINE).pieces(CHROME.left, &[(CHROME_BOLD, CHROME_H1_SIZE, chapter)]).at(CHROME.top);
+        page.lines(&[
+            "The ferry left the quay a little after seven and the gulls followed it out past the",
+            "breakwater, calling over the wake until the town was only a line of roofs.",
+        ]);
+        page.heading(CHROME_BOLD, CHROME_H2_SIZE, section);
+        page.lines(&["A fisherman mended his nets on the slipway and waved at every boat that passed."]);
+    }
+    book
+}
+
+#[test]
+fn chrome_chapter_heading_at_the_top_of_a_page_is_kept_and_no_label_is_inferred() {
+    let document = chrome_book().clean();
+    for (page, chapter, section) in [(0, "1 Morning Tide", "1.1 Shells"), (1, "2 Harbour Lights", "2.1 Ropes"), (2, "3 The Long Pier", "3.1 Nets")] {
+        let headings = kinds_on(&document, page, BlockKind::Heading);
+        assert_eq!(headings, [chapter, section], "page {page}");
+        assert_eq!(blocks_on(&document, page)[0].level, Some(1));
+        assert_eq!(label(&document, page), None);
+    }
 }

@@ -45,7 +45,7 @@ use crate::pdf::{PdfContent, TextRun};
 use crate::ports::DocumentCleaner;
 
 /// Raise this whenever a rule changes what a cleaned document looks like.
-pub const CLEANER_VERSION: u32 = 3;
+pub const CLEANER_VERSION: u32 = 4;
 
 /// The survey's v1 pipeline (rules 1–20).
 #[derive(Debug, Default, Clone, Copy)]

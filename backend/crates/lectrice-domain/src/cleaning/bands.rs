@@ -73,20 +73,25 @@ fn band_key(text: &str) -> String {
 }
 
 fn repeated_band_texts(pages: &[Page]) -> HashSet<(Band, String)> {
+    let text_pages = pages.iter().filter(|page| !page.lines.is_empty()).count();
+    let threshold = MIN_REPEATED_PAGES.max((text_pages as f32 * REPEATED_SHARE).ceil() as usize);
+    band_key_pages(pages).into_iter().filter(|(_, count)| *count >= threshold).map(|(key, _)| key).collect()
+}
+
+/// On how many pages each band text (digits as `#`) is seen.
+pub fn band_key_pages(pages: &[Page]) -> HashMap<(Band, String), usize> {
     let mut pages_seen: HashMap<(Band, String), usize> = HashMap::new();
-    let mut text_pages = 0;
     for page in pages {
-        if page.lines.is_empty() {
-            continue;
-        }
-        text_pages += 1;
-        let keys: HashSet<(Band, String)> = page.lines.iter().filter_map(|line| band_of(line, page.height).map(|band| (band, band_key(&line.text)))).collect();
+        let keys: HashSet<(Band, String)> = page.lines.iter().filter_map(|line| band_key_of(line, page.height)).collect();
         for key in keys {
             *pages_seen.entry(key).or_default() += 1;
         }
     }
-    let threshold = MIN_REPEATED_PAGES.max((text_pages as f32 * REPEATED_SHARE).ceil() as usize);
-    pages_seen.into_iter().filter(|(_, count)| *count >= threshold).map(|(key, _)| key).collect()
+    pages_seen
+}
+
+pub fn band_key_of(line: &Line, page_height: f32) -> Option<(Band, String)> {
+    band_of(line, page_height).map(|band| (band, band_key(&line.text)))
 }
 
 #[cfg(test)]
