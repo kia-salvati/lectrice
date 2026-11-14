@@ -7,7 +7,7 @@ import { MiniPlayer } from '../../components/MiniPlayer/MiniPlayer';
 import { PlayerPopover } from '../../components/PlayerPopover/PlayerPopover';
 import { ReadingView } from '../../components/ReadingView/ReadingView';
 import { StatusBanner } from '../../components/StatusBanner/StatusBanner';
-import { EXPORT_FORMAT_EXTENSION, FALLBACK_VOICE_ID, SECONDS_PER_CHAR } from '../../config/constants';
+import { EXPORT_FORMAT_EXTENSION, SECONDS_PER_CHAR } from '../../config/constants';
 import { useAudioExport } from '../../hooks/useAudioExport';
 import { useChaptersPanel } from '../../hooks/useChaptersPanel';
 import { useFollowScroll } from '../../hooks/useFollowScroll';
@@ -43,8 +43,9 @@ const ENGINE_BANNER: Record<SpeechEngine['state'], string | null> = {
 
 /** A loaded document: wires playback, export and follow-scroll to the components. */
 export const ReaderScreen = ({ document, voices, engine, onBack, shell }: ReaderScreenProps) => {
-  const voiceId = voices.selectedVoiceId ?? FALLBACK_VOICE_ID;
-  const voiceNameOf = (id: string): string => voices.voices.find((voice) => voice.id === id)?.name ?? id;
+  const voiceId = voices.selectedVoiceId;
+  const voiceNameOf = (id: string | null): string => (id === null ? '' : voices.voices.find((voice) => voice.id === id)?.name ?? id);
+  const canStartExport = engine.state === 'ready' && voiceId !== null;
 
   const playback = usePlayback({ document, voiceId, canPlay: engine.state === 'ready', onEngineUnavailable: engine.markUnavailable });
   const exportState = useAudioExport(document.id, engine.markUnavailable);
@@ -116,7 +117,9 @@ export const ReaderScreen = ({ document, voices, engine, onBack, shell }: Reader
   const fileVoiceName = voiceNameOf(job?.voiceId ?? voiceId);
   const downloadName = safeFileName(`${document.title} (${fileVoiceName}).${EXPORT_FORMAT_EXTENSION[fileFormat]}`);
   const engineMessage = voiceStatus === null ? ENGINE_BANNER[engine.state] : null;
-  const startExport = () => exportState.start(voiceId, playback.readSkipped);
+  const startExport = () => {
+    if (voiceId !== null) exportState.start(voiceId, playback.readSkipped);
+  };
 
   const exportPanel = shell ? (
     <div ref={shellExportRef}>
@@ -125,7 +128,7 @@ export const ReaderScreen = ({ document, voices, engine, onBack, shell }: Reader
         voiceName: voiceNameOf(voiceId),
         readSkipped: playback.readSkipped,
         fileVoiceName,
-        canStart: engine.state === 'ready',
+        canStart: canStartExport,
         onStart: startExport,
         bookSeconds: playback.order.charsFrom[0] * SECONDS_PER_CHAR,
       })}
@@ -145,7 +148,7 @@ export const ReaderScreen = ({ document, voices, engine, onBack, shell }: Reader
       fileUrl={exportState.fileUrl}
       downloadName={downloadName}
       errorMessage={exportState.error?.message ?? null}
-      canStart={engine.state === 'ready'}
+      canStart={canStartExport}
       onStart={startExport}
       onCancel={exportState.cancel}
     />
@@ -175,7 +178,7 @@ export const ReaderScreen = ({ document, voices, engine, onBack, shell }: Reader
       speed={playback.speed}
       onSpeedChange={playback.setSpeed}
       voiceGroups={voiceGroups}
-      voiceId={voiceId}
+      voiceId={voiceId ?? ''}
       voicesAvailable={voices.status === 'ready'}
       onVoiceChange={voices.selectVoice}
       readSkipped={playback.readSkipped}

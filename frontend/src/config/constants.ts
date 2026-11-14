@@ -15,9 +15,6 @@ export const PREFETCH_AHEAD = 2;
 /** Measured Kokoro rate at 1× (spec §4: ≈ 18 characters per second). Used only for "time left". */
 export const SECONDS_PER_CHAR = 1 / 18;
 
-/** Used until GET /api/voices answers, or if it fails. The server's defaultVoiceId wins once known. */
-export const FALLBACK_VOICE_ID = 'af_heart';
-
 export const POSITION_SAVE_DELAY_MS = 1500;
 
 export const RECENT_PAGE_SIZE = 20;
