@@ -53,6 +53,8 @@ struct Shared {
     /// The state, and which supervisor may change it (each `open` and `close` starts a new generation).
     state: Mutex<(HelperState, u64)>,
     commands: Mutex<Option<Sender<Command>>>,
+    /// The wait after so many failures in a row.
+    reconnect_delay: fn(u32) -> Duration,
 }
 
 impl Shared {
@@ -69,7 +71,13 @@ pub struct LinkSpeechHelper {
 
 impl LinkSpeechHelper {
     pub fn new(config: LinkHelperConfig) -> Self {
-        Self { shared: Arc::new(Shared { config: Mutex::new(config), state: Mutex::new((HelperState::Off, 0)), commands: Mutex::new(None) }) }
+        Self::with_reconnect_schedule(config, reconnect_delay)
+    }
+
+    /// Like [`Self::new`] with another reconnect schedule (tests shorten it).
+    pub fn with_reconnect_schedule(config: LinkHelperConfig, reconnect_delay: fn(u32) -> Duration) -> Self {
+        let shared = Shared { config: Mutex::new(config), state: Mutex::new((HelperState::Off, 0)), commands: Mutex::new(None), reconnect_delay };
+        Self { shared: Arc::new(shared) }
     }
 
     /// New addresses for the computer (it was found again, or its address changed); tries them at once.
@@ -192,7 +200,7 @@ impl Supervisor {
                 End::Again | End::Lost => {
                     failures += 1;
                     self.set_state(HelperState::Lost);
-                    self.wait(Some(reconnect_delay(failures)))
+                    self.wait(Some((self.shared.reconnect_delay)(failures)))
                 }
                 End::Attention(name) => {
                     self.set_state(HelperState::NeedsAttention(name));

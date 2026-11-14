@@ -11,7 +11,7 @@ use sha2::Sha256;
 use snow::Builder;
 use spake2::{Ed25519Group, Identity, Password, Spake2};
 
-use crate::error::{LinkError, LinkResult};
+use crate::error::{LinkError, LinkResult, PairingFailure};
 use crate::frame::{FrameReader, write_frame};
 use crate::identity::{KEY_BYTES, PeerRecord, StaticKeys};
 use crate::limits::{PAIR_CODE_DIGITS, PAIR_PROLOGUE, PAIR_PSK_INFO, SPAKE2_ID_COMPUTER, SPAKE2_ID_PHONE};
@@ -90,12 +90,14 @@ fn checked(hello: PairHello) -> LinkResult<PairHello> {
 }
 
 /// The other side closed the connection while we were still talking to it.
+#[cfg(any(feature = "client", test))]
 fn is_hang_up(error: &std::io::Error) -> bool {
     use std::io::ErrorKind::{BrokenPipe, ConnectionAborted, ConnectionReset};
     matches!(error.kind(), BrokenPipe | ConnectionAborted | ConnectionReset)
 }
 
 /// The phone's side, after the TCP connect: sends the prologue, runs SPAKE2 and the handshake, swaps hellos.
+#[cfg(any(feature = "client", test))]
 pub(crate) fn pair_as_phone<R: Read, W: Write>(
     reader: &mut FrameReader<R>,
     writer: &mut W,
@@ -109,7 +111,7 @@ pub(crate) fn pair_as_phone<R: Read, W: Write>(
     write_frame(writer, &message_a)?;
     // The computer closes at once when no pairing code is showing.
     let message_b = read_frame_by(reader, deadline).map_err(|error| match error {
-        LinkError::Disconnected => LinkError::PairingFailed("no pairing code is showing on the computer"),
+        LinkError::Disconnected => LinkError::PairingFailed(PairingFailure::NoCodeShowing),
         other => other,
     })?;
     let key = spake.finish(&message_b).map_err(|_| LinkError::Protocol("SPAKE2 message"))?;
@@ -131,8 +133,8 @@ pub(crate) fn pair_as_phone<R: Read, W: Write>(
     // because our hello was left unread).
     let computer_hello: PairHello =
         send(&channel, writer, hello).and_then(|()| receive_by(&mut channel.opener(), reader, deadline)).map_err(|error| match error {
-            LinkError::Disconnected | LinkError::Crypto => LinkError::PairingFailed("wrong code"),
-            LinkError::Io(error) if is_hang_up(&error) => LinkError::PairingFailed("wrong code"),
+            LinkError::Disconnected | LinkError::Crypto => LinkError::PairingFailed(PairingFailure::WrongCode),
+            LinkError::Io(error) if is_hang_up(&error) => LinkError::PairingFailed(PairingFailure::WrongCode),
             other => other,
         })?;
     let computer_hello = checked(computer_hello)?;
@@ -141,10 +143,11 @@ pub(crate) fn pair_as_phone<R: Read, W: Write>(
 
 /// The computer's side, after it read the pair prologue while its code was showing.
 /// Each step must arrive within `step` (a stalled attempt frees its slot quickly); only
-/// `PairingFailed("wrong code")` means a guess was made.
+/// `PairingFailed(WrongCode)` means a guess was made.
 ///
 /// `accept` runs once the phone proved it knows the code, before the computer's hello goes out: the caller saves the
 /// phone there (or refuses it), so a phone that hears "paired" is always one the computer has saved.
+#[cfg(any(feature = "server", test))]
 pub(crate) fn pair_as_computer<R: Read, W: Write>(
     reader: &mut FrameReader<R>,
     writer: &mut W,
@@ -169,7 +172,7 @@ pub(crate) fn pair_as_computer<R: Read, W: Write>(
     receive_handshake(&mut state, reader, by())?;
     send_handshake(&mut state, writer, &[])?;
     receive_handshake(&mut state, reader, by()).map_err(|error| match error {
-        LinkError::Crypto => LinkError::PairingFailed("wrong code"),
+        LinkError::Crypto => LinkError::PairingFailed(PairingFailure::WrongCode),
         other => other,
     })?;
     let phone_key = remote_key(&state)?;
@@ -185,7 +188,7 @@ pub(crate) fn pair_as_computer<R: Read, W: Write>(
 
 #[cfg(test)]
 mod tests {
-    use std::os::unix::net::UnixStream;
+    use std::net::{Ipv4Addr, TcpListener, TcpStream};
     use std::thread;
 
     use super::*;
@@ -195,7 +198,7 @@ mod tests {
     }
 
     fn run(phone_code: &str, computer_code: &str) -> (LinkResult<Paired>, LinkResult<Paired>, StaticKeys, StaticKeys) {
-        let (phone_end, computer_end) = UnixStream::pair().unwrap();
+        let (phone_end, computer_end) = stream_pair();
         for end in [&phone_end, &computer_end] {
             end.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
         }
@@ -221,8 +224,16 @@ mod tests {
         (phone, computer.join().unwrap(), phone_keys, computer_keys)
     }
 
+    /// Two connected loopback sockets (every platform has them).
+    fn stream_pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let phone_end = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let (computer_end, _) = listener.accept().unwrap();
+        (phone_end, computer_end)
+    }
+
     /// The prologue is raw bytes before the first frame.
-    fn reader_read_exact(reader: &mut FrameReader<UnixStream>, buffer: &mut [u8]) {
+    fn reader_read_exact(reader: &mut FrameReader<TcpStream>, buffer: &mut [u8]) {
         let mut stream = reader.get_ref();
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut filled = 0;
@@ -249,8 +260,8 @@ mod tests {
     #[test]
     fn a_wrong_code_fails_on_both_sides_at_the_psk_step() {
         let (phone, computer, _, _) = run("482914", "482913");
-        assert!(matches!(phone, Err(LinkError::PairingFailed("wrong code"))), "{phone:?}");
-        assert!(matches!(computer, Err(LinkError::PairingFailed("wrong code"))), "{computer:?}");
+        assert!(matches!(phone, Err(LinkError::PairingFailed(PairingFailure::WrongCode))), "{phone:?}");
+        assert!(matches!(computer, Err(LinkError::PairingFailed(PairingFailure::WrongCode))), "{computer:?}");
     }
 
     #[test]

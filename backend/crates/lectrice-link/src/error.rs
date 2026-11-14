@@ -1,4 +1,4 @@
-//! The link's errors. Each maps to one of the registry names 5001–5006 (file 24 C47) that the shells show and log.
+//! The link's errors. Each maps to one of the registry names 5001–5006 that the shells show and log.
 
 use std::io;
 
@@ -9,7 +9,7 @@ use crate::messages::ByeReason;
 pub type LinkResult<T> = Result<T, LinkError>;
 
 /// The registry names the link's errors end in, with the core registry's codes (`lectrice-domain` `ErrorName`; this
-/// crate depends on no other Lectrice crate, so the names are mirrored here and a test in `lectrice-infra` checks them).
+/// crate depends on no other Lectrice crate, so the names are mirrored here and `tests/registry.rs` checks them).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LinkErrorName {
     HelperNotPaired,
@@ -17,7 +17,7 @@ pub enum LinkErrorName {
     HelperUnreachable,
     HelperModelMissing,
     HelperIncompatible,
-    /// A phone over its item budget (security review S15); sent as `ItemFailed`, never a link error.
+    /// A phone over its item budget; sent as `ItemFailed`, never a link error.
     HelperBusy,
 }
 
@@ -48,14 +48,23 @@ impl LinkErrorName {
     }
 }
 
+/// Why pairing failed, for the phone's screen: only [`Self::WrongCode`] means a guess was made.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum PairingFailure {
+    #[error("wrong code")]
+    WrongCode,
+    /// The computer closed at once: no code showing (never opened, expired, or closed after the wrong codes).
+    #[error("no pairing code is showing on the computer")]
+    NoCodeShowing,
+}
+
 #[derive(Debug, Error)]
 pub enum LinkError {
     /// The other side doesn't know this device's key (forgotten there).
     #[error("this device isn't paired with the other side")]
     NotPaired,
-    /// The code was wrong, or the pairing window isn't open, or it closed.
     #[error("pairing failed: {0}")]
-    PairingFailed(&'static str),
+    PairingFailed(PairingFailure),
     #[error("the computer doesn't have the voice model {bundle_id}")]
     ModelMissing { bundle_id: String },
     /// Another protocol major, or the same model with another front-end revision.

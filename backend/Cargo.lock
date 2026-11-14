@@ -1213,6 +1213,7 @@ dependencies = [
  "flacenc",
  "getrandom 0.3.4",
  "hkdf 0.13.0",
+ "lectrice-domain",
  "lectrice-link",
  "postcard",
  "rand_core",

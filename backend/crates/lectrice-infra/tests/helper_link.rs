@@ -17,13 +17,13 @@ use lectrice_domain::{
     DocumentSummary, ErrorName, HelperState, ListOptions, Page, Sentence, SentenceId, SpeechEngine, SpeechRequest, Timestamp, Voice, VoiceGender, VoiceId,
     VoiceLanguage,
 };
-use lectrice_infra::helper::{LinkHelperConfig, LinkSpeechHelper, registry_name};
+use lectrice_infra::helper::{LinkHelperConfig, LinkSpeechHelper};
 use lectrice_infra::{FsAudioCache, WavDecoder, WavEncoder};
 use lectrice_link::client::{ClientConfig, SocketFactory, pair};
 use lectrice_link::limits::Timing;
 use lectrice_link::server::{ClipEngine, CpuGate, EngineProvider, PairingStatus, Server, ServerConfig, ServerDeps, ServerEvent, ServerObserver};
 use lectrice_link::testing::FaultyLink;
-use lectrice_link::{EngineOffer, ItemError, LinkErrorName, LinkResult, PeerId, PeerRecord, PeerStore, Refusal, StaticKeys, pcm16_from_f32};
+use lectrice_link::{EngineOffer, ItemError, LinkResult, PeerId, PeerRecord, PeerStore, Refusal, StaticKeys, pcm16_from_f32};
 use tempfile::TempDir;
 
 const ENGINE_ID: &str = "kokoro-v1.0-lectrice-fast-v1";
@@ -451,16 +451,8 @@ fn a_phone_the_computer_forgot_needs_attention() {
     wait_until("not paired", || phone.state() == HelperState::NeedsAttention(ErrorName::HelperNotPaired));
 }
 
-#[test]
-fn the_links_error_names_are_the_registrys() {
-    for name in LinkErrorName::ALL {
-        let registry = registry_name(name);
-        assert_eq!((registry.as_str(), registry.spec().code), (name.as_str(), name.code()));
-    }
-}
-
 /// A paired computer that takes the phone and drops it at once, every time (broken, or hostile): the phone must
-/// come back ever more rarely, not in a loop that keeps the radio and a core busy (security review pass 3).
+/// come back ever more rarely, not in a loop that keeps the radio and a core busy.
 #[test]
 fn a_computer_that_drops_every_session_at_once_is_retried_on_the_schedule() {
     use lectrice_domain::{HelperEngine, HelperEvent, HelperEvents, SpeechHelper};
@@ -489,18 +481,27 @@ fn a_computer_that_drops_every_session_at_once_is_retried_on_the_schedule() {
             let _ = session.send(&ServerMessage::Bye(ByeReason::EngineSwitch));
         }
     });
-    let helper = LinkSpeechHelper::new(LinkHelperConfig {
-        keys: StaticKeys::generate().unwrap(),
-        computer_key: *computer_keys.public(),
-        addresses: vec![address],
-        client: ClientConfig { device_name: "Phone".into(), app_version: "0.4.0".into(), timing: timing(), allow_loopback: true },
-        sockets: Arc::new(DirectSockets),
-    });
+    let started = Instant::now();
+    let helper = LinkSpeechHelper::with_reconnect_schedule(
+        LinkHelperConfig {
+            keys: StaticKeys::generate().unwrap(),
+            computer_key: *computer_keys.public(),
+            addresses: vec![address],
+            client: ClientConfig { device_name: "Phone".into(), app_version: "0.4.0".into(), timing: timing(), allow_loopback: true },
+            sockets: Arc::new(DirectSockets),
+        },
+        short_schedule,
+    );
     helper.open(HelperEngine { engine_id: ENGINE_ID.into(), revision: REVISION.into(), sample_rate: SAMPLE_RATE }, Arc::new(Ignored)).unwrap();
 
-    // The first drop is answered at once (a model switch looks like this), the next after 2 s, then 5 s.
-    std::thread::sleep(Duration::from_secs(4));
-    let seen = sessions.load(Ordering::SeqCst);
-    assert!((2..=3).contains(&seen), "{seen} sessions in 4 s");
+    // The first drop is answered at once (a model switch looks like this), then each wait follows the schedule.
+    wait_until("four sessions", || sessions.load(Ordering::SeqCst) >= 4);
+    let scheduled = short_schedule(2) + short_schedule(3);
+    assert!(started.elapsed() >= scheduled, "reconnected after {:?}, the schedule waits {scheduled:?}", started.elapsed());
     helper.close();
+}
+
+/// The reconnect schedule in tenths of a second instead of seconds.
+fn short_schedule(failures: u32) -> Duration {
+    lectrice_link::limits::reconnect_delay(failures) / 10
 }

@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use lectrice_link::client::{ClientEvent, ClosedReason, Session, pair};
 use lectrice_link::server::{GatePriority, PairingStatus, ServerEvent};
-use lectrice_link::{ByeReason, CancelScope, LinkError, Make, Open, PairingCode, decode_clip, encode_clip, pcm16_from_f32};
+use lectrice_link::{ByeReason, CancelScope, LinkError, Make, Open, PairingCode, PairingFailure, decode_clip, encode_clip, pcm16_from_f32};
 use support::*;
 
 const WAIT: Duration = Duration::from_secs(5);
@@ -89,11 +89,11 @@ fn three_wrong_codes_close_the_window_and_it_stays_closed() {
     let code = computer.open_pairing();
     let wrong = PairingCode::parse(&format!("{:06}", (code.as_str().parse::<u32>().unwrap() + 1) % 1_000_000)).unwrap();
     for _ in 0..3 {
-        assert!(matches!(pair(computer.address, &wrong, &phone.keys, &phone.config), Err(LinkError::PairingFailed(_))));
+        assert!(matches!(pair(computer.address, &wrong, &phone.keys, &phone.config), Err(LinkError::PairingFailed(PairingFailure::WrongCode))));
     }
     assert!(wait_until(WAIT, || matches!(computer.server().pairing_status(), PairingStatus::TooManyWrongCodes { .. })));
     // Even the right code is refused now: only the computer's user opens a new window.
-    assert!(matches!(pair(computer.address, &code, &phone.keys, &phone.config), Err(LinkError::PairingFailed(_))));
+    assert!(matches!(pair(computer.address, &code, &phone.keys, &phone.config), Err(LinkError::PairingFailed(PairingFailure::NoCodeShowing))));
     assert!(computer.peers.peers.lock().unwrap().is_empty());
 }
 
@@ -102,7 +102,7 @@ fn pairing_is_refused_while_no_code_is_showing() {
     let computer = Computer::start(Duration::ZERO);
     let phone = Phone::new("Test phone");
     let result = pair(computer.address, &PairingCode::parse("123456").unwrap(), &phone.keys, &phone.config);
-    assert!(matches!(result, Err(LinkError::PairingFailed(_))), "{result:?}");
+    assert!(matches!(result, Err(LinkError::PairingFailed(PairingFailure::NoCodeShowing))), "{result:?}");
 }
 
 #[test]

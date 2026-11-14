@@ -5,9 +5,9 @@
 //! connection is Noise `IK` with both static keys pinned. Nothing here knows about the speech engine, the audio cache
 //! or the platform: the shells plug in through [`server::EngineProvider`], [`PeerStore`] and their own key storage.
 
-// The phone and the computer each use about half of the shared protocol code; with only one side's feature the other
-// half is unused by design.
-#![cfg_attr(not(all(feature = "client", feature = "server")), allow(dead_code, unused_imports))]
+// The transport code is shared by the phone's and the computer's side; a build with neither feature (nothing ships one)
+// leaves it unused.
+#![cfg_attr(not(any(feature = "client", feature = "server")), allow(dead_code, unused_imports))]
 
 mod codec;
 mod error;
@@ -30,7 +30,7 @@ pub mod server;
 #[cfg(feature = "testing")]
 pub mod testing;
 
-pub use error::{LinkError, LinkErrorName, LinkResult};
+pub use error::{LinkError, LinkErrorName, LinkResult, PairingFailure};
 pub use flac::{MIN_CLIP_SAMPLES, decode_clip, encode_clip};
 pub use frame::split_frames;
 pub use identity::{PeerId, PeerRecord, PeerStore, StaticKeys};

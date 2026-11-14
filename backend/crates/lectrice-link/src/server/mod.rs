@@ -24,7 +24,7 @@ use tracing::{debug, info, warn};
 pub use gate::{CpuGate, GateGuard, GatePriority};
 pub use pairing_window::PairingStatus;
 
-use crate::error::{LinkError, LinkResult};
+use crate::error::{LinkError, LinkResult, PairingFailure};
 use crate::frame::FrameReader;
 use crate::identity::{PeerId, PeerRecord, PeerStore, StaticKeys};
 use crate::limits::{
@@ -516,7 +516,7 @@ fn serve_pairing(shared: &Shared, stream: TcpStream, from: IpAddr) {
     });
     if !saved {
         let end = match result {
-            Err(LinkError::PairingFailed(_)) => {
+            Err(LinkError::PairingFailed(PairingFailure::WrongCode)) => {
                 warn!(service = SERVICE, "Wrong pairing code");
                 AttemptEnd::WrongCode
             }
