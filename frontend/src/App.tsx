@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect } from 'react';
+import { AnnouncerProvider } from './components/Announcer/Announcer';
 import { useHashRoute } from './hooks/useHashRoute';
 import { LibraryPage } from './pages/LibraryPage/LibraryPage';
 import { ReaderPage } from './pages/ReaderPage/ReaderPage';
@@ -28,8 +29,9 @@ export const App = () => {
     };
   }, []);
 
-  if (DesktopApp && desktopShell) {
-    return <Suspense fallback={null}><DesktopApp commands={desktopShell.commands} /></Suspense>;
-  }
-  return <WebApp />;
+  return (
+    <AnnouncerProvider>
+      {DesktopApp && desktopShell ? <Suspense fallback={null}><DesktopApp commands={desktopShell.commands} /></Suspense> : <WebApp />}
+    </AnnouncerProvider>
+  );
 };
