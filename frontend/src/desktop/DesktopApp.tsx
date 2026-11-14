@@ -24,6 +24,7 @@ import { DesktopExportToast } from './DesktopExportToast';
 import { DesktopReaderExport } from './DesktopReaderExport';
 import { useExportAvailability } from './hooks/useExportAvailability';
 import { useExportSaves } from './hooks/useExportSaves';
+import { useCommandErrors } from './hooks/useCommandErrors';
 import { useExportToasts } from './hooks/useExportToasts';
 import { useModelSetup } from './hooks/useModelSetup';
 import { usePhoneHelper } from './hooks/usePhoneHelper';
@@ -41,13 +42,14 @@ const engineKey = (status: ModelStatus): string => `${status.engine}:${status.bu
 /** The desktop app: the web app's library and reader, with the voice-model setup, settings, desktop export and toasts. */
 export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
   const { route, navigate } = useHashRoute();
-  const setup = useModelSetup(commands);
+  const commandErrors = useCommandErrors();
+  const setup = useModelSetup(commands, commandErrors.report);
   const { status } = setup;
   const sample = useVoiceSample(status?.engine === 'ready');
   const saves = useExportSaves(commands);
   const toasts = useExportToasts(commands);
   const exporter = useExportAvailability(commands);
-  const phone = usePhoneHelper(commands);
+  const phone = usePhoneHelper(commands, commandErrors.report);
   const [setupOpen, setSetupOpen] = useState<boolean | null>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [info, setInfo] = useState<AppInfo | null>(null);
@@ -100,7 +102,7 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
   const goToLibrary = () => goTo({ name: 'library' });
   const openSetup = () => setSetupOpen(true);
   const openLink = (link: LinkId) => {
-    commands.openLink(link).catch((cause: unknown) => console.error('Open link failed', cause));
+    commands.openLink(link).catch(commandErrors.report('open_link', "Couldn't open the link"));
   };
   const toastJob = toasts.current;
   const making = makingPhones(phone.status);

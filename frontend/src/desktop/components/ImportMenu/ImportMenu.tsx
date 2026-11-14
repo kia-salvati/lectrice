@@ -31,7 +31,8 @@ const placeUnder = (button: HTMLElement, menuHeight: number): MenuPlace => {
 
 /** Where keyboard focus goes next in the menu, wrapping at both ends. */
 const nextIndex = (items: readonly HTMLElement[], key: string): number | null => {
-  const at = items.indexOf(document.activeElement as HTMLElement);
+  const active = document.activeElement;
+  const at = active instanceof HTMLElement ? items.indexOf(active) : -1;
   switch (key) {
     case 'ArrowDown': return (at + 1) % items.length;
     case 'ArrowUp': return (at - 1 + items.length) % items.length;
@@ -66,13 +67,13 @@ export const ImportMenu = ({ label, disabled, fileLabel, onImport }: ImportMenuP
     const menu = menuRef.current;
     if (!open || !button || !menu) return;
     setPlace(placeUnder(button, menu.offsetHeight));
-    (menu.querySelector('[role="menuitem"]') as HTMLElement | null)?.focus();
+    menu.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
-      if (!wrapRef.current?.contains(event.target as Node)) close(false);
+      if (!(event.target instanceof Node) || !wrapRef.current?.contains(event.target)) close(false);
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);

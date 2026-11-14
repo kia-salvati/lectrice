@@ -8,6 +8,8 @@ export interface VoiceSample {
   /** "Heart · American English"; empty until the voices are known. */
   voiceLabel: string;
   state: SampleState;
+  /** The last try to play the sample failed; cleared by the next toggle. */
+  failed: boolean;
   toggle: () => void;
 }
 
@@ -15,6 +17,7 @@ export interface VoiceSample {
 export const useVoiceSample = (engineReady: boolean): VoiceSample => {
   const [voice, setVoice] = useState<{ id: string; label: string } | null>(null);
   const [state, setState] = useState<SampleState>('idle');
+  const [failed, setFailed] = useState(false);
   const audioRef = useRef<{ element: HTMLAudioElement; url: string } | null>(null);
 
   useEffect(() => {
@@ -46,6 +49,7 @@ export const useVoiceSample = (engineReady: boolean): VoiceSample => {
       return;
     }
     if (voice === null || state === 'loading') return;
+    setFailed(false);
     setState('loading');
     api.getVoiceSample(voice.id).then(async (blob) => {
       stop();
@@ -62,8 +66,9 @@ export const useVoiceSample = (engineReady: boolean): VoiceSample => {
       console.error('Voice sample failed', cause);
       stop();
       setState('idle');
+      setFailed(true);
     });
   }, [state, voice, stop]);
 
-  return { voiceLabel: voice?.label ?? '', state: engineReady ? state : 'engineLoading', toggle };
+  return { voiceLabel: voice?.label ?? '', state: engineReady ? state : 'engineLoading', failed: engineReady && failed, toggle };
 };
