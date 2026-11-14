@@ -226,6 +226,7 @@ impl UseCase for SpeakSentence {
             return Err(AppError::new(ErrorName::SentenceNotFound).with_detail(format!("sentence {sentence_id} of {document_id}")));
         };
         let key = AudioKey { document_id, cleaner_version: document.cleaner_version, engine_id: self.engine.id().to_string(), voice_id, sentence_id };
+        self.worker.note_listener();
 
         let position = ListenerPosition { document: &document, key: &key, rate, read_skipped };
 

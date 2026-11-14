@@ -1,7 +1,11 @@
 //! The speech worker (spec §4): one thread owns synthesis and takes jobs from a priority queue.
 //!
-//! - Priorities: [`SpeechPriority::Now`] > [`SpeechPriority::ReadAhead`] > [`SpeechPriority::Export`];
-//!   jobs with the same priority run in submission order.
+//! - Priorities: [`SpeechPriority::Now`] > [`SpeechPriority::ReadAhead`] > [`SpeechPriority::Export`]. `Now` jobs run
+//!   lowest sentence first (a player asks for the next few at once and waits for the first); the others run in
+//!   submission order.
+//! - While nobody listens (no sentence was asked for within [`LISTENER_IDLE_AFTER`]), exports go before
+//!   read-ahead, and read-ahead asks the [`SynthesisGate`] for its turn at export priority, so a paused player
+//!   holds up neither an export nor a phone's audio.
 //! - Jobs with the same [`AudioKey`] that are queued or running are merged: the engine runs once and
 //!   every waiter gets the same audio. A merge with a higher priority moves the queued job up.
 //! - A job that is already running can't be stopped (the engine call is synchronous); cancelling it only
@@ -31,6 +35,8 @@ const RECENT_TIMINGS: usize = 50;
 /// Fewer measured jobs give no real-time factor.
 const MIN_TIMINGS_FOR_RTF: usize = 10;
 const MILLIS_PER_SECOND: f64 = 1000.0;
+/// A listener who asked for no sentence for this long has paused (longer than almost any sentence plays).
+pub const LISTENER_IDLE_AFTER: Duration = Duration::from_secs(60);
 
 /// Declared lowest first, so the derived order makes `Now` the greatest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -39,6 +45,10 @@ pub enum SpeechPriority {
     ReadAhead,
     Now,
 }
+
+const PRIORITIES: usize = 3;
+const LISTENING_ORDER: [SpeechPriority; PRIORITIES] = [SpeechPriority::Now, SpeechPriority::ReadAhead, SpeechPriority::Export];
+const IDLE_ORDER: [SpeechPriority; PRIORITIES] = [SpeechPriority::Now, SpeechPriority::Export, SpeechPriority::ReadAhead];
 
 #[derive(Debug, Clone)]
 pub struct SpeechJob {
@@ -110,7 +120,7 @@ impl SpeechWorker {
         } else {
             let entry_id = queue.next_id();
             queue.jobs.insert(key.clone(), PendingJob { request, priority, entry_id, running: false, waiters: vec![waiter] });
-            queue.heap.push(QueueEntry { priority, entry_id, key: key.clone() });
+            queue.push(QueueEntry { priority, entry_id, key: key.clone() });
         }
         drop(queue);
         self.shared.wake.notify_one();
@@ -127,7 +137,7 @@ impl Drop for SpeechWorker {
         }
         // Waiters hold the reply channels; dropping them ends every pending `SpeechTicket::wait`.
         let mut queue = self.shared.lock();
-        queue.heap.clear();
+        queue.queues.iter_mut().for_each(BinaryHeap::clear);
         let abandoned = std::mem::take(&mut queue.jobs);
         drop(queue);
         drop(abandoned);
@@ -229,6 +239,8 @@ struct Shared {
     queue: Mutex<QueueState>,
     wake: Condvar,
     recent: Mutex<VecDeque<Timing>>,
+    /// When a listener last asked for a sentence; `None` (never told) keeps the listening order.
+    last_listener: Mutex<Option<Instant>>,
 }
 
 impl Shared {
@@ -239,6 +251,10 @@ impl Shared {
 
     fn recent(&self) -> MutexGuard<'_, VecDeque<Timing>> {
         self.recent.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn listening(&self) -> bool {
+        self.last_listener.lock().unwrap_or_else(PoisonError::into_inner).is_none_or(|at| at.elapsed() < LISTENER_IDLE_AFTER)
     }
 
     fn record(&self, timing: Timing) {
@@ -266,6 +282,11 @@ pub struct SynthesisTimings {
 }
 
 impl SpeechWorker {
+    /// A listener asked for a sentence (cached or not): read-ahead goes before exports for a while.
+    pub fn note_listener(&self) {
+        *self.shared.last_listener.lock().unwrap_or_else(PoisonError::into_inner) = Some(Instant::now());
+    }
+
     pub fn timings(&self) -> SynthesisTimings {
         let recent = self.shared.recent();
         let mut factors: Vec<f32> = recent.iter().filter(|timing| timing.audio_ms > 0).map(|timing| timing.synth_ms as f32 / timing.audio_ms as f32).collect();
@@ -283,8 +304,9 @@ impl SpeechWorker {
 #[derive(Default)]
 struct QueueState {
     jobs: HashMap<AudioKey, PendingJob>,
-    /// May hold stale entries (cancelled or re-prioritized jobs); they are skipped when popped.
-    heap: BinaryHeap<QueueEntry>,
+    /// One queue per priority, lowest first. They may hold stale entries (cancelled or re-prioritized jobs); those
+    /// are skipped when popped.
+    queues: [BinaryHeap<QueueEntry>; PRIORITIES],
     last_id: u64,
     shutdown: bool,
 }
@@ -298,21 +320,29 @@ impl QueueState {
     fn requeue(&mut self, key: &AudioKey, priority: SpeechPriority, entry_id: u64) {
         if let Some(pending) = self.jobs.get_mut(key) {
             pending.entry_id = entry_id;
-            self.heap.push(QueueEntry { priority, entry_id, key: key.clone() });
+            self.push(QueueEntry { priority, entry_id, key: key.clone() });
         }
     }
 
-    /// The next job to run, marked running.
-    fn take_next(&mut self) -> Option<(AudioKey, SpeechRequest, SpeechPriority)> {
-        while let Some(entry) = self.heap.pop() {
-            let Some(pending) = self.jobs.get_mut(&entry.key) else {
-                continue;
-            };
-            if pending.entry_id != entry.entry_id || pending.running {
-                continue;
+    fn push(&mut self, entry: QueueEntry) {
+        self.queues[entry.priority as usize].push(entry);
+    }
+
+    /// The next job to run, marked running, with the priority it asks the gate for its turn at.
+    fn take_next(&mut self, listening: bool) -> Option<(AudioKey, SpeechRequest, SpeechPriority)> {
+        let order = if listening { LISTENING_ORDER } else { IDLE_ORDER };
+        for priority in order {
+            while let Some(entry) = self.queues[priority as usize].pop() {
+                let Some(pending) = self.jobs.get_mut(&entry.key) else {
+                    continue;
+                };
+                if pending.entry_id != entry.entry_id || pending.running {
+                    continue;
+                }
+                pending.running = true;
+                let turn = if !listening && pending.priority == SpeechPriority::ReadAhead { SpeechPriority::Export } else { pending.priority };
+                return Some((entry.key, pending.request.clone(), turn));
             }
-            pending.running = true;
-            return Some((entry.key, pending.request.clone(), pending.priority));
         }
         None
     }
@@ -341,9 +371,10 @@ struct QueueEntry {
 }
 
 impl Ord for QueueEntry {
-    /// Higher priority first; within a priority, the older entry first.
+    /// Within one priority queue: for `Now` the lowest sentence first, then the older entry first.
     fn cmp(&self, other: &Self) -> Ordering {
-        self.priority.cmp(&other.priority).then_with(|| other.entry_id.cmp(&self.entry_id))
+        let by_sentence = if self.priority == SpeechPriority::Now { other.key.sentence_id.cmp(&self.key.sentence_id) } else { Ordering::Equal };
+        self.priority.cmp(&other.priority).then(by_sentence).then_with(|| other.entry_id.cmp(&self.entry_id))
     }
 }
 
@@ -393,7 +424,7 @@ fn next_job(shared: &Shared) -> Option<(AudioKey, SpeechRequest, SpeechPriority)
         if queue.shutdown {
             return None;
         }
-        if let Some(job) = queue.take_next() {
+        if let Some(job) = queue.take_next(shared.listening()) {
             return Some(job);
         }
         queue = shared.wake.wait(queue).unwrap_or_else(PoisonError::into_inner);
@@ -508,6 +539,40 @@ mod tests {
         }
 
         assert_eq!(engine.spoken(), ["s0", "s3", "s2", "s4", "s1"]);
+    }
+
+    /// A player asks for the next sentences at once; the one it waits for is made first.
+    #[test]
+    fn now_jobs_run_lowest_sentence_first() {
+        let (engine, worker, first) = blocked_worker();
+        let tickets: Vec<SpeechTicket> = [3, 2, 1].into_iter().map(|sentence| worker.submit(job(sentence, SpeechPriority::Now))).collect();
+
+        engine.release();
+        first.wait().unwrap();
+        tickets.into_iter().for_each(|ticket| drop(ticket.wait().unwrap()));
+
+        assert_eq!(engine.spoken(), ["s0", "s1", "s2", "s3"]);
+    }
+
+    /// A paused listener holds up neither an export nor, at the gate, a phone's audio.
+    #[test]
+    fn while_nobody_listens_exports_go_before_read_ahead_and_read_ahead_takes_an_export_turn() {
+        let engine = Arc::new(GatedEngine::new("s0"));
+        let gate = Arc::new(RecordingGate::default());
+        let worker = SpeechWorker::start_gated(engine.clone(), Some(gate.clone())).unwrap();
+        let first = worker.submit(job(0, SpeechPriority::Export));
+        engine.wait_until_blocked();
+        *worker.shared.last_listener.lock().unwrap() = Instant::now().checked_sub(LISTENER_IDLE_AFTER);
+        let tickets = [worker.submit(job(1, SpeechPriority::ReadAhead)), worker.submit(job(2, SpeechPriority::Export)), worker.submit(job(3, SpeechPriority::Now))];
+
+        engine.release();
+        first.wait().unwrap();
+        tickets.into_iter().for_each(|ticket| drop(ticket.wait().unwrap()));
+
+        assert_eq!(engine.spoken(), ["s0", "s3", "s2", "s1"]);
+        assert_eq!(*gate.turns.lock().unwrap(), [SpeechPriority::Export, SpeechPriority::Now, SpeechPriority::Export, SpeechPriority::Export]);
+        worker.note_listener();
+        assert!(worker.shared.listening());
     }
 
     #[test]
