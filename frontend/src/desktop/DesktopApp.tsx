@@ -7,23 +7,17 @@ import { ReaderPage } from '../pages/ReaderPage/ReaderPage';
 import type { ReaderShell } from '../pages/ReaderPage/readerShell';
 import controls from '../styles/controls.module.css';
 import type { DocumentId } from '../types/document';
-import type { AppInfo, DesktopCommands, Licenses, LinkId, ModelBundleId, ModelStatus } from './commands/types';
-import { CommandErrorToast } from './components/CommandErrorToast/CommandErrorToast';
+import type { AppInfo, DesktopCommands, Licenses, LinkId, ModelStatus } from './commands/types';
 import { FirstRunPage } from './components/ModelSetup/ModelSetup';
 import { NoVoiceRow } from './components/NoVoiceRow/NoVoiceRow';
 import { PhoneChip, PhoneMakingLine } from './components/PhoneChip/PhoneChip';
-import { PhoneVersionToast } from './components/PhoneVersionToast/PhoneVersionToast';
-import { PhoneVoiceCard } from './components/PhoneVoiceCard/PhoneVoiceCard';
-import { AboutTab } from './components/SettingsDialog/AboutTab';
-import { PhoneTab } from './components/SettingsDialog/PhoneTab';
 import { SettingsButton } from './components/SettingsDialog/SettingsButton';
-import { SettingsDialog } from './components/SettingsDialog/SettingsDialog';
 import type { SettingsTab } from './components/SettingsDialog/SettingsDialog';
-import { VoiceModelTab } from './components/SettingsDialog/VoiceModelTab';
 import { StartupState } from './components/StartupState/StartupState';
 import { VoiceStrip } from './components/VoiceStrip/VoiceStrip';
-import { DesktopExportToast } from './DesktopExportToast';
+import { DesktopCornerCard } from './DesktopCornerCard';
 import { DesktopReaderExport } from './DesktopReaderExport';
+import { DesktopSettings } from './DesktopSettings';
 import { useExportAvailability } from './hooks/useExportAvailability';
 import { useExportSaves } from './hooks/useExportSaves';
 import { useCommandErrors } from './hooks/useCommandErrors';
@@ -58,8 +52,6 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
   const [licenses, setLicenses] = useState<Licenses | null>(null);
   const [fileToImport, setFileToImport] = useState<File | null>(null);
   const [railShown, setRailShown] = useState(false);
-  /** The voice whose download was started from the phone's card: the card stays closed for it. */
-  const [phoneVoiceStarted, setPhoneVoiceStarted] = useState<ModelBundleId | null>(null);
   /** The book whose reader should open with the popover on its export section. */
   const [openAtExportFor, setOpenAtExportFor] = useState<DocumentId | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -107,11 +99,6 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
     commands.openLink(link).catch(commandErrors.report('open_link', "Couldn't open the link"));
   };
   const making = makingPhones(phone.status);
-  // One card at a time in the corner: a refused command first, then the export toast, the version toast and the phone's voice.
-  const errorToast = commandErrors.current;
-  const toastJob = errorToast ? null : toasts.current;
-  const versionMismatch = errorToast || toastJob ? null : phone.status?.versionMismatch ?? null;
-  const phoneVoiceRequest = errorToast || toastJob || versionMismatch ? null : phone.status?.modelRequest ?? null;
 
   const readerShell: ReaderShell = {
     renderExportPanel: (context) => <DesktopReaderExport context={context} status={status} saves={saves} exporter={exporter} onExportActive={wake} />,
@@ -193,55 +180,19 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
           });
         }}
       />
-      {settingsTab !== null && (
-        <SettingsDialog
-          initialTab={settingsTab}
-          onClose={() => setSettingsTab(null)}
-          modelTab={(
-            <VoiceModelTab
-              status={status}
-              exportingBookTitle={activeBundle?.usedByExports[0]?.title ?? null}
-              refusedDelete={setup.refusedDelete}
-              onDismissRefusedDelete={setup.dismissRefusedDelete}
-              onDownload={setup.download}
-              onPause={setup.pause}
-              onCancel={setup.cancel}
-              onActivate={setup.activate}
-              onDelete={setup.deleteBundle}
-              onImport={setup.importModel}
-              importKind={setup.importKind}
-            />
-          )}
-          phoneTab={phone.status && <PhoneTab status={phone.status} actions={phone.actions} onOpenLink={openLink} />}
-          aboutTab={info && <AboutTab info={info} licenses={licenses} onOpenLink={openLink} />}
-        />
-      )}
-      {errorToast && <CommandErrorToast key={errorToast.id} failure={errorToast} railOpen={railShown} onDismiss={() => commandErrors.dismiss(errorToast.id)} />}
-      {toastJob && (
-        <DesktopExportToast
-          key={toastJob.id}
-          job={toastJob}
-          saves={saves}
-          railOpen={railShown}
-          onDismiss={() => toasts.dismiss(toastJob.id)}
-          onOpenBook={() => {
-            toasts.dismiss(toastJob.id);
-            setOpenAtExportFor(toastJob.documentId);
-            goTo({ name: 'reader', documentId: toastJob.documentId });
-          }}
-        />
-      )}
-      {versionMismatch && <PhoneVersionToast mismatch={versionMismatch} railOpen={railShown} onDismiss={phone.actions.dismissVersionMismatch} />}
-      {phoneVoiceRequest && phoneVoiceRequest.bundleId !== phoneVoiceStarted && (
-        <PhoneVoiceCard
-          request={phoneVoiceRequest}
-          onDownload={() => {
-            setup.download(phoneVoiceRequest.bundleId);
-            setPhoneVoiceStarted(phoneVoiceRequest.bundleId);
-          }}
-          onNotNow={phone.actions.dismissModelRequest}
-        />
-      )}
+      {settingsTab !== null && <DesktopSettings initialTab={settingsTab} status={status} setup={setup} phone={phone} info={info} licenses={licenses} onOpenLink={openLink} onClose={() => setSettingsTab(null)} />}
+      <DesktopCornerCard
+        commandErrors={commandErrors}
+        toasts={toasts}
+        saves={saves}
+        phone={phone}
+        railOpen={railShown}
+        onOpenBook={(documentId) => {
+          setOpenAtExportFor(documentId);
+          goTo({ name: 'reader', documentId });
+        }}
+        onDownloadVoice={setup.download}
+      />
     </>
   );
 };
