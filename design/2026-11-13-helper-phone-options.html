@@ -1,0 +1,902 @@
+<!doctype html>
+<!-- "Desktop helps the phone": phone screens H1–H9 in three layout options (A own page + pages, B all in Settings + one pairing sheet, C own page + inline pairing), built from docs/2026-11-13-helper-ui-options-brief.md (lectrice-android) in the Quiet v2 look.
+     Every frame is drawn once by the script at the bottom; the toolbar switches all frames between light, dark and black. One frame alone: ?screen=A-H1a&theme=dark (used for the PNGs in design/screens/helper-phone-*.png). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lectrice for Android — Computer helper · phone options</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,600;0,700;1,400&family=Roboto:wght@400;500;700&family=Roboto+Mono&display=swap">
+<style>
+/* Copied unchanged from design/2026-10-23-android-quiet-v2.html (tokens, type, components, phone frame). */
+/* ===== page chrome (not part of the phone design) ===== */
+:root{
+  --pbg:#FFFFFF; --pbg2:#F3F3EF; --pfg:#1C1F24; --pfg2:#5B636D; --pline:#D3D3CD; --paccent:#1D5FAE; --pon:#FFFFFF;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --pbg:#121417; --pbg2:#1C1F24; --pfg:#E8E6E1; --pfg2:#A8ADB5; --pline:#363A41; --paccent:#8AB8FF; --pon:#0B1A33;
+  color-scheme:dark;
+}
+/* Scrolling stays; only the bar is hidden. Firefox and Chrome 121+ use scrollbar-width;
+   older Chrome/Safari/Edge use the ::-webkit-scrollbar rule. */
+html, body, * { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { display: none; width: 0; height: 0; }
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{margin:0; background:var(--pbg); color:var(--pfg); font:16px/1.5 system-ui, sans-serif}
+button{font:inherit; color:inherit; background:none; border:0; padding:0; margin:0; cursor:pointer; text-align:inherit}
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible, input:focus-visible{outline:2px solid var(--accent, var(--paccent)); outline-offset:2px}
+a{color:var(--paccent)}
+.toolbar{position:sticky; top:0; z-index:50; height:56px; display:flex; align-items:center; gap:24px; padding:0 24px; background:var(--pbg2); border-bottom:1px solid var(--pline); white-space:nowrap; overflow-x:auto}
+.toolbar .brand{font-weight:600}
+.seg{display:inline-flex; gap:4px; align-items:center}
+.seg span{color:var(--pfg2); font-size:14px; margin-right:4px}
+.seg button{border:1px solid var(--pline); border-radius:999px; padding:4px 12px; font-size:14px; background:var(--pbg)}
+.seg button[aria-pressed="true"]{background:var(--paccent); color:var(--pon); border-color:transparent}
+main{max-width:1400px; margin:0 auto; padding:24px}
+.intro{max-width:72rem}
+.intro h1{font-size:28px; margin:0 0 8px}
+.intro p{margin:0 0 10px}
+.intro ol{line-height:1.55; padding-left:20px}
+.intro li{margin-bottom:6px}
+.live{display:grid; grid-template-columns:auto 1fr; gap:32px; align-items:start; margin:24px 0 40px}
+@media (max-width:1100px){ .live{grid-template-columns:1fr} }
+.live h2{margin:0 0 12px; font-size:20px}
+.live ol{padding-left:20px; line-height:1.55}
+.live li{margin:0 0 6px}
+.sysbar{display:flex; gap:8px; margin-top:12px}
+.sysbar button{border:1px solid var(--pline); border-radius:8px; padding:6px 12px; font-size:14px; background:var(--pbg2)}
+h2.group{font-size:22px; margin:40px 0 16px; padding-top:16px; border-top:1px solid var(--pline)}
+.gallery{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:24px; align-items:start}
+figure.frame{margin:0}
+.frame .zoom{zoom:.5}
+.frame figcaption{margin-top:8px; font-size:14px; font-weight:600}
+.frame figcaption small{display:block; font-size:13px; font-weight:400; color:var(--pfg2)}
+.impact{max-width:760px; margin:24px 0 0; background:var(--pbg2); border-radius:12px; padding:16px 24px}
+.impact h3{margin:0 0 8px; font-size:18px}
+.impact ul{margin:0; padding-left:20px; line-height:1.55}
+.impact li{margin-bottom:8px}
+#questions{margin-top:48px; padding-top:24px; border-top:2px solid var(--pline); max-width:72rem}
+#questions h2{font-size:24px}
+#questions ol{line-height:1.55}
+#questions li{margin-bottom:8px}
+body.solo{padding:0; background:var(--pbg)}
+body.solo .toolbar, body.solo main{display:none}
+body.solo .solo-frame{display:inline-block; line-height:0}
+
+/* ===== tokens (the only place with hex colours besides the bezel, the lock-screen wallpaper and the system dialog) ===== */
+.screen{
+  --bg:#FFFFFF; --bg2:#F3F3EF; --fg:#1C1F24; --fg2:#5B636D; --line:#D3D3CD;
+  --accent:#1D5FAE; --onAccent:#FFFFFF; --hl:#FFE58F; --hlFg:#1C1F24;
+  --errBg:#FBE7E5; --errFg:#8B1A12; --accentContainer:#DCE8F7; --onAccentContainer:#0E3A6E;
+  --warnBg:#FFF1D0; --warnFg:#6B4A00; --okFg:#1E6B35; --inverseBg:#1C1F24; --inverseFg:#FFFFFF;
+  --scrim:rgba(28,31,36,.32); --shadeBg:#E9EAEE; --sysDialogBg:#FFFFFF;
+  --tile0:#DCE8F7; --onTile0:#0E3A6E; --tile1:#E5F0DC; --onTile1:#22461A; --tile2:#F6E3D3; --onTile2:#5A2E0B;
+  --tile3:#EADFF3; --onTile3:#3D2257; --tile4:#DCEFEF; --onTile4:#0F4444; --tile5:#F3E6C4; --onTile5:#4F3A00;
+  --lockFg:#FFFFFF; --wall1:#1B2635; --wall2:#3A2C3F;
+  --nowBarBg:#26303D; --nowBarFg:#FFFFFF; --nowBarFg2:#C9D1DC;
+  --sp:1px; color-scheme:light;
+}
+.screen[data-theme="dark"], .screen[data-theme="black"]{
+  --bg:#121417; --bg2:#1C1F24; --fg:#E8E6E1; --fg2:#A8ADB5; --line:#363A41;
+  --accent:#8AB8FF; --onAccent:#0B1A33; --hl:#4D4214; --hlFg:#FFF6D8;
+  --errBg:#44181A; --errFg:#F4B1AD; --accentContainer:#22344F; --onAccentContainer:#D6E6FF;
+  --warnBg:#3A2E0E; --warnFg:#F5D27A; --okFg:#8FD6A3; --inverseBg:#E8E6E1; --inverseFg:#121417;
+  --scrim:rgba(0,0,0,.5); --shadeBg:#1B1C20; --sysDialogBg:#2B2D31;
+  --tile0:#22344F; --onTile0:#D6E6FF; --tile1:#25361E; --onTile1:#CDE8BF; --tile2:#40291A; --onTile2:#F6D5BC;
+  --tile3:#33264A; --onTile3:#E6D6F5; --tile4:#163838; --onTile4:#BFE6E6; --tile5:#3B2F10; --onTile5:#F1DFA8;
+  color-scheme:dark;
+}
+/* true black (OLED): the rest of the dark values are inherited from the block above */
+.screen[data-theme="black"]{
+  --bg:#000000; --bg2:#121212; --fg:#E6E3DD; --fg2:#A3A3A3; --line:#2A2A2A;
+  --accent:#8AB8FF; --onAccent:#0B1A33; --hl:#3D3410; --hlFg:#FFF3CC;
+}
+.screen{--serif:"Noto Serif", Georgia, "Times New Roman", serif; --sans:Roboto, system-ui, sans-serif; --mono:"Roboto Mono", ui-monospace, monospace}
+
+/* ===== phone frame ===== */
+.phone{display:inline-block; border:10px solid #0B0B0C; border-radius:44px; background:#0B0B0C; line-height:0; vertical-align:top}
+.screen{position:relative; width:412px; height:915px; overflow:hidden; border-radius:34px; background:var(--bg); color:var(--fg);
+  font:400 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans); line-height:calc(24*var(--sp)); text-align:left; container-type:inline-size; isolation:isolate}
+.screen[data-w="360"]{width:360px; height:800px}
+.cam{position:absolute; top:8px; left:50%; width:12px; height:12px; margin-left:-6px; border-radius:50%; background:#0B0B0C; z-index:40}
+.sb{position:absolute; top:0; left:0; right:0; height:32px; z-index:30; display:flex; align-items:center; justify-content:space-between; padding:0 24px;
+  color:var(--fg); font:500 14px/20px var(--sans); pointer-events:none}
+.sb.scrim{background:color-mix(in srgb, var(--bg) 94%, transparent)}
+.sb .ic{display:flex; gap:4px}
+.sb svg{width:16px; height:16px}
+.gb{position:absolute; left:50%; bottom:10px; width:108px; height:4px; margin-left:-54px; border-radius:2px; background:var(--fg2); z-index:30; pointer-events:none}
+.x2{--sp:2px}
+svg{fill:currentColor}
+
+/* ===== type ===== */
+.tl{font:600 calc(22*var(--sp))/calc(28*var(--sp)) var(--sans)}
+.tm{font:600 calc(18*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.b{font:400 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.bs{font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.lb{font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.lb16{font:500 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.cap{font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans)}
+.w5{font-weight:500}
+.w6{font-weight:600}
+.fg2{color:var(--fg2)}
+.ac{color:var(--accent)}
+.ok{color:var(--okFg)}
+.errc{color:var(--errFg)}
+.ser{font-family:var(--serif)}
+.ell{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ell2{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.ell3{display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden}
+.flex{display:flex; align-items:center; gap:8px}
+.sp1{flex:1; min-width:0}
+.right{margin-left:auto}
+.center{text-align:center}
+.mt4{margin-top:4px} .mt8{margin-top:8px} .mt12{margin-top:12px} .mt16{margin-top:16px} .mt24{margin-top:24px} .mt32{margin-top:32px}
+.px16{padding-left:16px; padding-right:16px}
+
+/* ===== layouts ===== */
+.col{position:absolute; inset:0; padding:0 16px; display:flex; flex-direction:column; overflow:hidden}
+.scroll{position:absolute; inset:0; overflow-y:auto; overflow-x:hidden}
+.bottom{position:absolute; left:16px; right:16px; bottom:40px; display:flex; flex-direction:column; align-items:stretch; gap:8px; z-index:5}
+.bottom .btn.txt{align-self:center}
+.layer{position:absolute; inset:0; background:var(--bg); z-index:10}
+.layer.push{transform:translateX(24px); opacity:0}
+.layer{transition:transform 320ms cubic-bezier(.2,.9,.25,1.05), opacity 150ms linear, border-radius 320ms}
+.layer.peek{transform:translateX(24px) scale(.9); border-radius:32px; border:1px solid var(--line); overflow:hidden}
+
+/* ===== buttons ===== */
+.btn{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; height:56px; border-radius:999px; background:var(--accent); color:var(--onAccent);
+  font:500 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans); flex:none; position:relative; white-space:nowrap}
+.btn svg{width:24px; height:24px; flex:none}
+.btn.sec{height:48px; background:none; border:1px solid var(--line); color:var(--fg)}
+.btn.txt{height:48px; width:auto; padding:0 12px; background:none; color:var(--accent)}
+.btn.txt.errc{color:var(--errFg)}
+.btn[disabled]{background:var(--line); color:var(--fg2); cursor:default}
+.ib{width:48px; height:48px; flex:none; display:grid; place-items:center; color:var(--fg); border-radius:50%; position:relative}
+.ib svg{width:24px; height:24px}
+.ib:active{background:radial-gradient(circle, var(--line) 20px, transparent 20.5px)}
+.play{width:56px; height:56px; flex:none; display:grid; place-items:center; border-radius:50%; position:relative}
+.play .disc{width:48px; height:48px; border-radius:50%; background:var(--accent); color:var(--onAccent); display:grid; place-items:center}
+.play.prep .disc{background:var(--accentContainer); color:var(--onAccentContainer)}
+.play.prep::after{content:""; position:absolute; inset:3px; border-radius:50%; border:2px solid var(--accent); border-right-color:transparent; animation:rot 1s linear infinite}
+.play svg{width:24px; height:24px}
+.touch::before{content:""; position:absolute; inset:-8px 0}
+
+/* ===== rows, dividers ===== */
+.row{display:flex; align-items:center; gap:16px; min-height:56px; padding:8px 16px; width:100%; position:relative; text-align:left}
+.row.two{min-height:72px}
+.row > svg.lead{width:24px; height:24px; flex:none}
+.row .tx{flex:1; min-width:0}
+.row .t{font:500 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.row .m{font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.row .tr{flex:none; margin-left:auto; display:flex; align-items:center; gap:8px}
+.row .tr svg{width:24px; height:24px; color:var(--fg2)}
+.row .pick{display:flex; align-items:center; gap:16px; flex:1; min-width:0; min-height:40px; color:inherit; text-align:left}
+.row.sel{background:var(--accentContainer); color:var(--onAccentContainer)}
+.row.sel .m{color:inherit}
+.div{height:1px; background:var(--line); margin-left:16px}
+.div.i72{margin-left:72px}
+.div.i0{margin-left:0}
+.radio{width:24px; height:24px; border-radius:50%; border:2px solid var(--fg2); flex:none; display:grid; place-items:center}
+.radio.on{border-color:var(--accent)}
+.radio.on::after{content:""; width:12px; height:12px; border-radius:50%; background:var(--accent)}
+.radio.dis{border-color:var(--line)}
+.row.sel .radio.on{border-color:var(--onAccentContainer)}
+.row.sel .radio.on::after{background:var(--onAccentContainer)}
+
+/* ===== controls ===== */
+.swt{width:52px; height:48px; display:grid; place-items:center; flex:none}
+.sw{width:52px; height:32px; border-radius:16px; border:2px solid var(--fg2); background:var(--bg2); position:relative; display:block}
+.sw::after{content:""; position:absolute; width:16px; height:16px; border-radius:50%; background:var(--fg2); top:6px; left:6px}
+.sw.on{background:var(--accent); border-color:var(--accent)}
+.sw.on::after{width:24px; height:24px; background:var(--onAccent); top:2px; left:24px}
+.sl{position:relative; height:20px; flex:1}
+.sl .trk{position:absolute; left:0; right:0; top:8px; height:4px; border-radius:2px; background:var(--line)}
+.sl .buf{position:absolute; top:8px; height:4px; background:var(--accentContainer)}
+.sl .act{position:absolute; left:0; top:8px; height:4px; border-radius:2px; background:var(--accent)}
+.sl .th{position:absolute; top:0; width:20px; height:20px; margin-left:-10px; border-radius:50%; background:var(--accent)}
+.sl .tk{position:absolute; top:6px; width:2px; height:8px; background:var(--fg2)}
+.chips{display:flex; gap:8px; overflow-x:auto; padding:8px 0}
+.chips.wrap{flex-wrap:wrap}
+.chip{height:32px; padding:0 12px; border-radius:8px; border:1px solid var(--line); color:var(--fg); font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans);
+  display:inline-flex; align-items:center; gap:4px; flex:none; position:relative; white-space:nowrap}
+.chip.on{background:var(--accentContainer); color:var(--onAccentContainer); border-color:transparent}
+.chip svg{width:18px; height:18px}
+.pr{height:4px; border-radius:2px; background:var(--line); overflow:hidden; position:relative; flex:none}
+.pr.big{height:8px; border-radius:4px}
+.pr > span{display:block; height:100%; background:var(--accent); border-radius:inherit}
+.pr.ind > span{width:40%; animation:ind 1.4s linear infinite}
+@keyframes ind{from{transform:translateX(-100%)} to{transform:translateX(250%)}}
+.spin{width:16px; height:16px; border-radius:50%; border:2px solid var(--accent); border-right-color:transparent; animation:rot 1s linear infinite; flex:none}
+@keyframes rot{to{transform:rotate(360deg)}}
+.eq{display:inline-flex; gap:2px; align-items:flex-end; height:16px; width:16px; justify-content:center}
+.eq i{width:3px; background:var(--accent); animation:eq .8s ease-in-out infinite alternate}
+.eq i:nth-child(2){animation-delay:-.3s} .eq i:nth-child(3){animation-delay:-.6s}
+@keyframes eq{from{height:4px} to{height:16px}}
+.segc{display:flex; height:40px; border-radius:999px; border:1px solid var(--line); background:var(--bg2); overflow:hidden; flex:none}
+.segc button{flex:1; display:flex; align-items:center; justify-content:center; gap:4px; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg); position:relative}
+.segc button + button{border-left:1px solid var(--line)}
+.segc button.on{background:var(--accentContainer); color:var(--onAccentContainer)}
+.segc svg{width:18px; height:18px}
+
+/* ===== surfaces ===== */
+.card{background:var(--bg2); border-radius:16px; border:1px solid var(--line); padding:16px}
+.card.r12{border-radius:12px; padding:12px 16px}
+.ban{display:flex; gap:12px; align-items:flex-start; border-radius:12px; padding:12px 16px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); flex-wrap:wrap}
+.ban > svg{width:24px; height:24px; flex:none}
+.ban .tx{flex:1; min-width:0}
+.ban.warn{background:var(--warnBg); color:var(--warnFg)}
+.ban.err{background:var(--errBg); color:var(--errFg)}
+.ban .acts{display:flex; justify-content:flex-end; width:100%; gap:4px; align-items:center}
+.ban .btn.txt{color:inherit; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.ban .ib{color:inherit; width:40px; height:40px}
+.snack{position:absolute; left:16px; right:16px; bottom:112px; z-index:19; background:var(--inverseBg); color:var(--inverseFg); border-radius:8px; min-height:48px;
+  padding:14px 16px; display:flex; align-items:center; gap:16px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.tile{display:grid; place-items:center; font-family:var(--serif); font-weight:600; flex:none; background:var(--tile); color:var(--onTile); border-radius:8px; line-height:1}
+.h0{--tile:var(--tile0); --onTile:var(--onTile0)} .h1c{--tile:var(--tile1); --onTile:var(--onTile1)} .h2c{--tile:var(--tile2); --onTile:var(--onTile2)}
+.h3c{--tile:var(--tile3); --onTile:var(--onTile3)} .h4c{--tile:var(--tile4); --onTile:var(--onTile4)} .h5c{--tile:var(--tile5); --onTile:var(--onTile5)}
+.scrimL{position:absolute; inset:0; background:var(--scrim); z-index:20; transition:opacity 150ms linear}
+.scrimL.off{opacity:0}
+.sheet{position:absolute; left:0; right:0; bottom:0; z-index:21; background:var(--bg2); border-radius:28px 28px 0 0; height:calc(100% - 48px); display:flex; flex-direction:column;
+  transform:translateY(calc(100% - var(--detent, 100%))); transition:transform 320ms cubic-bezier(.2,.9,.25,1.05); touch-action:none}
+.sheet.off{transform:translateY(100%)}
+.sheet.auto{height:auto; max-height:calc(100% - 48px)}
+.sheet.drag{transition:none}
+.sheet .hd{height:48px; flex:none; position:relative; cursor:grab}
+.sheet .hd::before{content:""; position:absolute; top:12px; left:50%; width:32px; height:4px; margin-left:-16px; border-radius:2px; background:var(--fg2)}
+.sheet .bd{flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding:0 16px 48px}
+.sheet .bd.flush{padding:0 0 48px}
+.sheet .bd .row{padding-left:0; padding-right:0}
+.sheet .bd.flush .row{padding-left:16px; padding-right:16px}
+.sheet .bd .div{margin-left:0}
+.shh{height:56px; display:flex; align-items:center; gap:8px; flex:none; padding:0 16px}
+.shh .tm{flex:1; min-width:0}
+.page{position:absolute; inset:0; background:var(--bg2); display:flex; flex-direction:column; border-radius:28px 28px 0 0; transition:transform 320ms cubic-bezier(.2,.9,.25,1.05)}
+.page.push{transform:translateX(100%)}
+.dlg{position:absolute; left:24px; right:24px; top:50%; transform:translateY(-50%); z-index:22; background:var(--bg2); border-radius:28px; padding:24px}
+.dlg .acts{display:flex; justify-content:flex-end; gap:8px; margin-top:16px}
+.dlg.sys{background:var(--sysDialogBg); text-align:center}
+.dlg.sys .btn.txt{width:100%}
+.mark{width:64px; height:64px; border-radius:16px; background:var(--accent); color:var(--onAccent); display:grid; place-items:center; font:600 calc(36*var(--sp))/1 var(--serif)}
+.mark.s32{width:32px; height:32px; border-radius:8px; font-size:calc(18*var(--sp))}
+.mark.s24{width:24px; height:24px; border-radius:6px; font-size:calc(14*var(--sp))}
+.info{display:flex; gap:12px; align-items:flex-start}
+.info svg{width:20px; height:20px; flex:none; margin-top:2px}
+
+/* ===== reader ===== */
+.rd{position:absolute; inset:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain}
+.doc{padding:56px 16px 140px; font:400 calc(19*var(--sp))/calc(32*var(--sp)) var(--serif); color:var(--fg); overflow-wrap:anywhere}
+.doc .h1{font:600 calc(26*var(--sp))/calc(34*var(--sp)) var(--serif); margin:48px 0 16px}
+.doc .h2{font:600 calc(22*var(--sp))/calc(30*var(--sp)) var(--serif); margin:32px 0 12px}
+.doc .h3{font:700 calc(19*var(--sp))/calc(28*var(--sp)) var(--serif); margin:24px 0 8px}
+.doc .p{margin:0 0 16px}
+.doc .h1:first-child{margin-top:0}
+.doc .s{cursor:pointer; border-radius:4px; padding:0 2px; -webkit-box-decoration-break:clone; box-decoration-break:clone; transition:background-color 120ms linear}
+.doc .s.hl{background:var(--hl); color:var(--hlFg)}
+.doc .pg{display:inline-block; font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2); border:1px solid var(--line); border-radius:6px; padding:0 6px; height:20px; line-height:18px; vertical-align:2px; margin-right:6px; user-select:none}
+/* code block: the pre scrolls sideways; a 24 px fade on the right shows while more code is off to the right */
+.code{position:relative; background:var(--bg2); border-radius:8px; margin:0 0 16px}
+.code pre{margin:0; padding:12px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--mono); color:var(--fg); overflow-x:auto; white-space:pre}
+.code[data-more="right"]::after{content:""; position:absolute; top:0; bottom:0; right:0; width:24px; border-radius:0 8px 8px 0; background:linear-gradient(to right, transparent, var(--bg2)); pointer-events:none}
+.doc .cue{font:400 calc(13*var(--sp))/calc(18*var(--sp)) var(--sans); color:var(--fg2); margin:-8px 0 16px; display:inline-block}
+.doc .cue.hl{color:var(--hlFg)}
+.doc .li{padding-left:24px; position:relative}
+.doc .li::before{content:"•"; position:absolute; left:8px}
+.pill{position:absolute; left:12px; right:12px; bottom:36px; height:64px; border-radius:999px; background:var(--bg2); border:1px solid var(--line); padding:0 8px; display:flex; align-items:center; z-index:15; touch-action:none}
+.x2 .pill{height:72px}
+.pill .st{flex:1; min-width:0; height:48px; margin:0 4px; padding:0 8px; border-radius:12px; display:flex; align-items:center; gap:4px; text-align:left; color:var(--fg)}
+.pill .st .lines{flex:1; min-width:0}
+.pill .l1{font:500 calc(14*var(--sp))/calc(18*var(--sp)) var(--sans); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:4px}
+.pill .l1 svg{width:16px; height:16px; flex:none}
+.pill .l1 .txt{min-width:0; overflow:hidden; text-overflow:ellipsis}
+.pill .l1 .txt:first-child{flex:none}
+.x2 .pill .l1 .txt:first-child{flex:0 1 auto}
+.pill .l2{font:400 calc(13*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px}
+.pill .l2.ac{color:var(--accent)}
+.pill .st > svg{width:16px; height:16px; color:var(--fg2); flex:none}
+.x2 .pill .l2{display:none}
+@container (max-width:360px){ .pill .st > svg{display:none} .pill .st{padding:0 4px; margin:0 2px} }
+.btc{position:absolute; right:16px; bottom:112px; height:40px; border-radius:999px; background:var(--bg2); border:1px solid var(--line); padding:0 16px 0 12px; display:flex; align-items:center; gap:8px;
+  font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg); z-index:14; transition:opacity 150ms linear}
+.btc svg{width:20px; height:20px}
+.btc.off{opacity:0; pointer-events:none}
+.tip{position:absolute; left:16px; right:16px; bottom:112px; z-index:14}
+.topban{position:absolute; left:16px; right:16px; top:40px; z-index:14}
+.flash{position:absolute; left:50%; top:50%; width:72px; height:72px; margin:-36px 0 0 -36px; border-radius:50%; background:var(--inverseBg); color:var(--inverseFg); display:grid; place-items:center; z-index:16; animation:flash 600ms linear forwards; pointer-events:none}
+.flash svg{width:36px; height:36px}
+@keyframes flash{0%{opacity:0} 20%{opacity:.9} 80%{opacity:.9} 100%{opacity:0}}
+.transport{display:flex; align-items:center; justify-content:center; gap:16px}
+.transport .play{width:64px; height:64px}
+.transport .play .disc{width:56px; height:56px}
+
+/* ===== first run, library, settings ===== */
+.pts{display:flex; flex-direction:column; gap:16px}
+.pts .flex{align-items:flex-start; gap:16px}
+.pts svg{width:24px; height:24px; color:var(--accent); flex:none}
+.mcard{display:block; width:100%; background:var(--bg2); border-radius:16px; border:1px solid var(--line); padding:16px; text-align:left; color:var(--fg)}
+.mcard.on{border:2px solid var(--accent); padding:15px; background:var(--accentContainer); color:var(--onAccentContainer)}
+.mcard .ind{padding-left:36px}
+.mcard.on .fg2{color:inherit}
+.hint{display:flex; align-items:center; gap:8px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.hint svg{width:20px; height:20px}
+.cont{display:flex; gap:16px; align-items:center; margin:0 16px; position:relative}
+.cont::before{content:""; position:absolute; left:0; top:16px; bottom:16px; width:3px; border-radius:2px; background:var(--accent)}
+.cont .tx{flex:1; min-width:0}
+.x2 .cont{flex-direction:column; align-items:stretch}
+.x2 .cont .play{align-self:flex-end}
+.lrow{display:flex; align-items:center; gap:16px; min-height:72px; padding:8px 16px; width:100%; text-align:left; color:var(--fg)}
+.lrow .tx{flex:1; min-width:0}
+.lrow .t{font:500 calc(16*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.lrow .m{font:400 calc(14*var(--sp))/calc(18*var(--sp)) var(--sans); color:var(--fg2); margin-top:2px}
+.lrow .tr{flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:4px; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--accent)}
+.lrow .tr .pr{width:56px}
+.empty{position:absolute; left:16px; right:16px; top:0; bottom:112px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center}
+.empty .b{max-width:320px}
+.sechead{padding:16px 16px 4px; font:600 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--accent)}
+.tbar{display:flex; align-items:center; gap:4px; padding:32px 4px 0; height:96px; flex:none}
+.tbar .tl{flex:1}
+.prev{font:400 calc(var(--pv)*var(--sp))/1.4 var(--serif); padding:8px 16px}
+.stops{display:flex; justify-content:space-between; font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2); padding:4px 0 0}
+
+/* ===== option 3 "Quiet" ===== */
+.screen[data-opt="3"] .row .t{font:500 calc(16*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.screen[data-opt="3"] .row .m{font:400 calc(14*var(--sp))/calc(18*var(--sp)) var(--sans)}
+.screen[data-opt="3"] .row{min-height:48px}
+.screen[data-opt="3"] .pill{height:56px; transition:left 320ms cubic-bezier(.2,.9,.25,1.05), height 320ms, padding 320ms}
+.screen[data-opt="3"] .pill .play{width:48px; height:48px}
+.screen[data-opt="3"] .pill .play .disc{width:40px; height:40px}
+.screen[data-opt="3"] .pill .st{height:40px}
+.screen[data-opt="3"] .pill .st .lines{transition:transform 120ms}
+.screen[data-opt="3"] .pill .st .lines.nudge-l{transform:translateX(-8px)}
+.screen[data-opt="3"] .pill .st .lines.nudge-r{transform:translateX(8px)}
+.screen[data-opt="3"] .btc, .screen[data-opt="3"] .tip, .screen[data-opt="3"] .snack{bottom:104px}
+.pill.collapsed{left:calc(100% - 72px); right:16px; padding:0; justify-content:center}
+.pill.collapsed .st, .pill.collapsed .ib{display:none}
+.pill.collapsed .play .disc{background:none; color:var(--accent)}
+.pill.mid{left:calc(100% - 216px); right:12px}
+.pill.mid .st, .pill.mid .ib.more{display:none}
+.pline{position:absolute; left:0; right:0; bottom:20px; height:2px; background:var(--line); z-index:15}
+.pline span{display:block; height:100%; background:var(--accent)}
+.qhead{display:flex; align-items:center; padding:32px 4px 0 16px; height:88px}
+.qhead .ttl{flex:1; font:600 calc(20*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.qfab{position:absolute; right:16px; bottom:40px; width:56px; height:56px; border-radius:50%; background:var(--accent); color:var(--onAccent); display:grid; place-items:center; box-shadow:0 0 0 1px var(--bg); z-index:15}
+.qfab svg{width:24px; height:24px}
+.hintt{position:absolute; left:16px; right:16px; bottom:104px; background:var(--inverseBg); color:var(--inverseFg); border-radius:8px; padding:12px 16px; display:flex; gap:12px; align-items:center; z-index:16;
+  font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.hintt .btn.txt{color:var(--inverseFg); text-decoration:underline; height:40px; flex:none}
+.scrub{position:absolute; left:68px; bottom:104px; z-index:17; display:flex; flex-direction:column; gap:4px; background:var(--bg2); border:1px solid var(--line); border-radius:12px; padding:8px}
+.scrub .chip{margin:0}
+.search{height:48px; border-radius:999px; background:var(--bg); border:1px solid var(--line); display:flex; align-items:center; gap:12px; padding:0 16px; margin:0 16px 8px; color:var(--fg2)}
+.search svg{width:24px; height:24px; flex:none}
+.search span{flex:1; font:400 calc(16*var(--sp))/calc(24*var(--sp)) var(--sans)}
+.search .typed{color:var(--fg)}
+.outl .o1{position:sticky; top:0; background:var(--bg2); border-bottom:1px solid var(--line); z-index:1; min-height:48px; padding:12px 16px; font:500 calc(16*var(--sp))/calc(20*var(--sp)) var(--sans); display:flex; align-items:center; gap:8px; width:100%; text-align:left; color:var(--fg)}
+.outl .o2{min-height:48px; padding:12px 16px 12px 32px; font:400 calc(15*var(--sp))/calc(20*var(--sp)) var(--sans); display:flex; align-items:center; gap:8px; width:100%; text-align:left; color:var(--fg); position:relative}
+.outl .o3{min-height:40px; padding:10px 16px 10px 48px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2); display:flex; align-items:center; gap:8px; width:100%; text-align:left; position:relative}
+.outl .tt{flex:1; min-width:0}
+.outl .pg{flex:none; font:400 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--fg2)}
+.outl .cur{font-weight:600; color:var(--fg)}
+.outl .cur::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent)}
+.screen[data-opt="3"] .sheet.full{height:calc(100% - 40px)}
+.screen[data-opt="3"] .sheet .bd .row{min-height:48px; padding-top:4px; padding-bottom:4px}
+
+@media (prefers-reduced-motion: reduce){ .screen *{transition:none !important; animation:none !important; scroll-behavior:auto !important} }
+
+/* ===== this page (2026-11-13, computer helper): chrome, and the few pieces Quiet v2 doesn't have ===== */
+.toolbar a{color:var(--pfg); text-decoration:none; font-size:14px; border:1px solid var(--pline); border-radius:999px; padding:4px 12px; background:var(--pbg)}
+.optlead{margin:0 0 16px; color:var(--pfg2); max-width:72rem}
+.rec{display:inline-block; margin-left:8px; font-size:12px; font-weight:600; padding:2px 10px; border-radius:999px; background:var(--paccent); color:var(--pon); vertical-align:3px}
+h3.sub{font-size:16px; margin:28px 0 12px; color:var(--pfg2); font-weight:600}
+.cmp{border-collapse:collapse; width:100%; max-width:1100px; margin-top:16px; font-size:15px}
+.cmp th, .cmp td{border:1px solid var(--pline); padding:10px 12px; text-align:left; vertical-align:top}
+.cmp thead th{background:var(--pbg2)}
+.cmp tbody th{width:22%; font-weight:600}
+.cmpwrap{overflow-x:auto}
+/* one frame alone, 412 × 915, no bezel (screenshots) */
+body.solo .solo-frame .phone{border:0; border-radius:0; background:none}
+body.solo .solo-frame .screen{border-radius:0}
+
+/* new pieces, built from Quiet v2 tokens */
+.row .tx > span{display:block}
+.row .t, .row .m{overflow-wrap:anywhere}
+.warnc, .row .m.warnc{color:var(--warnFg)}
+.row.dis .t, .row.dis .m{color:var(--fg2)}
+.row.dis .sw{border-color:var(--line); background:var(--bg2)}
+.row.dis .sw::after{background:var(--line)}
+.row .tr .btn.txt{font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.row .tr .ib svg{color:var(--fg)}
+.row.danger .t{color:var(--errFg)}
+.x2 .tbar{height:auto; min-height:96px; align-items:flex-start}
+.x2 .tbar .tl{padding:8px 0}
+.para{margin:0; padding:4px 16px 8px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.help{display:flex; gap:8px; align-items:flex-start; padding:16px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.help svg{width:20px; height:20px; flex:none}
+.tbtn{padding:0 4px; display:flex}
+.anchor{position:relative}
+.menu{position:absolute; right:8px; top:52px; z-index:17; min-width:200px; background:var(--bg2); border:1px solid var(--line); border-radius:12px; padding:8px 0}
+.menu .row{min-height:48px}
+.ban .acts{margin:-8px -8px -8px 0}
+/* pairing: a pushed page (A, C) or the body of the pairing sheet (B) */
+.pg{position:absolute; inset:0; display:flex; flex-direction:column; background:var(--bg)}
+.pbody{flex:1; min-height:0; overflow-y:auto; overflow-x:hidden}
+.pfoot{flex:none; padding:16px 16px 40px; display:flex; flex-direction:column; gap:8px}
+.pfoot.k{padding-bottom:16px}
+.sheet .pbody{padding-top:4px}
+.steps{display:flex; align-items:center; gap:8px; padding:0 16px 12px; flex:none; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.steps .on{color:var(--accent); font-weight:600}
+.code6{display:flex; gap:8px; margin-top:24px}
+.code6 .bx{flex:1; max-width:56px; height:56px; border:1px solid var(--fg2); border-radius:12px; display:grid; place-items:center; background:var(--bg); color:var(--fg); font:600 calc(22*var(--sp))/1 var(--sans)}
+.code6 .bx.foc{border:2px solid var(--accent)}
+.code6 .bx.foc::after{content:""; width:2px; height:24px; background:var(--accent)}
+.code6.lock .bx{background:var(--bg2); border-color:var(--line); color:var(--fg2)}
+.stline{display:flex; gap:8px; align-items:flex-start; margin-top:16px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+.stline > svg{width:20px; height:20px; flex:none}
+.stline .spin{margin-top:2px}
+.field{display:block; margin-top:8px; border:2px solid var(--accent); border-radius:12px; padding:6px 16px 10px; background:var(--bg)}
+.field .lab{display:block; font:500 calc(12*var(--sp))/calc(16*var(--sp)) var(--sans); color:var(--accent)}
+.field .val{display:flex; align-items:center; gap:1px; font:400 calc(18*var(--sp))/calc(28*var(--sp)) var(--mono); color:var(--fg)}
+.field .val::after{content:""; width:2px; height:22px; background:var(--accent)}
+.kbd{flex:none; background:var(--bg2); border-top:1px solid var(--line); padding:8px 8px 32px; display:grid; grid-template-columns:repeat(4, 1fr); gap:6px}
+.kbd span{height:48px; border-radius:8px; background:var(--bg); color:var(--fg); display:grid; place-items:center; font:400 22px/1 var(--sans)}
+.kbd span.fn{background:var(--line)}
+.kbd span.go{background:var(--accent); color:var(--onAccent)}
+.kbd span.e{visibility:hidden}
+.kbd svg{width:24px; height:24px}
+.okmark{display:inline-flex; width:56px; height:56px; color:var(--okFg)}
+.okmark svg{width:56px; height:56px}
+.done{display:flex; flex-direction:column; align-items:center; text-align:center; gap:12px; padding:32px 24px 24px}
+.bigmsg{display:flex; flex-direction:column; align-items:center; text-align:center; gap:16px; padding:48px 32px 0; color:var(--fg2)}
+.bigmsg svg{width:40px; height:40px}
+.bigmsg .b{color:var(--fg)}
+.hlp{margin:0; padding:0 16px 0 36px; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.hlp li{margin-top:8px}
+/* C: a found computer that opens in place */
+.xp{margin:8px 16px 0; padding:0 16px 16px}
+.xp .row{padding-left:0; padding-right:0}
+.xp.shut{padding-bottom:0}
+/* C: the one-line status under Speed */
+.hline{display:flex; align-items:center; gap:8px; width:100%; min-height:48px; padding:6px 0; text-align:left; font:400 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans); color:var(--fg2)}
+.hline > svg{width:16px; height:16px; flex:none}
+.hline .tx{flex:1; min-width:0}
+.hline.warnc{color:var(--warnFg)}
+.hline .btn.txt{flex:none; margin-right:-12px; font:500 calc(14*var(--sp))/calc(20*var(--sp)) var(--sans)}
+/* B: the informational computer card in "Listen with" */
+.mcard.infoc .flex > svg{width:24px; height:24px; flex:none}
+.chips.in{padding:4px 0 8px 40px}
+.prin{margin:0 0 10px 40px}
+</style>
+</head>
+<body>
+<header class="toolbar">
+  <span class="brand">Lectrice for Android · Computer helper · 2026-11-13</span>
+  <div class="seg"><span>Theme</span><button data-theme-btn="light" aria-pressed="true">Light</button><button data-theme-btn="dark" aria-pressed="false">Dark</button><button data-theme-btn="black" aria-pressed="false">Black</button></div>
+  <a href="#A">A · Own page + pages</a><a href="#B">B · All in Settings + sheet</a><a href="#C">C · Own page, inline pairing</a><a href="#S">Shared</a><a href="#compare">Comparison</a>
+</header>
+<main>
+  <div class="intro">
+    <h1>Computer helper on the phone: three options</h1>
+    <p>When the phone and a paired computer are on the same Wi-Fi, Lectrice on the computer makes the speech and the phone only plays it. The three options below show the same screens (H1–H9) with the same words. They differ in <strong>where the helper lives in Settings</strong>, <strong>how pairing is laid out</strong> and <strong>where the player sheet shows the status</strong>.</p>
+    <p>Quiet v2 look, 412 × 915 frames. Use the Theme buttons for light, dark and black. Example names: computer “Kia's laptop”, phone “Galaxy S10+”, book “The Long Book” (invented text). Frames marked 200 % show the largest font size. Spec: <code>docs/android-logic/24-desktop-helper.md</code>.</p>
+  </div>
+
+<section class="opt" id="A">
+<h2 class="group">Option A · “Own page + pages” <span class="rec">Recommended by Opus</span></h2>
+<p class="optlead">Settings gets one “Computer helper” row that opens its own page. Pairing is a run of full-screen pages. The player sheet gets a “Computer helper” row under Voice.</p>
+<h3 class="sub">Settings and the Computer helper page (H1, H9)</h3><div class="gallery" data-group="A1"></div>
+<h3 class="sub">Pairing pages (H2–H6)</h3><div class="gallery" data-group="A2"></div>
+<h3 class="sub">Player sheet row (H7)</h3><div class="gallery" data-group="A3"></div>
+<h3 class="sub">Prepare through the computer (H8) · same in B and C</h3><div class="gallery" data-group="A4"></div>
+</section>
+
+<section class="opt" id="B">
+<h2 class="group">Option B · “All in Settings + one pairing sheet”</h2>
+<p class="optlead">No extra page: the switch, the computers and “Pair with a computer” sit directly in Settings. Pairing is one tall sheet with the steps Find · Code · Done. In the player sheet the status is the subtitle of the “Audio” row.</p>
+<h3 class="sub">Settings section (H1, H9)</h3><div class="gallery" data-group="B1"></div>
+<h3 class="sub">Pairing sheet (H2–H6)</h3><div class="gallery" data-group="B2"></div>
+<h3 class="sub">Player sheet “Audio” row (H7)</h3><div class="gallery" data-group="B3"></div>
+</section>
+
+<section class="opt" id="C">
+<h2 class="group">Option C · “Own page, inline pairing”</h2>
+<p class="optlead">Settings and the Computer helper page are the same as option A (frames A-T1, A-H1, A-H9). Pairing is one page: a found computer opens in place to show the code boxes. The player sheet has no row, only one status line under Speed.</p>
+<h3 class="sub">Pairing on one page (H2, H3, H5) · H2a, H2c, H2d, H4 and the H6 denied row are the same as A</h3><div class="gallery" data-group="C2"></div>
+<h3 class="sub">Player sheet status line (H7)</h3><div class="gallery" data-group="C3"></div>
+</section>
+
+<section class="opt" id="S">
+<h2 class="group">Shared by all options</h2>
+<p class="optlead">The pill, the one-time snackbar and the Nearby-devices sheet are the same whichever option is picked.</p>
+<div class="gallery" data-group="S"></div>
+</section>
+
+<section id="compare">
+<h2 class="group">Comparison</h2>
+<div class="cmpwrap"><table class="cmp">
+<thead><tr><th></th><th>A · Own page + pages</th><th>B · All in Settings + one pairing sheet</th><th>C · Own page, inline pairing</th></tr></thead>
+<tbody>
+<tr><th>Taps to pair<br><small>from Settings, computer found, not counting the 6 digits or the Android permission</small></th>
+  <td>4 taps, 4 screens: Computer helper → Pair with a computer → the computer → Done.</td>
+  <td>3 taps, 1 sheet: Pair with a computer → the computer → Done.</td>
+  <td>4 taps, 2 screens: Computer helper → Pair with a computer → the computer (opens in place) → Done.</td></tr>
+<tr><th>Discoverability of the status</th>
+  <td>Its own row with a computer icon and the title “Computer helper”: easy to find, and it leads to the page that fixes things.</td>
+  <td>Inside the “Audio” row's subtitle: visible, but you must know that “Audio” also means the computer.</td>
+  <td>One grey line under Speed: quiet, easy to miss, no title to say what it is.</td></tr>
+<tr><th>Fit with the existing sheet<br><small>Voice / Audio / Sleep / Prepare rows</small></th>
+  <td>One more row of the same kind (7 rows instead of 6, or 8 with an audiobook). The sheet gets about 48 dp longer.</td>
+  <td>No new row when an audiobook is linked; otherwise the “Audio” row appears once a computer is paired. Subtitles get long.</td>
+  <td>No new row. The line adds about 48 dp between Speed and Voice and is the only item there that is not a row.</td></tr>
+<tr><th>Risk of confusion with the audiobook “Audio” row</th>
+  <td>Low: the helper and the audiobook are two separate rows.</td>
+  <td>Highest: one row and one “Listen with” sheet carry two different things (which source plays, and who makes the speech). The computer card looks like a choice but is not one.</td>
+  <td>Low: the line is not near the “Audio” row and has no radio or switch.</td></tr>
+<tr><th>200 % font</th>
+  <td>Rows wrap; the long needs-attention text takes many lines and “Fix” stays on the right (frames A-H1b-x2, A-H7e-x2).</td>
+  <td>The longest subtitles (“Made on this phone · computer not reachable · 24 min ready”) wrap to the most lines (frames B-H1d-x2, B-H7d-x2).</td>
+  <td>The line wraps under Speed and pushes the rows down; “Fix” stays on the right (frame C-H7e-x2).</td></tr>
+</tbody></table></div>
+</section>
+</main>
+<script>
+/* ===== icons (Material Symbols paths, 24 px grid) ===== */
+const ICONS = {
+  arrow_back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
+  close: 'M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  chevron_right: 'M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z',
+  expand_more: 'M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z',
+  expand_less: 'M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z',
+  more_vert: 'M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+  more_horiz: 'M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
+  computer: 'M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z',
+  bolt: 'M11 21h-1l1-7H7.5c-.88 0-.33-.75-.31-.78C8.48 10.94 10.42 7.54 13.01 3h1l-1 7h3.51c.4 0 .62.19.4.66C12.97 17.55 11 21 11 21z',
+  wifi: 'M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z',
+  check_circle: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z',
+  check: 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
+  warning: 'M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z',
+  error: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z',
+  info: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z',
+  backspace: 'M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z',
+  headphones: 'M12 3c-4.97 0-9 4.03-9 9v7c0 1.1.9 2 2 2h4v-8H5v-1c0-3.87 3.13-7 7-7s7 3.13 7 7v1h-4v8h4c1.1 0 2-.9 2-2v-7c0-4.97-4.03-9-9-9z',
+  skip_previous: 'M6 6h2v12H6zm3.5 6l8.5 6V6z',
+  skip_next: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z',
+  pause: 'M6 19h4V5H6v14zm8-14v14h4V5h-4z',
+  open_in_full: 'M21 11V3h-8l3.29 3.29-10 10L3 13v8h8l-3.29-3.29 10-10z',
+  keyboard_double_arrow_left: 'M17.59 18L19 16.59 14.42 12 19 7.41 17.59 6l-6 6zM11 18l1.41-1.41L7.83 12l4.58-4.59L11 6l-6 6z',
+  keyboard_double_arrow_right: 'M6.41 6L5 7.41 9.58 12 5 16.59 6.41 18l6-6zM13 6l-1.41 1.41L16.17 12l-4.58 4.59L13 18l6-6z',
+  record_voice_over: 'M9 13c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4zm7.76-9.64l-1.68 1.69c.84 1.18.84 2.71 0 3.89l1.68 1.69c2.02-2.02 2.02-5.07 0-7.27zM20.07 2l-1.63 1.63c2.77 3.02 2.77 7.56 0 10.74L20.07 16c3.9-3.89 3.91-9.95 0-14z',
+  bedtime: 'M12.34 2.02C6.59 1.82 2 6.42 2 12c0 5.52 4.48 10 10 10 3.71 0 6.93-2.02 8.66-5.02-7.51-.25-12.09-8.43-8.32-14.96z',
+  menu_book: 'M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z',
+  download: 'M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z',
+  signal_cellular_alt: 'M17 4h3v16h-3V4zM5 14h3v6H5v-6zm6-5h3v11h-3V9z',
+  battery_full: 'M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4z',
+};
+const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const ic = (name, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
+const ib = (icon, label, cls = '') => `<button class="ib ${cls}" aria-label="${esc(label)}">${ic(icon)}</button>`;
+const btn = (label, cls = '', attrs = '') => `<button class="btn ${cls}" ${attrs}>${label}</button>`;
+
+/* ===== copy (the same in every option) ===== */
+const PC = "Kia's laptop";
+const COPY = {
+  settings: 'Settings', helper: 'Computer helper', computers: 'Computers',
+  sw: 'Let a computer make the audio', pairFirst: 'Pair a computer first',
+  explain: "When your phone and computer are on the same Wi-Fi, Lectrice on your computer makes the speech, so your phone stays cool and saves battery. If the computer isn't reachable, your phone carries on by itself.",
+  help: "Needs Lectrice open on the computer, with 'Let my phone use this computer' turned on.",
+  pair: 'Pair with a computer', connected: 'Connected', lastSeen: 'Last seen 2 h ago', attention: 'Needs attention',
+  rename: 'Rename', forget: 'Forget',
+  looking: 'Looking on this Wi-Fi…', address: 'Enter the address instead', noWifi: 'Connect to Wi-Fi to pair.',
+  notFound: ['Make sure the phone and the computer are on the same Wi-Fi, and not on a guest network.', 'Open Lectrice on the computer.', 'On the computer, click <b>Pair a phone</b>.'],
+  typeCode: `Type the code shown on ${PC}.`, checking: 'Checking…',
+  wrong: "That code didn't work. Check the code on your computer.",
+  noCode: `No code is showing on ${PC}. On the computer, click <b>Pair a phone</b> to get a new code.`,
+  addrTitle: 'Enter the address', addrLabel: 'Address', addrValue: '192.168.1.20:47878', cont: 'Continue',
+  paired: `Paired with ${PC}`, pairedLine: "Lectrice on your computer now makes the audio when you're both on this Wi-Fi.", done: 'Done',
+  nearby: 'To find your computer, Lectrice needs permission to see devices on your Wi-Fi. It never looks beyond your home network.', notNow: 'Not now',
+  denied: 'Allow Nearby devices to use your computer', openSettings: 'Open settings',
+  snack: "Your computer isn't reachable. The phone carries on by itself.",
+  status: 'Ch. 7 · p. 265', fix: 'Fix',
+  prepPc: `Prepare on ${PC}`, prepPhone: 'Prepare while charging', off: 'Off',
+  prepChips: ['This chapter', 'Next 3 chapters', 'As much as fits'], prepRun: `Preparing on ${PC} · 40 %`, prepDone: 'Ready up to Ch. 9',
+  steps: ['Find', 'Code', 'Done'],
+};
+const ATTN = {
+  model: { text: 'Your computer needs the Fast voice (111 MB) to help. Open Lectrice on the computer to download it.', act: 'Retry' },
+  desktop: { text: 'Update Lectrice on your computer' },
+  phone: { text: 'Update Lectrice on this phone' },
+  forgot: { text: `${PC} forgot this phone. Pair again.`, act: 'Pair again' },
+};
+/* link states: the player-sheet line (A, C) and the "Audio" row subtitle (B) */
+const LINK = {
+  conn: { line: `Making audio on ${PC} · 12 min ready`, audio: `Made on ${PC} · 12 min ready`, ready: 12, on: true },
+  busy: { line: `${PC} is busy · 22 min ready`, audio: `Made on this phone · ${PC} is busy · 22 min ready`, ready: 22, on: true },
+  look: { line: `Looking for ${PC}…`, audio: `Made on this phone · looking for ${PC}…`, ready: 3 },
+  lost: { line: 'Computer not reachable · 24 min ready', audio: 'Made on this phone · computer not reachable · 24 min ready', ready: 24 },
+  attn: { line: ATTN.model.text, audio: ATTN.model.text, ready: 3, warn: true },
+};
+
+/* ===== phone frame ===== */
+const statusBar = (scrim, wifi = true) => `<div class="cam"></div><div class="sb${scrim ? ' scrim' : ''}" aria-hidden="true"><span>9:41</span><span class="ic">${ic('signal_cellular_alt')}${wifi ? ic('wifi') : ''}${ic('battery_full')}</span></div><div class="gb"></div>`;
+const phone = (theme, inner, { x2 = false, scrim = false, wifi = true } = {}) => `<div class="phone"><div class="screen${x2 ? ' x2' : ''}" data-opt="3" data-theme="${theme}">${inner}${statusBar(scrim, wifi)}</div></div>`;
+const tbar = (title, back = true) => `<div class="tbar">${back ? ib('arrow_back', 'Back') : '<span style="width:12px"></span>'}<span class="tl">${esc(title)}</span></div>`;
+const banner = (a) => `<div class="ban warn" role="status">${ic('warning')}<span class="tx">${esc(a.text)}</span>${a.act ? `<span class="acts">${btn(a.act, 'txt')}</span>` : ''}</div>`;
+
+/* ===== Settings and the Computer helper page (H1, H9) ===== */
+/* st: 'none' | 'on' | 'lost' | a key of ATTN */
+const isPaired = (st) => st !== 'none';
+const switchRow = (sub, st, subWarn = false) => `<div class="row two${isPaired(st) ? '' : ' dis'}" role="switch" aria-checked="${isPaired(st)}"${isPaired(st) ? '' : ' aria-disabled="true"'}><span class="tx"><span class="t">${COPY.sw}</span>${sub ? `<span class="m${subWarn ? ' warnc' : ''}">${esc(sub)}</span>` : ''}</span><span class="tr"><span class="swt"><span class="sw${isPaired(st) ? ' on' : ''}"></span></span></span></div>`;
+const computerMeta = (st) => (st === 'on' ? COPY.connected : ATTN[st] ? COPY.attention : COPY.lastSeen);
+const menu = () => `<div class="menu" role="menu"><button class="row" role="menuitem"><span class="tx"><span class="t">${COPY.rename}</span></span></button><button class="row danger" role="menuitem"><span class="tx"><span class="t">${COPY.forget}</span></span></button></div>`;
+const computerRow = (st, withMenu) => `<div class="anchor"><div class="row two">${ic('computer', 'lead')}<span class="tx"><span class="t">${esc(PC)}</span><span class="m${ATTN[st] ? ' warnc' : ''}">${computerMeta(st)}</span></span><span class="tr">${ib('more_vert', `More for ${PC}`)}</span></div>${withMenu ? menu() : ''}</div>`;
+const helpLine = () => `<div class="help">${ic('info')}<span>${esc(COPY.help)}</span></div>`;
+
+/* A and C: the helper's own page */
+function helperPage(st, { withMenu = false } = {}) {
+  return `<div class="scroll">${tbar(COPY.helper)}${switchRow(isPaired(st) ? '' : COPY.pairFirst, st)}<p class="para">${esc(COPY.explain)}</p>
+    ${ATTN[st] ? `<div class="px16 mt8">${banner(ATTN[st])}</div>` : ''}
+    <div class="sechead">${COPY.computers}</div>${isPaired(st) ? computerRow(st, withMenu) : ''}
+    <div class="tbtn">${btn(COPY.pair, 'txt')}</div>${helpLine()}</div>`;
+}
+const settingsRow = (title, value, trailing = ic('chevron_right')) => `<button class="row${value ? ' two' : ''}"><span class="tx"><span class="t">${esc(title)}</span>${value ? `<span class="m">${esc(value)}</span>` : ''}</span><span class="tr">${trailing}</span></button>`;
+/* A and C: one row; B: the whole section */
+function helperInSettings(opt, st, withMenu) {
+  if (opt !== 'B') {
+    const meta = st === 'none' ? COPY.off : st === 'on' ? `${PC} · connected` : ATTN[st] ? COPY.attention : `${PC} · not reachable`;
+    return settingsRow(COPY.helper, meta);
+  }
+  const sub = st === 'none' ? COPY.pairFirst : st === 'on' ? `${PC} · connected` : ATTN[st] ? COPY.attention : `${PC} · not reachable`;
+  return `${switchRow(sub, st, !!ATTN[st])}${ATTN[st] ? `<div class="px16" style="padding-top:4px;padding-bottom:4px">${banner(ATTN[st])}</div>` : ''}
+    ${isPaired(st) ? computerRow(st, withMenu) : ''}${settingsRow(COPY.pair, '')}${helpLine()}`;
+}
+function settings(opt, st, { withMenu = false } = {}) {
+  return `<div class="scroll">${tbar(COPY.settings)}
+    <div class="sechead">Listening</div>${settingsRow('Default voice', 'Heart')}
+    <div class="sechead">Voice model</div>${settingsRow('Fast · 111 MB · in use', '')}
+    <div class="sechead">${COPY.helper}</div>${helperInSettings(opt, st, withMenu)}
+    <div class="sechead">Storage</div>${settingsRow('Storage', '412 MB used · 23.4 GB free')}
+    <div class="sechead">About</div>${settingsRow('About Lectrice', '')}</div>`;
+}
+
+/* ===== pairing (H2–H6): bodies shared by A's pages, B's sheet and C's page ===== */
+const lookingRow = (dim = false) => `<div class="row" role="status"><span class="spin" style="margin:0 4px"></span><span class="tx"><span class="${dim ? 'm' : 't'}">${COPY.looking}</span></span></div>`;
+const foundRow = (trailing = 'chevron_right') => `<button class="row">${ic('computer', 'lead')}<span class="tx"><span class="t">${esc(PC)}</span></span><span class="tr">${ic(trailing)}</span></button>`;
+const keyboard = (ip = false) => {
+  const side = ip ? [ic('backspace'), ':', '.', ic('check')] : [ic('backspace'), '', '', ''];
+  const rows = [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9'], ['', '0', '']];
+  const key = (k, cls = '') => `<span class="${k ? cls : 'e'}">${k}</span>`;
+  return `<div class="kbd" aria-hidden="true">${rows.map((r, i) => r.map((k) => key(k)).join('') + key(side[i], i === 3 ? 'go' : 'fn')).join('')}</div>`;
+};
+/* state: 'empty' | 'checking' | 'wrong' | 'nocode' */
+function codeEntry(state) {
+  const digits = state === 'checking' ? ['4', '8', '1', '5', '0', '2'] : ['', '', '', '', '', ''];
+  const locked = state === 'checking' || state === 'nocode';
+  const boxes = digits.map((d, i) => `<span class="bx${!locked && i === 0 ? ' foc' : ''}">${d}</span>`).join('');
+  const line = {
+    empty: '',
+    checking: `<div class="stline" role="status"><span class="spin"></span><span>${COPY.checking}</span></div>`,
+    wrong: `<div class="stline errc" role="alert">${ic('error')}<span>${esc(COPY.wrong)}</span></div>`,
+    nocode: `<div class="stline" role="alert">${ic('info')}<span>${COPY.noCode}</span></div>`,
+  }[state];
+  return `<div class="b">${esc(COPY.typeCode)}</div><div class="code6${locked ? ' lock' : ''}" role="group" aria-label="6-digit code">${boxes}</div>${line}`;
+}
+const pairedBlock = () => `<div class="done"><span class="okmark">${ic('check_circle')}</span><div class="tl">${esc(COPY.paired)}</div><div class="b fg2">${esc(COPY.pairedLine)}</div></div>${switchRow('', 'on')}`;
+const deniedCard = () => `<div class="px16 mt8"><div class="card r12"><div class="b">${COPY.denied}</div><div style="display:flex;justify-content:flex-end;margin:4px -12px -8px 0">${btn(COPY.openSettings, 'txt')}</div></div></div>`;
+/* each step: { step (0 Find, 1 Code, 2 Done), title, body, foot, kbd } */
+const STEPS = {
+  H2a: { step: 0, body: lookingRow() },
+  H2b: { step: 0, body: foundRow() + lookingRow(true) },
+  H2c: { step: 0, body: `<ul class="hlp">${COPY.notFound.map((t) => `<li>${t}</li>`).join('')}</ul><div class="tbtn mt16">${btn(COPY.address, 'txt')}</div>` },
+  H2d: { step: 0, wifi: false, body: `<div class="bigmsg">${ic('wifi')}<div class="b">${COPY.noWifi}</div></div>` },
+  H6b: { step: 0, body: deniedCard() },
+  H3a: { step: 1, body: `<div class="px16">${codeEntry('empty')}</div>`, kbd: keyboard() },
+  H3b: { step: 1, body: `<div class="px16">${codeEntry('checking')}</div>` },
+  H3c: { step: 1, body: `<div class="px16">${codeEntry('wrong')}</div>`, kbd: keyboard() },
+  H3d: { step: 1, body: `<div class="px16">${codeEntry('nocode')}</div>` },
+  H4: { step: 0, title: COPY.addrTitle, body: `<div class="px16"><label class="field"><span class="lab">${COPY.addrLabel}</span><span class="val">${COPY.addrValue}</span></label></div>`, foot: btn(COPY.cont), kbd: keyboard(true) },
+  H5: { step: 2, back: false, title: '', body: pairedBlock(), foot: btn(COPY.done) },
+};
+const stepFoot = (s) => (s.foot ? `<div class="pfoot${s.kbd ? ' k' : ''}">${s.foot}</div>` : '');
+/* A: one pushed page per step */
+function pairPage(id) {
+  const s = STEPS[id];
+  return `<div class="pg">${tbar(s.title ?? COPY.pair, s.back !== false)}<div class="pbody">${s.body}</div>${stepFoot(s)}${s.kbd || ''}</div>`;
+}
+/* B: one tall sheet over Settings; the step header shows where you are */
+function pairSheet(id) {
+  const s = STEPS[id];
+  const head = COPY.steps.map((t, i) => `<span class="${i === s.step ? 'on' : ''}"${i === s.step ? ' aria-current="step"' : ''}>${t}</span>`).join('<span aria-hidden="true">·</span>');
+  const back = s.step === 1 || id === 'H4' ? ib('arrow_back', 'Back') : '';
+  return `${settings('B', id === 'H5' ? 'on' : 'none')}<div class="scrimL"></div><div class="sheet full" style="--detent:100%" role="dialog" aria-label="${COPY.pair}"><div class="hd"></div>
+    <div class="shh"${back ? ' style="padding-left:4px"' : ''}>${back}<span class="tm">${esc(s.title || COPY.pair)}</span>${ib('close', 'Close')}</div><div class="steps">${head}</div>
+    <div class="pbody">${s.body}</div>${stepFoot(s)}${s.kbd || ''}</div>`;
+}
+/* C: the found computer opens in place; success replaces the list */
+function pairInline(id) {
+  if (id === 'H5') return pairPage('H5');
+  const open = id !== 'H2b';
+  const state = { H3a: 'empty', H3b: 'checking', H3c: 'wrong', H3d: 'nocode' }[id];
+  const item = `<div class="card xp${open ? '' : ' shut'}">${foundRow(open ? 'expand_less' : 'expand_more')}${open ? codeEntry(state) : ''}</div>`;
+  return `<div class="pg">${tbar(COPY.pair)}<div class="pbody">${item}${lookingRow(true)}</div>${STEPS[id].kbd || ''}</div>`;
+}
+
+/* ===== reader, pill and player sheet (H7, H8) ===== */
+const reader = () => `<div class="rd"><div class="doc">
+  <div class="p"><span class="pg" aria-label="Page 264">p. 264</span><span class="s">A small room tells you more about a sound than a large one.</span> <span class="s">The walls answer quickly, so every mistake comes straight back.</span></div>
+  <div class="h2"><span class="pg" aria-label="Page 265">p. 265</span><span class="s">7.3 Listening rooms</span></div>
+  <div class="p"><span class="s">Most people never choose the room they listen in.</span> <span class="s">It is a kitchen, a bus, or a pillow with one earbud under it.</span> <span class="s hl">A voice made for the page has to survive all of them.</span> <span class="s">That is a harder test than any studio.</span></div>
+  <div class="p"><span class="s">Noise does not only hide sounds, it also tires the listener.</span> <span class="s">After an hour of straining, even a good sentence slips past.</span> <span class="s">Clear speech at a modest level beats loud speech every time.</span></div>
+  <div class="h3"><span class="pg" aria-label="Page 266">p. 266</span><span class="s">What to check first</span></div>
+  <div class="p"><span class="s">Start with the quietest place you have and the cheapest speaker you own.</span> <span class="s">If the words are easy there, they will be easy almost anywhere.</span></div>
+  <div class="p"><span class="s">Then walk outside and listen again.</span> <span class="s">The parts you lose are the parts to fix.</span></div>
+</div></div>`;
+/* mark: the 16 dp computer glyph, only while connected or busy */
+const pill = (mark) => `<div class="pill">${ib('skip_previous', 'Previous sentence')}<button class="play" aria-label="Pause"><span class="disc">${ic('pause')}</span></button>${ib('skip_next', 'Next sentence')}
+  <button class="st" aria-label="${COPY.status}${mark ? `, audio from ${PC}` : ''}. Open the Listen view"><span class="lines"><span class="l1">${mark ? ic('computer') : ''}<span class="txt">${COPY.status}</span></span></span>${ic('open_in_full')}</button>
+  ${ib('more_horiz', 'Player and settings', 'more')}</div>`;
+const sheetRow = (icon, title, sub, trailing, { warn = false, focus = false, tag = 'button' } = {}) => `<${tag} class="row${sub ? ' two' : ''}"${focus ? ' data-focus' : ''}>${ic(icon, 'lead')}<span class="tx"><span class="t">${esc(title)}</span>${sub ? `<span class="m${warn ? ' warnc' : ''}">${esc(sub)}</span>` : ''}</span><span class="tr">${trailing}</span></${tag}><div class="div i0"></div>`;
+const fixBtn = () => btn(COPY.fix, 'txt');
+/* prep: 'off' | 'pick' | 'run' | 'done' */
+function prepareRow(link, prep) {
+  if (!LINK[link].on) return sheetRow('battery_full', COPY.prepPhone, COPY.off, ic('expand_more'));
+  const sub = { off: COPY.off, pick: COPY.off, run: COPY.prepRun, done: COPY.prepDone }[prep];
+  const open = prep === 'pick' || prep === 'run';
+  const chips = open ? `<div class="chips wrap in" role="radiogroup" aria-label="${COPY.prepPc}">${COPY.prepChips.map((c, i) => `<button class="chip${prep === 'run' && i === 1 ? ' on' : ''}" role="radio" aria-checked="${prep === 'run' && i === 1}">${c}</button>`).join('')}</div>` : '';
+  const bar = prep === 'run' ? `<div class="pr prin" role="progressbar" aria-valuenow="40"><span style="width:40%"></span></div>` : '';
+  const head = `<button class="row two"${prep !== 'off' ? ' data-focus' : ''}>${ic('bolt', 'lead')}<span class="tx"><span class="t">${esc(COPY.prepPc)}</span><span class="m">${esc(sub)}</span></span><span class="tr">${ic(open ? 'expand_less' : 'expand_more')}</span></button>`;
+  return `${head}${chips}${bar}<div class="div i0"></div>`;
+}
+/* opt: where the status goes (A row, B "Audio" subtitle, C line under Speed); link: a key of LINK */
+function player(opt, link, { prep = 'off', overlay = '' } = {}) {
+  const L = LINK[link];
+  const ticks = [0, 6, 13, 21, 28, 36, 43, 51, 60, 68, 77, 85, 93].map((t) => `<span class="tk" style="left:${t}%"></span>`).join('');
+  const slider = `<div class="sl" role="slider" aria-valuenow="45" aria-label="Position in the book"><span class="trk"></span><span class="buf" style="left:45%;width:${(L.ready / 4).toFixed(1)}%"></span><span class="act" style="width:45%"></span>${ticks}<span class="th" style="left:45%"></span></div>`;
+  const speeds = ['0.75×', '1×', '1.25×', '1.5×', '1.75×', '2×'].map((s) => `<button class="${s === '1×' ? 'on' : ''}" role="radio" aria-checked="${s === '1×'}">${s}</button>`).join('');
+  const lineC = opt === 'C' ? (L.warn
+    ? `<div class="hline warnc" data-focus>${ic('computer')}<span class="tx">${esc(L.line)}</span>${fixBtn()}</div>`
+    : `<button class="hline" data-focus>${ic('computer')}<span class="tx">${esc(L.line)}</span></button>`) : '';
+  const rowA = opt === 'A' ? sheetRow('computer', COPY.helper, L.line, L.warn ? fixBtn() : ic('chevron_right'), { warn: L.warn, focus: prep === 'off', tag: L.warn ? 'div' : 'button' }) : '';
+  const rowB = opt === 'B' ? sheetRow('headphones', 'Audio', L.audio, L.warn ? fixBtn() : ic('chevron_right'), { warn: L.warn, focus: true, tag: L.warn ? 'div' : 'button' }) : '';
+  return `${reader()}${pill(L.on)}<div class="scrimL"></div><div class="sheet full" style="--detent:720px" role="dialog" aria-label="Player"><div class="hd"></div><div class="bd">
+    <div class="transport">${ib('keyboard_double_arrow_left', 'Previous section')}${ib('skip_previous', 'Previous sentence')}<button class="play" aria-label="Pause"><span class="disc">${ic('pause')}</span></button>${ib('skip_next', 'Next sentence')}${ib('keyboard_double_arrow_right', 'Next section')}</div>
+    <div class="mt16">${slider}</div>
+    <button class="mt16" style="display:block;text-align:left;color:inherit;width:100%"><span class="lb16 ell2">7. Signals and Noise › 7.3 Listening rooms</span><span class="bs fg2" style="display:block">38 % of this chapter · 9 min left in it · Page 265 · PDF page 281 of 589</span></button>
+    <div class="lb w6 mt16">Speed</div><div class="mt8"><div class="segc" role="radiogroup" aria-label="Speed">${speeds}</div></div>${lineC}
+    <div class="mt8">${sheetRow('record_voice_over', 'Voice', 'Heart', ic('expand_more'))}${rowB}${rowA}
+    ${sheetRow('bedtime', 'Sleep timer', COPY.off, ic('expand_more'))}
+    ${sheetRow('menu_book', 'Read code & tables aloud', '', '<span class="swt"><span class="sw"></span></span>', { tag: 'div' })}
+    ${prepareRow(link, prep)}
+    ${sheetRow('download', 'Export audiobook', 'Pick the voice, quality and speed', ic('chevron_right'))}
+    ${sheetRow('menu_book', 'Library', '', ic('chevron_right'))}</div></div></div>${overlay}`;
+}
+/* B: the "Listen with" sheet of file 23 with a third, informational card for the computer */
+function listenWith() {
+  const card = (on, title, lines) => `<div class="mcard${on ? ' on' : ''}" role="radio" aria-checked="${on}"><span class="flex" style="gap:12px"><span class="radio${on ? ' on' : ''}"></span><span class="tm sp1">${title}</span></span>${lines.map((l) => `<span class="ind bs fg2 mt4" style="display:block">${l}</span>`).join('')}</div>`;
+  const info = `<div class="mcard infoc" role="note"><span class="flex" style="gap:12px">${ic('computer')}<span class="tm sp1">${esc(PC)}</span></span><span class="ind bs mt4" style="display:block">${esc(LINK.conn.line)}</span><span class="ind bs fg2 mt4" style="display:block">${esc(COPY.pairedLine)}</span></div>`;
+  return `${reader()}${pill(true)}<div class="scrimL"></div><div class="sheet auto" style="--detent:100%" role="dialog" aria-label="Listen with"><div class="hd"></div><div class="shh" style="padding-right:4px"><span class="tm">Listen with</span>${ib('close', 'Close')}</div>
+    <div class="bd"><div role="radiogroup" style="display:flex;flex-direction:column;gap:12px">${card(true, 'Made on this phone', ['Heart · your speed · works for every page'])}${card(false, 'Audiobook file', ['The Long Book – Heart.m4b', '2 h 41 min · made at 1.5× · from this phone'])}</div><div class="mt12">${info}</div></div></div>`;
+}
+const snack = () => `<div class="snack" role="status"><span class="sp1">${esc(COPY.snack)}</span></div>`;
+const nearbySheet = () => `${helperPage('none')}<div class="scrimL"></div><div class="sheet auto" style="--detent:100%" role="dialog" aria-label="Nearby devices"><div class="hd"></div><div class="bd"><div class="b">${esc(COPY.nearby)}</div>
+  ${btn(COPY.cont, '', 'style="margin-top:24px"')}<div class="mt8" style="display:flex;justify-content:center">${btn(COPY.notNow, 'txt')}</div></div></div>`;
+
+/* ===== frames ===== */
+const f = (id, name, note, build, o = {}) => ({ id, name, note, build, ...o });
+const X2 = { x2: true };
+const SC = { scrim: true };
+const linkNames = { conn: ['a', 'Connected'], busy: ['b', 'Busy'], look: ['c', 'Looking'], lost: ['d', 'Not reachable'], attn: ['e', 'Needs attention'] };
+const linkFrames = (opt, note) => Object.entries(linkNames).map(([k, [l, n]]) => f(`${opt}-H7${l}`, `Player sheet · ${n}`, note(k), () => player(opt, k), SC));
+const stepNames = {
+  H2a: ['Pair · looking', '“Looking on this Wi-Fi…” with a spinner.'],
+  H2b: ['Pair · one computer found', 'Name only. The search keeps running under it.'],
+  H2c: ['Pair · nothing found', 'After 10 s: help text and “Enter the address instead”.'],
+  H2d: ['Pair · not on Wi-Fi', '“Connect to Wi-Fi to pair.”'],
+  H3a: ['Code · empty', '6 boxes, numeric keyboard, sends itself on the 6th digit.'],
+  H3b: ['Code · checking', 'Spinner, boxes locked, keyboard away.'],
+  H3c: ['Code · wrong code', 'Error text under the boxes, boxes cleared.'],
+  H3d: ['Code · no code showing', '3rd wrong code or no code on the computer. No new code is made by itself.'],
+  H4: ['Enter the address', 'One field, IP keyboard, Continue goes to the code.'],
+  H5: ['Paired', 'Check mark, the switch already on, Done.'],
+  H6b: ['Nearby devices denied', 'Android 17+ only: the row shown in place of the list, with “Open settings”.'],
+};
+const stepFrames = (opt, build, ids) => ids.map((id) => f(`${opt}-${id}`, stepNames[id][0], stepNames[id][1], () => build(id), { wifi: STEPS[id].wifi !== false }));
+const attnFrames = (opt, build) => [['b', 'desktop', 'computer needs an update'], ['c', 'phone', 'phone needs an update'], ['d', 'forgot', 'computer forgot this phone']]
+  .map(([l, k, n]) => f(`${opt}-H9${l}`, `Needs attention · ${n}`, ATTN[k].act ? `With the action “${ATTN[k].act}”.` : 'Text only.', () => build(k)));
+
+const FRAMES = {
+  A1: [
+    f('A-T1a', 'Settings · nothing paired', 'New section “Computer helper” under “Voice model”, one row, meta “Off”.', () => settings('A', 'none')),
+    f('A-T1b', 'Settings · connected', 'Meta “Kia\'s laptop · connected” (or “· not reachable”).', () => settings('A', 'on')),
+    f('A-H1a', 'Computer helper · nothing paired', 'Switch disabled with “Pair a computer first”.', () => helperPage('none')),
+    f('A-H1b', 'Computer helper · connected', 'Switch on, one row per computer with ⋯.', () => helperPage('on')),
+    f('A-H1c', 'Computer helper · not reachable', '“Last seen 2 h ago”.', () => helperPage('lost')),
+    f('A-H1d', 'Computer helper · needs attention', 'H9, voice model missing: warn line with “Retry”.', () => helperPage('model')),
+    f('A-H1m', 'Computer helper · ⋯ menu', 'Rename / Forget.', () => helperPage('on', { withMenu: true })),
+    ...attnFrames('A', (k) => helperPage(k)),
+    f('A-H1b-x2', 'Computer helper · 200 %', 'Largest font: rows and the paragraph wrap, nothing is cut.', () => helperPage('on'), X2),
+  ],
+  A2: stepFrames('A', pairPage, ['H2a', 'H2b', 'H2c', 'H2d', 'H3a', 'H3b', 'H3c', 'H3d', 'H4', 'H5', 'H6b']),
+  A3: [
+    ...linkFrames('A', (k) => (k === 'attn' ? 'Subtitle in the warn colour, “Fix” instead of the chevron.' : k === 'conn' || k === 'busy' ? 'Row under Voice; tap opens the Computer helper page. The Prepare row uses the computer.' : 'Row under Voice. The Prepare row is the phone\'s own again.')),
+    f('A-H7e-x2', 'Player sheet · needs attention · 200 %', 'The long text wraps; “Fix” stays on the right.', () => player('A', 'attn'), { ...SC, ...X2 }),
+  ],
+  A4: [
+    f('A-H8a', 'Prepare · row', 'While connected the Prepare row becomes “Prepare on Kia\'s laptop” with the bolt icon.', () => player('A', 'conn', { prep: 'off' }), SC),
+    f('A-H8b', 'Prepare · chips', 'This chapter · Next 3 chapters · As much as fits.', () => player('A', 'conn', { prep: 'pick' }), SC),
+    f('A-H8c', 'Prepare · running', '“Preparing on Kia\'s laptop · 40 %”.', () => player('A', 'conn', { prep: 'run' }), SC),
+    f('A-H8d', 'Prepare · done', '“Ready up to Ch. 9”.', () => player('A', 'conn', { prep: 'done' }), SC),
+  ],
+  B1: [
+    f('B-H1a', 'Settings · nothing paired', 'Switch disabled, subtitle “Pair a computer first”.', () => settings('B', 'none')),
+    f('B-H1b', 'Settings · connected', 'The switch subtitle is the status.', () => settings('B', 'on')),
+    f('B-H1c', 'Settings · not reachable', '', () => settings('B', 'lost')),
+    f('B-H1d', 'Settings · needs attention', 'H9, voice model missing: warn line with “Retry”.', () => settings('B', 'model')),
+    f('B-H1m', 'Settings · ⋯ menu', 'Rename / Forget.', () => settings('B', 'on', { withMenu: true })),
+    ...attnFrames('B', (k) => settings('B', k)),
+    f('B-H1d-x2', 'Settings · needs attention · 200 %', 'Largest font: the section gets long but nothing is cut.', () => settings('B', 'model'), X2),
+  ],
+  B2: stepFrames('B', pairSheet, ['H2a', 'H2b', 'H2c', 'H2d', 'H3a', 'H3b', 'H3c', 'H3d', 'H4', 'H5', 'H6b']).map((fr) => ({ ...fr, scrim: true })),
+  B3: [
+    ...linkFrames('B', (k) => (k === 'attn' ? 'Subtitle in the warn colour, “Fix” instead of the chevron.' : 'The status is the “Audio” row\'s subtitle; tap opens “Listen with”.')),
+    f('B-H7f', '“Listen with” sheet', 'The sheet of the audiobook feature with a third card for the computer. The card only informs: it has no radio.', () => listenWith(), SC),
+    f('B-H7d-x2', 'Player sheet · not reachable · 200 %', 'The longest subtitle at the largest font.', () => player('B', 'lost'), { ...SC, ...X2 }),
+  ],
+  C2: stepFrames('C', pairInline, ['H2b', 'H3a', 'H3b', 'H3c', 'H3d', 'H5']),
+  C3: [
+    ...linkFrames('C', (k) => (k === 'attn' ? 'The line in the warn colour with “Fix”.' : 'One line under Speed, tap opens the Computer helper page.')),
+    f('C-H7e-x2', 'Player sheet · needs attention · 200 %', 'The line wraps and pushes the rows down.', () => player('C', 'attn'), { ...SC, ...X2 }),
+  ],
+  S: [
+    f('S-H7p', 'Pill · connected or busy', 'A 16 dp computer mark before “Ch. 7 · p. 265”.', () => reader() + pill(true), SC),
+    f('S-H7q', 'Pill · not reachable + snackbar', 'No mark. The snackbar shows once per session.', () => reader() + pill(false) + snack(), SC),
+    f('S-H7p-x2', 'Pill · 200 %', 'The mark and the status at the largest font.', () => reader() + pill(true), { ...SC, ...X2 }),
+    f('S-H6a', 'Nearby devices · why', 'Android 17+ only, before the system dialog. In option B it sits over Settings.', () => nearbySheet(), SC),
+  ],
+};
+const allFrames = () => Object.values(FRAMES).flat();
+
+/* ===== page: galleries, theme switch, one-frame mode ===== */
+const params = new URLSearchParams(location.search);
+const THEMES = ['light', 'dark', 'black'];
+const ENV = { theme: THEMES.includes(params.get('theme')) ? params.get('theme') : 'light' };
+const SOLO = params.get('screen');
+const frameHtml = (fr) => phone(ENV.theme, fr.build(), fr);
+/* in a sheet that scrolls (200 % frames), bring the row this frame is about into view */
+function positionFrame(host) {
+  const bd = host.querySelector('.sheet .bd');
+  const focus = bd?.querySelector('[data-focus]');
+  if (focus && bd.scrollHeight > bd.clientHeight) bd.scrollTop = focus.offsetTop - bd.offsetTop - 4;
+}
+function buildPage() {
+  Object.entries(FRAMES).forEach(([key, frames]) => {
+    const host = document.querySelector(`[data-group="${key}"]`);
+    host.innerHTML = frames.map((fr) => `<figure class="frame" data-id="${fr.id}"><div class="zoom">${frameHtml(fr)}</div><figcaption>${fr.id} · ${esc(fr.name)}<small>${esc(fr.note)}</small></figcaption></figure>`).join('');
+    host.querySelectorAll('figure.frame').forEach(positionFrame);
+  });
+}
+function applyTheme() {
+  document.documentElement.dataset.theme = ENV.theme === 'light' ? 'light' : 'dark';
+  document.querySelectorAll('.screen').forEach((s) => { s.dataset.theme = ENV.theme; });
+  document.querySelectorAll('[data-theme-btn]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.themeBtn === ENV.theme));
+}
+function initPage() {
+  document.querySelectorAll('[data-theme-btn]').forEach((b) => b.addEventListener('click', () => { ENV.theme = b.dataset.themeBtn; applyTheme(); }));
+  buildPage();
+  applyTheme();
+}
+function initSolo() {
+  document.body.classList.add('solo');
+  document.documentElement.dataset.theme = ENV.theme === 'light' ? 'light' : 'dark';
+  const host = document.createElement('div');
+  host.className = 'solo-frame';
+  document.body.appendChild(host);
+  const fr = allFrames().find((x) => x.id === SOLO);
+  if (!fr) { host.textContent = `No screen "${SOLO}".`; return; }
+  host.innerHTML = frameHtml(fr);
+  positionFrame(host);
+}
+/* the web fonts are asked for before the first frame is drawn, so a screenshot never catches the fallback font */
+const FONTS = ['400 16px Roboto', '500 16px Roboto', '700 16px Roboto', '400 16px "Noto Serif"', '600 16px "Noto Serif"', '700 16px "Noto Serif"', '400 16px "Roboto Mono"'];
+Promise.allSettled(FONTS.map((font) => document.fonts.load(font))).then(() => (SOLO ? initSolo() : initPage()));
+</script>
+</body>
+</html>
