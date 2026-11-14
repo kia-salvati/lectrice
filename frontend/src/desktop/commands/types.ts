@@ -2,10 +2,10 @@ import type { AudioExport } from '../../types/api';
 import type { DesktopErrorName } from '../../types/errors';
 
 /*
- * The desktop shell's own commands (desktop spec §4.4), as the UI sees them. One implementation is the mock in
- * `./mock.ts`; the Tauri adapter (`./tauri.ts`) implements the same interface over `invoke` and the `model-status`
- * event, translating the shell's wire format (`./wire.ts`, contract in lectrice-desktop's
- * `docs/2026-10-24-desktop-model-contract.md`). Every rejection is a `DesktopError` (`./errors.ts`) carrying one of
+ * The desktop shell's own commands, as the UI sees them. The Tauri adapter (`./tauri.ts`) implements them over
+ * `invoke` and the `model-status` event, translating the shell's wire format (`./wire.ts`, contract in
+ * lectrice-desktop's `docs/2026-10-24-desktop-model-contract.md`); the tests use an in-memory fake in `tests/mocks/`.
+ * Every rejection is a `DesktopError` (`./errors.ts`) carrying one of
  * the registry names.
  */
 

@@ -1,9 +1,9 @@
-// Extensions spelled out: `node --test` runs this file directly, without a bundler.
-import type { DesktopErrorName } from '../../types/errors.ts';
-import { DesktopError } from './errors.ts';
-import type { AppInfo, DesktopCommands, DesktopOs, ExportAvailability, ExportUse, LicenseTextId, Licenses, ModelBundle, ModelBundleId, ModelStatus, ModelTransfer, SaveAsResult, TransferErrorName } from './types.ts';
-import { installNeedsBytes } from '../utils/modelSetup.ts';
-import { createMockPhoneHelper } from './mockPhoneHelper.ts';
+import { ERROR_CODES } from '../../src/config/errorRegistry.ts';
+import type { DesktopErrorName } from '../../src/types/errors.ts';
+import { DesktopError } from '../../src/desktop/commands/errors.ts';
+import type { AppInfo, DesktopCommands, DesktopOs, ExportAvailability, ExportUse, LicenseTextId, Licenses, ModelBundle, ModelBundleId, ModelStatus, ModelTransfer, SaveAsResult, TransferErrorName } from '../../src/desktop/commands/types.ts';
+import { installNeedsBytes } from '../../src/desktop/utils/modelSetup.ts';
+import { createMockPhoneHelper } from './phoneHelper.ts';
 
 const MB = 1_000_000;
 const GB = 1_000 * MB;
@@ -33,14 +33,14 @@ export type MockImportError = Extract<TransferErrorName, 'ModelChecksumMismatch'
 export type MockSaveAsError = Extract<DesktopErrorName, 'StorageFull' | 'StorageFailed'>;
 export type MockRevealError = Extract<DesktopErrorName, 'ExportNotFound' | 'Internal'>;
 
-/** The registry's codes and messages for the rejections the mock can give (core `error.rs`, shell `Internal`). */
-const REJECTIONS: Record<MockSaveAsError | MockRevealError, { code: number; message: string }> = {
-  StorageFull: { code: 4004, message: "There isn't enough free space." },
-  StorageFailed: { code: 9001, message: 'Something went wrong saving data.' },
-  ExportNotFound: { code: 3001, message: 'Export not found.' },
-  Internal: { code: 9999, message: 'Something went wrong.' },
+/** The registry's messages for the rejections the mock can give. */
+const REJECTION_MESSAGES: Record<MockSaveAsError | MockRevealError, string> = {
+  StorageFull: "There isn't enough free space.",
+  StorageFailed: 'Something went wrong saving data.',
+  ExportNotFound: 'Export not found.',
+  Internal: 'Something went wrong.',
 };
-const reject = (name: MockSaveAsError | MockRevealError): DesktopError => new DesktopError(name, REJECTIONS[name].code, REJECTIONS[name].message);
+const reject = (name: MockSaveAsError | MockRevealError): DesktopError => new DesktopError(name, ERROR_CODES[name], REJECTION_MESSAGES[name]);
 
 const LICENSE_TEXT_IDS: readonly LicenseTextId[] = ['lectrice', 'kokoro', 'sherpaOnnx', 'espeakNg', 'onnxruntime', 'pdfium', 'ffmpeg', 'tauri', 'react'];
 const MOCK_LICENSE_TEXT = 'The full license text is shown here.';

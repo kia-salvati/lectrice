@@ -1,5 +1,5 @@
 // Extensions spelled out: `node --test` runs this file directly, without a bundler.
-import type { DesktopCommands, DesktopOs, PairedPhone, PhoneHelperStatus } from './types.ts';
+import type { DesktopCommands, DesktopOs, PairedPhone, PhoneHelperStatus } from '../../src/desktop/commands/types.ts';
 
 const PAIR_SECONDS = 120;
 const STARTING_MS = 800;

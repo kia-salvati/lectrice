@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createMockDesktopCommands } from '../src/desktop/commands/mock.ts';
+import { createMockDesktopCommands } from './mocks/desktopCommands.ts';
 import { hasDesktopErrorName } from '../src/desktop/commands/errors.ts';
 import type { ModelStatus, ModelTransfer, PairedPhone } from '../src/desktop/commands/types.ts';
 import { toDesktopError, toExportAvailability, toModelStatus } from '../src/desktop/commands/wire.ts';

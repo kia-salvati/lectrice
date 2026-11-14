@@ -1,7 +1,8 @@
 import type { ImportResult, ListResponse, PageRequest } from '../../types/api';
 import type { DocumentSummary, OpenedDocument } from '../../types/document';
 import type { LectriceApi, SentenceAudioRequest } from '../contract';
-import { ApiError, ClientError } from '../errors';
+import { ClientError } from '../errors';
+import { mockError } from './mockError';
 import { cancelMockExport, getMockExport, listMockExports, mockExportFileUrl, startMockExport } from './exports';
 import { delay, jitter } from './latency';
 import { addImported, documents, findSentenceText, summaries } from './library';
@@ -15,12 +16,12 @@ const SAMPLE_SECONDS = 3;
 
 /** Same message, code and HTTP status the backend registry uses (spec §8). */
 const ERRORS = {
-  PdfNoText: () => new ApiError('PdfNoText', 1005, 'This PDF has no selectable text.', 422),
-  DocumentNotFound: () => new ApiError('DocumentNotFound', 1101, 'Document not found.', 404),
-  SentenceNotFound: () => new ApiError('SentenceNotFound', 1102, 'Sentence not found.', 404),
-  VoiceUnknown: () => new ApiError('VoiceUnknown', 2001, 'Unknown voice.', 400),
-  SpeechEngineUnavailable: () => new ApiError('SpeechEngineUnavailable', 2002, "The speech engine isn't available.", 503),
-  SpeechSynthesisFailed: () => new ApiError('SpeechSynthesisFailed', 2003, 'Speech generation failed.', 500),
+  PdfNoText: () => mockError('PdfNoText', 'This PDF has no selectable text.', 422),
+  DocumentNotFound: () => mockError('DocumentNotFound', 'Document not found.', 404),
+  SentenceNotFound: () => mockError('SentenceNotFound', 'Sentence not found.', 404),
+  VoiceUnknown: () => mockError('VoiceUnknown', 'Unknown voice.', 400),
+  SpeechEngineUnavailable: () => mockError('SpeechEngineUnavailable', "The speech engine isn't available.", 503),
+  SpeechSynthesisFailed: () => mockError('SpeechSynthesisFailed', 'Speech generation failed.', 500),
 };
 
 /** Audio already "generated" once comes back fast, like the backend's cache. */

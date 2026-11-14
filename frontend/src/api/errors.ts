@@ -1,7 +1,5 @@
 import type { ApiErrorName, AppErrorName, ClientErrorName } from '../types/errors';
 
-const API_ERROR_NAMES: readonly ApiErrorName[] = ['RequestInvalid', 'UploadMissingFile', 'UploadTooLarge', 'PdfInvalid', 'PdfEncrypted', 'PdfNoText', 'RouteNotFound', 'MethodNotAllowed', 'RequestCancelled', 'DocumentNotFound', 'SentenceNotFound', 'VoiceUnknown', 'SpeechEngineUnavailable', 'SpeechSynthesisFailed', 'ExportNotFound', 'ExportNotReady', 'ExportFormatUnsupported', 'ExporterUnavailable', 'StorageFailed', 'Internal'];
-
 const CLIENT_ERROR_MESSAGES: Record<ClientErrorName, string> = {
   NetworkError: "Can't reach the Lectrice server. Is it running?",
   UnexpectedResponse: 'The server sent an answer Lectrice did not understand.',
@@ -36,8 +34,6 @@ export class ClientError extends Error {
 }
 
 export type AppError = ApiError | ClientError;
-
-export const isApiErrorName = (value: string): value is ApiErrorName => (API_ERROR_NAMES as readonly string[]).includes(value);
 
 export const isAbortError = (error: unknown): boolean => error instanceof DOMException && error.name === 'AbortError';
 

@@ -1,5 +1,7 @@
 // Extensions spelled out: `node --test` runs this file directly, without a bundler.
-import type { DesktopErrorName } from '../../types/errors.ts';
+import { INTERNAL_ERROR, isRegistryErrorName } from '../../config/errorRegistry.ts';
+import type { ErrorBody } from '../../types/errors.ts';
+import { readErrorBody } from '../../utils/errorBody.ts';
 import { DesktopError } from './errors.ts';
 import type { DesktopOs, ExportAvailability, ExportUse, ModelBundleId, ModelStatus, ModelTransfer, ModelVariant, TransferErrorName, TransferSource } from './types.ts';
 
@@ -7,8 +9,6 @@ import type { DesktopOs, ExportAvailability, ExportUse, ModelBundleId, ModelStat
  * What the desktop shell sends over IPC (lectrice-desktop's `docs/2026-10-24-desktop-model-contract.md`), and the
  * mapping to the UI's types. Kept apart from `./tauri.ts` so it can be tested without Tauri.
  */
-
-export interface ErrorBodyDto { name: string; code: number; message: string; }
 
 interface BundleDto {
   id: ModelBundleId;
@@ -24,7 +24,7 @@ interface BundleDto {
 type EngineDto =
   | { state: 'missing' }
   | { state: 'loading' | 'ready'; bundleId: ModelBundleId | null }
-  | { state: 'failed'; bundleId: ModelBundleId | null; error: ErrorBodyDto };
+  | { state: 'failed'; bundleId: ModelBundleId | null; error: ErrorBody };
 
 interface ProgressDto { bundleId: ModelBundleId; bytesDone: number; bytesTotal: number; }
 
@@ -36,7 +36,7 @@ type DownloadDto =
   | ({ state: 'waitingForNetwork'; retryInSeconds: number } & ProgressDto)
   | { state: 'checking'; bundleId: ModelBundleId | null; source: TransferSource }
   | { state: 'unpacking'; bundleId: ModelBundleId; source: TransferSource }
-  | { state: 'failed'; bundleId: ModelBundleId | null; source: TransferSource; error: ErrorBodyDto }
+  | { state: 'failed'; bundleId: ModelBundleId | null; source: TransferSource; error: ErrorBody }
   | { state: 'noSpace'; bundleId: ModelBundleId; source: TransferSource; neededBytes: number; freeBytes: number };
 
 export interface ModelStatusDto {
@@ -104,23 +104,10 @@ export const toExportAvailability = (dto: ExportAvailabilityDto, os: DesktopOs):
   return { available: false, reason: dto.problem === 'missingComponents' ? 'ffmpegCannotMakeM4b' : 'ffmpegMissing' };
 };
 
-const KNOWN_ERRORS: readonly DesktopErrorName[] = [
-  'RequestInvalid', 'DocumentNotFound', 'SpeechEngineUnavailable', 'ExportNotFound', 'ExportNotReady', 'ExporterUnavailable', 'StorageFailed', 'Internal',
-  'ModelMissing', 'ModelDownloadFailed', 'ModelChecksumMismatch', 'StorageFull', 'ExportPaused', 'FileUnreadable',
-];
-
-const isErrorBody = (value: unknown): value is { error: ErrorBodyDto } => {
-  if (typeof value !== 'object' || value === null || !('error' in value)) return false;
-  const inner: unknown = value.error;
-  return typeof inner === 'object' && inner !== null && 'name' in inner && 'code' in inner && 'message' in inner && typeof inner.name === 'string' && typeof inner.code === 'number' && typeof inner.message === 'string';
-};
-
-/** A command's rejection (`{ error: { name, code, message } }`, or a string from Tauri itself) as a `DesktopError`. */
+/** A command's rejection (`{ error: { name, code, message } }`, or a string from Tauri itself) as a `DesktopError`; an unknown name keeps its code and message. */
 export const toDesktopError = (cause: unknown): DesktopError => {
-  if (isErrorBody(cause)) {
-    const name = KNOWN_ERRORS.find((known) => known === cause.error.name);
-    if (name) return new DesktopError(name, cause.error.code, cause.error.message);
-  }
+  const body = readErrorBody(cause);
+  if (body) return new DesktopError(isRegistryErrorName(body.name) ? body.name : INTERNAL_ERROR.name, body.code, body.message);
   console.error('Desktop command failed', cause);
-  return new DesktopError('Internal', 9999, 'Something went wrong.');
+  return new DesktopError(INTERNAL_ERROR.name, INTERNAL_ERROR.code, INTERNAL_ERROR.message);
 };

@@ -1,3 +1,4 @@
+import type { ApiErrorName } from './errors';
 import type { DocumentSummary } from './document';
 import type { Voice } from './voice';
 
@@ -12,8 +13,6 @@ export interface ImportResult { document: DocumentSummary; alreadyInLibrary: boo
 export type SpeechEngineState = 'ready' | 'failed';
 
 export interface Health { status: 'ok'; speechEngine: SpeechEngineState; }
-
-export interface ApiErrorBody { error: { name: string; code: number; message: string; }; }
 
 /** `paused` keeps the finished parts; starting the same export again continues it. */
 export type ExportStatus = 'queued' | 'running' | 'paused' | 'done' | 'failed' | 'cancelled';
@@ -39,8 +38,7 @@ export interface AudioExport {
   status: ExportStatus;
   pausedBy: PauseReason | null;
   stage: 'parts' | 'assemble';
-  /** A registry error name, e.g. "StorageFull". */
-  error: string | null;
+  error: ApiErrorName | null;
   sentencesDone: number;
   sentencesTotal: number;
   partsDone: number;
