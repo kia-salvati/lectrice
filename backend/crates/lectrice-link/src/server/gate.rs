@@ -1,6 +1,7 @@
 //! One synthesis at a time on the computer (desktop spec §2.1): the computer's own speech and every phone's items take
 //! turns through this gate, highest priority first, first come first served within a priority.
 
+use crate::sync::lock;
 use std::collections::BTreeSet;
 use std::sync::{Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
@@ -68,7 +69,7 @@ impl CpuGate {
     }
 
     fn lock(&self) -> MutexGuard<'_, GateState> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.state)
     }
 }
 

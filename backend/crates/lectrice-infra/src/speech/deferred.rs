@@ -2,9 +2,10 @@
 //! the model, and loads it only when it first has to speak. While a helper computer makes the audio, the phone's own
 //! model then never takes memory or start-up time; it is ready (`preload`) as soon as the link is lost.
 
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError, TryLockError};
+use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 use std::time::Instant;
 
+use crate::sync::lock;
 use lectrice_domain::{AppError, AppResult, Audio, ErrorName, SpeechEngine, SpeechRequest, Voice};
 use tracing::{info, warn};
 
@@ -57,7 +58,7 @@ impl DeferredSpeechEngine {
     }
 
     fn lock(&self) -> MutexGuard<'_, Option<Arc<dyn SpeechEngine>>> {
-        self.loaded.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.loaded)
     }
 
     fn engine(&self) -> AppResult<Arc<dyn SpeechEngine>> {

@@ -22,6 +22,7 @@ use tracing::{error, info, warn};
 
 use super::run::{ExportRunner, ExportRunnerDeps, FinishedFile, FinishedPart, Progress, RunOutcome, RunReport};
 use crate::speech::SpeechWorker;
+use crate::sync::lock;
 
 const NAME: &str = "ExportJobs";
 const THREAD_NAME: &str = "export-runner";
@@ -509,7 +510,7 @@ impl Registry {
 
 impl Shared {
     fn lock(&self) -> MutexGuard<'_, Registry> {
-        self.registry.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.registry)
     }
 
     /// The export as callers see it: whether it waits for another engine is worked out here.

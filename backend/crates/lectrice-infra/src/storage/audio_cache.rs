@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::io::{self, BufReader, Cursor, Read};
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Mutex, MutexGuard};
 use std::time::SystemTime;
 
 use hound::WavReader;
@@ -11,6 +11,7 @@ use lectrice_domain::{AppResult, AudioCache, AudioEviction, AudioKey, AudioReten
 use super::atomic_file::{write_atomically, write_new_atomically};
 use super::path_component::safe_component;
 use super::storage_failed;
+use crate::sync::lock;
 
 const AUDIO_DIR: &str = "audio";
 const CLIP_EXTENSION: &str = "wav";
@@ -118,7 +119,7 @@ impl FsAudioCache {
 
     /// No caller panics while holding the lock in a way that leaves the index half-updated.
     fn lock(&self) -> MutexGuard<'_, CacheState> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.state)
     }
 
     fn clip_path(&self, key: &AudioKey) -> AppResult<PathBuf> {

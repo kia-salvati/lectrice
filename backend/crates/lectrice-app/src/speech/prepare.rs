@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use lectrice_domain::{
     AppError, AppResult, AudioCache, AudioEncoder, AudioKey, AudioRetention, DocumentId, DocumentReader, ErrorName, SentenceId, SpeechEngine, SpeechRequest,
@@ -19,6 +19,7 @@ use tracing::{info, warn};
 use super::helper_fill::HelperFill;
 use super::read_ahead_plan::playable_in_order;
 use super::worker::{SpeechJob, SpeechPriority, SpeechWorker};
+use crate::sync::lock;
 
 const NAME: &str = "Prepare";
 const THREAD_NAME: &str = "prepare";
@@ -71,7 +72,7 @@ impl PrepareJobs {
     }
 
     fn lock(&self) -> MutexGuard<'_, HashMap<DocumentId, Job>> {
-        self.jobs.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.jobs)
     }
 
     /// Replaces the document's job (and pin) with this range; already-cached sentences count as ready at once.

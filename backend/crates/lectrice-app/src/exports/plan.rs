@@ -5,7 +5,8 @@ use std::ops::Range;
 
 use lectrice_domain::{AppError, AppResult, Block, BlockKind, Document, ErrorName, ExportRange, Sentence, SentenceId};
 
-use crate::speech::{CHARS_PER_SECOND, SECONDS_PER_MINUTE, playable_in_order};
+use crate::speech::{CHARS_PER_SECOND, playable_in_order};
+use crate::units::SECONDS_PER_MINUTE;
 
 /// TOC entries and headings up to this level become chapter marks (1 = parts/chapters, 2 = chapters/sections).
 const CHAPTER_MAX_LEVEL: u8 = 2;

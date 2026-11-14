@@ -22,6 +22,7 @@ use tracing::{debug, info, warn};
 use super::read_ahead::{ListenerPosition, ReadAhead};
 use super::read_ahead_plan::{ReadAheadInput, chars_to_ms, plan_read_ahead};
 use crate::Cancellation;
+use crate::sync::lock;
 
 const NAME: &str = "HelperFill";
 
@@ -258,7 +259,7 @@ impl HelperFill {
     }
 
     fn lock(&self) -> MutexGuard<'_, FillState> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.state)
     }
 
     /// Starts helping with the phone's own engine (same id and revision, or no clips at all).

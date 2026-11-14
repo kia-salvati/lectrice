@@ -10,7 +10,7 @@ use super::voices;
 const FP32_ENGINE_ID: &str = "kokoro-v1.0";
 const INT8_ENGINE_ID: &str = "kokoro-v1.0-int8";
 const FP32_MODEL_FILE: &str = "model.onnx";
-/// The name in sherpa-onnx's int8 Kokoro bundle (to be confirmed by the Android spike).
+/// The model file name in sherpa-onnx's int8 Kokoro bundle.
 const INT8_MODEL_FILE: &str = "model.int8.onnx";
 const VOICES_FILE: &str = "voices.bin";
 const TOKENS_FILE: &str = "tokens.txt";

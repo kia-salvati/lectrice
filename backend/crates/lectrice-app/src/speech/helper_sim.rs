@@ -25,8 +25,9 @@ use super::helper_fill::{
     GREEN_RTF_TIMES_RATE, HELPER_AHEAD_MINUTES, HELPER_COLD_GRACE, HELPER_CONNECT_WAIT, HelperFill, HelperFillDeps, HelperWait, lost_read_ahead_minutes,
 };
 use super::read_ahead::{ListenerPosition, ReadAhead, ReadAheadDeps, ReadAheadSettings};
-use super::read_ahead_plan::{CHARS_PER_SECOND, SECONDS_PER_MINUTE, playable_in_order};
+use super::read_ahead_plan::{CHARS_PER_SECOND, playable_in_order};
 use super::worker::SpeechWorker;
+use crate::units::SECONDS_PER_MINUTE;
 
 const RUNS: u64 = 1_000;
 /// Each sentence is 15 s of estimated 1x audio, so the book (420 sentences) is 105 minutes long.

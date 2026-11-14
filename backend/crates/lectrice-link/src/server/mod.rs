@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::net::{IpAddr, Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -34,6 +34,7 @@ use crate::limits::{
 use crate::messages::{ByeReason, EngineOffer, ItemError, PairHello, Refusal};
 use crate::pairing::{Paired, pair_as_computer};
 use crate::socket::{POLL, check_peer, prepare};
+use crate::sync::lock;
 use pairing_window::{AttemptEnd, PairingWindow};
 use queue::{Queue, SessionKey};
 use session::SessionHandle;
@@ -528,8 +529,4 @@ fn serve_pairing(shared: &Shared, stream: TcpStream, from: IpAddr) {
         lock(&shared.pairing).end(&attempt, end, Instant::now());
     }
     shared.pairing_changed();
-}
-
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }

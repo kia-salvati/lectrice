@@ -25,6 +25,8 @@ use lectrice_domain::{AppError, AppResult, Audio, AudioKey, ErrorName, SpeechEng
 use tracing::{info, warn};
 
 use crate::Cancellation;
+use crate::sync::lock;
+use crate::units::MILLIS_PER_SECOND;
 
 const NAME: &str = "SpeechWorker";
 const THREAD_NAME: &str = "speech-worker";
@@ -34,7 +36,6 @@ const CANCEL_POLL: Duration = Duration::from_millis(100);
 const RECENT_TIMINGS: usize = 50;
 /// Fewer measured jobs give no real-time factor.
 const MIN_TIMINGS_FOR_RTF: usize = 10;
-const MILLIS_PER_SECOND: f64 = 1000.0;
 /// A listener who asked for no sentence for this long has paused (longer than almost any sentence plays).
 pub const LISTENER_IDLE_AFTER: Duration = Duration::from_secs(60);
 
@@ -246,15 +247,15 @@ struct Shared {
 impl Shared {
     /// Waiter callbacks never run under the lock, so a poisoned lock still holds a consistent queue.
     fn lock(&self) -> MutexGuard<'_, QueueState> {
-        self.queue.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.queue)
     }
 
     fn recent(&self) -> MutexGuard<'_, VecDeque<Timing>> {
-        self.recent.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.recent)
     }
 
     fn listening(&self) -> bool {
-        self.last_listener.lock().unwrap_or_else(PoisonError::into_inner).is_none_or(|at| at.elapsed() < LISTENER_IDLE_AFTER)
+        lock(&self.last_listener).is_none_or(|at| at.elapsed() < LISTENER_IDLE_AFTER)
     }
 
     fn record(&self, timing: Timing) {
@@ -284,7 +285,7 @@ pub struct SynthesisTimings {
 impl SpeechWorker {
     /// A listener asked for a sentence (cached or not): read-ahead goes before exports for a while.
     pub fn note_listener(&self) {
-        *self.shared.last_listener.lock().unwrap_or_else(PoisonError::into_inner) = Some(Instant::now());
+        *lock(&self.shared.last_listener) = Some(Instant::now());
     }
 
     pub fn timings(&self) -> SynthesisTimings {
@@ -563,7 +564,8 @@ mod tests {
         let first = worker.submit(job(0, SpeechPriority::Export));
         engine.wait_until_blocked();
         *worker.shared.last_listener.lock().unwrap() = Instant::now().checked_sub(LISTENER_IDLE_AFTER);
-        let tickets = [worker.submit(job(1, SpeechPriority::ReadAhead)), worker.submit(job(2, SpeechPriority::Export)), worker.submit(job(3, SpeechPriority::Now))];
+        let tickets =
+            [worker.submit(job(1, SpeechPriority::ReadAhead)), worker.submit(job(2, SpeechPriority::Export)), worker.submit(job(3, SpeechPriority::Now))];
 
         engine.release();
         first.wait().unwrap();

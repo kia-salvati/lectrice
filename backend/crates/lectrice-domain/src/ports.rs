@@ -42,13 +42,12 @@ pub trait SpeechEngine: Send + Sync {
     /// The rate of every `Audio` this engine returns, so silence can be made to match it.
     fn sample_rate(&self) -> u32;
     fn synthesize(&self, request: SpeechRequest) -> AppResult<Audio>;
-    /// What changes the sound for the same model id (the adapter's front end, e.g. the sherpa-onnx version and its
-    /// phoneme data). Clips made elsewhere are used only when the id and the revision both match (file 24 §3.11).
-    /// Wrappers must pass it through.
+    /// What changes the sound for the same model id (the adapter's own text handling and the runtime it runs on).
+    /// Clips made elsewhere are used only when the id and the revision both match. Wrappers must pass it through.
     fn revision(&self) -> &str {
         ""
     }
-    /// `false` while the model must still be loaded before the next sentence (a deferred engine, file 24 C46), so
+    /// `false` while the model must still be loaded before the next sentence (a deferred engine), so
     /// speaking now costs the load first. Wrappers must pass it through.
     fn is_loaded(&self) -> bool {
         true

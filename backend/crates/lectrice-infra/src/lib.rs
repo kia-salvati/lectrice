@@ -15,7 +15,9 @@ pub mod helper;
 pub mod pdf;
 pub mod speech;
 pub mod storage;
+mod sync;
 pub mod text;
+mod units;
 
 #[cfg(feature = "time-stretch")]
 pub use audio::SonicTimeStretch;

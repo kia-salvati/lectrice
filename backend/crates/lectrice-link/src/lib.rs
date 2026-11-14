@@ -21,6 +21,7 @@ mod noise;
 mod pairing;
 mod pcm;
 mod socket;
+mod sync;
 
 #[cfg(feature = "client")]
 pub mod client;

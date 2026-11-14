@@ -7,7 +7,7 @@ use std::io::{self, Write};
 use std::net::{Shutdown, SocketAddr, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, SyncSender, TrySendError};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -25,6 +25,7 @@ use crate::messages::{
 use crate::noise::{Channel, IK_PARAMS, Opener, params, receive_handshake, send_handshake};
 use crate::pairing::{Paired, PairingCode, pair_as_phone};
 use crate::socket::{connect, monotonic_ms, receive_by, send};
+use crate::sync::lock;
 
 const SERVICE: &str = "link_client";
 /// Room for FLAC's headers on top of the PCM bound.
@@ -245,7 +246,7 @@ impl Session {
 
     pub fn make(&self, make: Make) -> LinkResult<()> {
         {
-            let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut pending = lock(&self.pending);
             for item in &make.items {
                 pending.items.insert(item.item_id, Wanted { batch_id: make.batch_id, text_chars: item.text.chars().count() });
             }
@@ -256,7 +257,7 @@ impl Session {
     /// Clips of cancelled items that still arrive are dropped.
     pub fn cancel(&self, scope: CancelScope) -> LinkResult<()> {
         {
-            let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut pending = lock(&self.pending);
             match scope {
                 CancelScope::All => pending.items.clear(),
                 CancelScope::Batch(batch) => pending.items.retain(|_, wanted| wanted.batch_id != batch),
@@ -267,7 +268,7 @@ impl Session {
 
     /// Items asked for whose clip (or failure) hasn't arrived.
     pub fn in_flight(&self) -> usize {
-        self.pending.lock().unwrap_or_else(PoisonError::into_inner).items.len()
+        lock(&self.pending).items.len()
     }
 
     pub fn next_event(&self, timeout: Duration) -> Option<ClientEvent> {
@@ -285,12 +286,12 @@ impl Session {
     }
 
     fn send(&self, message: &ClientMessage) -> LinkResult<()> {
-        self.writer.lock().unwrap_or_else(PoisonError::into_inner).send(message)
+        lock(&self.writer).send(message)
     }
 
     fn shut(&mut self) {
         self.closing.store(true, Ordering::SeqCst);
-        let _ = self.writer.lock().unwrap_or_else(PoisonError::into_inner).stream.shutdown(Shutdown::Both);
+        let _ = lock(&self.writer).stream.shutdown(Shutdown::Both);
         if let Some(reader) = self.reader.take() {
             let _ = reader.join();
         }
@@ -328,7 +329,7 @@ impl ReaderLoop {
     fn run(mut self) {
         let reason = self.pump();
         debug!(service = SERVICE, reason = ?reason, "Session reader ended");
-        let _ = self.writer.lock().unwrap_or_else(PoisonError::into_inner).stream.shutdown(Shutdown::Both);
+        let _ = lock(&self.writer).stream.shutdown(Shutdown::Both);
         let _ = self.events.send(ClientEvent::Closed(reason));
     }
 
@@ -374,7 +375,7 @@ impl ReaderLoop {
     }
 
     fn ping_if_quiet(&self) -> LinkResult<()> {
-        let mut writer = self.writer.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut writer = lock(&self.writer);
         if writer.last_sent.elapsed() >= self.timing.ping_every {
             writer.send(&ClientMessage::Ping { t_ms: monotonic_ms() })?;
         }
@@ -383,7 +384,7 @@ impl ReaderLoop {
 
     fn handle(&mut self, message: ServerMessage) -> LinkResult<Option<ClosedReason>> {
         match message {
-            ServerMessage::Ping { t_ms } => self.writer.lock().unwrap_or_else(PoisonError::into_inner).send(&ClientMessage::Pong { t_ms })?,
+            ServerMessage::Ping { t_ms } => lock(&self.writer).send(&ClientMessage::Pong { t_ms })?,
             ServerMessage::Pong { .. } => {}
             // The rate clips must have is noted here, on the thread that reads them: noted by the caller of `open`
             // it could come after the first clip.
@@ -397,7 +398,7 @@ impl ReaderLoop {
             }
             ServerMessage::Clip(chunk) => self.take_chunk(chunk)?,
             ServerMessage::ItemFailed { item_id, error } => {
-                if self.pending.lock().unwrap_or_else(PoisonError::into_inner).items.remove(&item_id).is_some() {
+                if lock(&self.pending).items.remove(&item_id).is_some() {
                     let _ = self.events.send(ClientEvent::ItemFailed { item_id, error });
                 }
             }
@@ -414,7 +415,7 @@ impl ReaderLoop {
     }
 
     fn set_sample_rate(&self, sample_rate: Option<u32>) {
-        self.pending.lock().unwrap_or_else(PoisonError::into_inner).sample_rate = sample_rate;
+        lock(&self.pending).sample_rate = sample_rate;
     }
 
     fn open_reply(&self, reply: Result<Ready, Refusal>) -> LinkResult<()> {
@@ -433,7 +434,7 @@ impl ReaderLoop {
                 if chunk.seq != 0 {
                     return Err(LinkError::Protocol("clip chunk order"));
                 }
-                let pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+                let pending = lock(&self.pending);
                 if pending.sample_rate != Some(chunk.sample_rate) {
                     return Err(LinkError::Protocol("clip sample rate"));
                 }
@@ -461,7 +462,7 @@ impl ReaderLoop {
             self.assembling = Some(assembly);
             return Ok(());
         }
-        let wanted = self.pending.lock().unwrap_or_else(PoisonError::into_inner).items.remove(&chunk.item_id).is_some();
+        let wanted = lock(&self.pending).items.remove(&chunk.item_id).is_some();
         if !wanted {
             return Ok(());
         }

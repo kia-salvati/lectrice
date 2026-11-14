@@ -7,7 +7,7 @@ use std::ops::RangeInclusive;
 use serde::{Deserialize, Serialize};
 
 use crate::document::{Document, Sentence};
-use crate::export::{ChapterMark, ExportRange};
+use crate::export::{ChapterMark, ExportRange, ExportSpeed};
 use crate::ids::{DocumentId, SentenceId};
 
 pub const MAP_FORMAT: &str = "lectrice-audiobook";
@@ -274,7 +274,7 @@ fn chapter_timeline(document: &Document, info: &AudiobookInfo, map: Option<&Lect
         mode,
         remapped: false,
         matched_percent: percent,
-        file_speed_percent: map.map_or(100, |map| map.speed_percent),
+        file_speed_percent: map.map_or(ExportSpeed::NORMAL.percent(), |map| map.speed_percent),
         duration_ms: info.duration_ms,
         voice_id: map.map(|map| map.voice_id.clone()),
         sentences: Vec::new(),

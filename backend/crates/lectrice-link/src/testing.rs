@@ -7,10 +7,11 @@ mod raw;
 
 pub use raw::{RawComputer, RawComputerSession, RawPhone};
 
+use crate::sync::lock;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -80,14 +81,14 @@ impl FaultyLink {
         if faults.cut_after_bytes_to_phone.is_some() {
             self.state.to_phone_bytes.store(0, Ordering::SeqCst);
         }
-        *self.state.faults.lock().unwrap_or_else(PoisonError::into_inner) = faults;
+        *lock(&self.state.faults) = faults;
         if faults.cut == Some(Direction::Both) {
             self.state.close_all();
         }
     }
 
     pub fn faults(&self) -> Faults {
-        *self.state.faults.lock().unwrap_or_else(PoisonError::into_inner)
+        *lock(&self.state.faults)
     }
 
     /// Cuts every live connection both ways and refuses new ones until [`FaultyLink::heal`].
@@ -110,11 +111,11 @@ impl Drop for FaultyLink {
 
 impl State {
     fn faults(&self) -> Faults {
-        *self.faults.lock().unwrap_or_else(PoisonError::into_inner)
+        *lock(&self.faults)
     }
 
     fn close_all(&self) {
-        for connection in self.connections.lock().unwrap_or_else(PoisonError::into_inner).drain(..) {
+        for connection in lock(&self.connections).drain(..) {
             let _ = connection.shutdown(Shutdown::Both);
         }
     }
@@ -152,7 +153,7 @@ fn accept(listener: &TcpListener, target: SocketAddr, state: &Arc<State>) {
                     let _ = stream.set_nodelay(true);
                 }
                 {
-                    let mut connections = state.connections.lock().unwrap_or_else(PoisonError::into_inner);
+                    let mut connections = lock(&state.connections);
                     for stream in [&phone, &computer] {
                         if let Ok(clone) = stream.try_clone() {
                             connections.push(clone);

@@ -8,7 +8,7 @@ use std::time::Instant;
 use lectrice_app::exports::ExportSettings;
 use lectrice_app::services::{Adapters, Services, Settings, assemble, purge_removed_at_start};
 use lectrice_app::speech::ReadAheadSettings;
-use lectrice_app::{RequestContext, UseCase};
+use lectrice_app::{RequestContext, STARTUP_REQUEST_ID, UseCase};
 use lectrice_domain::cleaning::RuleBasedCleaner;
 use lectrice_domain::{AppError, AppResult, AudioExporter, ErrorName, SpeechEngine, VoiceId};
 use lectrice_infra::{
@@ -21,8 +21,6 @@ use crate::config::{Config, ExportConfig, SpeechConfig, SpeechEngineKind};
 use crate::state::AppState;
 
 const SERVICE: &str = "composition";
-/// The request id of the calls the server makes on its own while starting.
-const STARTUP_REQUEST_ID: &str = "startup";
 const BYTES_PER_MB: u64 = 1024 * 1024;
 /// Parsed documents kept in memory (a book's `document.json` is a few hundred KB to a few MB).
 const DOCUMENT_CACHE_CAPACITY: usize = 4;

@@ -96,13 +96,13 @@ pub fn build_lines(page: u32, runs: &[&TextRun]) -> Vec<Line> {
     groups.into_iter().filter_map(|group| make_line(page, &group)).collect()
 }
 
-fn anchor<'a>(group: &[&'a TextRun]) -> &'a TextRun {
-    group.iter().copied().max_by(|left, right| left.font_size.total_cmp(&right.font_size)).expect("a line group is never empty")
+/// The line's largest run; `None` only for an empty group, which is never built.
+fn anchor<'a>(group: &[&'a TextRun]) -> Option<&'a TextRun> {
+    group.iter().copied().max_by(|left, right| left.font_size.total_cmp(&right.font_size))
 }
 
 fn continues_line(group: &[&TextRun], run: &TextRun) -> bool {
-    let anchor = anchor(group);
-    let previous = group.last().expect("a line group is never empty");
+    let (Some(anchor), Some(previous)) = (anchor(group), group.last()) else { return false };
     let raise = run.baseline - anchor.baseline;
     let same_baseline = raise.abs() <= anchor.font_size * SAME_BASELINE_RATIO;
     let raised_smaller = is_raised_smaller(run.font_size, raise, anchor.font_size);
@@ -131,7 +131,7 @@ fn merge_split_lines(groups: Vec<Vec<&TextRun>>) -> Vec<Vec<&TextRun>> {
 }
 
 fn make_line(page: u32, group: &[&TextRun]) -> Option<Line> {
-    let anchor = anchor(group);
+    let anchor = anchor(group)?;
     let mut pieces: Vec<Piece> = group
         .iter()
         .map(|run| Piece {

@@ -21,13 +21,13 @@ use super::jobs::ExportSettings;
 use super::plan::{ExportPlan, ExportStep, PartPlan, PlanOptions, export_plan, spoken_chars};
 use super::progress::{SynthesisRate, checkpoint, percent};
 use crate::speech::{CancelHandle, SpeechJob, SpeechOutcome, SpeechPriority, SpeechWorker, elapsed_ms};
+use crate::units::MILLIS_PER_SECOND;
 
 const NAME: &str = "ExportRunner";
 /// Sentences asked for ahead of the encoder, so the worker never idles while a clip is being encoded.
 const PIPELINE_DEPTH: usize = 4;
 /// How often a wait for speech checks whether the export was stopped.
 const STOP_POLL: Duration = Duration::from_millis(200);
-const MILLIS_PER_SECOND: f64 = 1000.0;
 
 pub(crate) struct ExportRunnerDeps {
     pub worker: Arc<SpeechWorker>,

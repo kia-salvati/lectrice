@@ -699,10 +699,7 @@ fn chrome_book_with_references() -> Book {
 #[test]
 fn a_wrapped_chapter_title_is_not_joined_with_the_section_heading_under_it() {
     let document = chrome_book_with_references().clean();
-    assert_eq!(
-        kinds_on(&document, 0, BlockKind::Heading),
-        ["Chapter 1: The Pebble Ledger of the Harbour, part one", "1.1 Evening notes", "1.2 Morning notes"]
-    );
+    assert_eq!(kinds_on(&document, 0, BlockKind::Heading), ["Chapter 1: The Pebble Ledger of the Harbour, part one", "1.1 Evening notes", "1.2 Morning notes"]);
 }
 
 #[test]

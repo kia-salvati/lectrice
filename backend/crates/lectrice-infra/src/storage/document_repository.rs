@@ -1,7 +1,7 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Mutex, MutexGuard};
 
 use lectrice_domain::{
     AppError, AppResult, Document, DocumentBytes, DocumentId, DocumentMeta, DocumentReader, DocumentSummary, DocumentWriter, ErrorName, ListOptions, Page,
@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use super::atomic_file::write_atomically;
 use super::storage_failed;
+use crate::sync::lock;
 
 const LIBRARY_DIR: &str = "library";
 const ORIGINAL_PDF_FILE: &str = "original.pdf";
@@ -97,7 +98,7 @@ impl FsDocumentRepository {
     }
 
     fn lock_meta(&self) -> MutexGuard<'_, ()> {
-        self.meta_lock.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.meta_lock)
     }
 
     fn read_meta(&self, id: &DocumentId) -> AppResult<Option<StoredMeta>> {

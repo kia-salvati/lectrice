@@ -8,6 +8,8 @@ use std::path::Path;
 
 use lectrice_domain::{AppError, AppResult, AudiobookInfo, ChapterMark, ErrorName, LectriceMap};
 
+use crate::units::MILLIS_PER_SECOND;
+
 /// ISO/IEC 14496-12 §4.2 extended type: ASCII "lectrice-map-v01".
 pub const MAP_UUID: [u8; 16] = *b"lectrice-map-v01";
 const HEADER: u64 = 8;
@@ -22,7 +24,6 @@ const MAX_MAP_BYTES: u64 = 8 * 1024 * 1024;
 const MAX_TOP_LEVEL_BOXES: u32 = 200_000;
 /// The title tag is cut to this many bytes.
 const MAX_TITLE_BYTES: usize = 1024;
-const MILLIS_PER_SECOND: u64 = 1000;
 /// `chpl` times are in 100 ns units.
 const HUNDRED_NS_PER_MS: u64 = 10_000;
 /// A `chpl` entry's start time, before its title's length byte.

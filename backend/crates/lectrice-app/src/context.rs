@@ -1,6 +1,9 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+/// The request id of the calls a shell or the core makes on its own while starting.
+pub const STARTUP_REQUEST_ID: &str = "startup";
+
 /// Per-call data every service receives first. Carries no book content.
 #[derive(Debug, Clone)]
 pub struct RequestContext {

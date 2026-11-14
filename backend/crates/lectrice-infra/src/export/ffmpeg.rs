@@ -14,6 +14,7 @@ use tempfile::NamedTempFile;
 use super::ffmetadata::{Tags, ffmetadata};
 use crate::speech::{pcm16_mono, to_pcm16};
 use crate::storage::{safe_component, storage_failed};
+use crate::units::MILLIS_PER_SECOND;
 
 const EXPORTS_DIR: &str = "exports";
 const PARTS_DIR: &str = "parts";
@@ -27,7 +28,6 @@ const CONCAT_HEADER: &str = "ffconcat version 1.0\n";
 const BITRATE: &str = "64k";
 const MONO: &str = "1";
 const GENRE: &str = "Audiobook";
-const MILLIS_PER_SECOND: u64 = 1000;
 /// How much of ffmpeg's error output goes into an error detail.
 const STDERR_TAIL_BYTES: u64 = 2000;
 /// `strerror(ENOSPC)`, as ffmpeg prints it.
@@ -79,7 +79,9 @@ impl FfmpegExporter {
         } else {
             AppError::new(ErrorName::Internal)
         };
-        error.with_detail(format!("{} {what} (exit {status}): {tail}", self.program.display()))
+        // Only the last line goes to the error (and so the log): earlier lines can echo the metadata file's chapter titles.
+        let last_line = tail.lines().last().unwrap_or_default();
+        error.with_detail(format!("{} {what} (exit {status}): {last_line}", self.program.display()))
     }
 }
 

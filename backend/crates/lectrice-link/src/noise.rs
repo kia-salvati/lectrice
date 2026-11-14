@@ -3,7 +3,7 @@
 //! nonces are counters, so a replayed, dropped or re-ordered frame fails to decrypt and ends the session.
 
 use std::io::{Read, Write};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use snow::{HandshakeState, TransportState};
@@ -11,6 +11,7 @@ use snow::{HandshakeState, TransportState};
 use crate::error::{LinkError, LinkResult};
 use crate::frame::{FrameReader, write_frame};
 use crate::limits::{MAX_FRAME_BYTES, MAX_MESSAGE_BYTES};
+use crate::sync::lock;
 
 pub(crate) const IK_PARAMS: &str = "Noise_IK_25519_ChaChaPoly_BLAKE2s";
 pub(crate) const XXPSK3_PARAMS: &str = "Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s";
@@ -72,7 +73,7 @@ impl Channel {
         if message.len() > MAX_MESSAGE_BYTES {
             return Err(LinkError::LimitExceeded("message size"));
         }
-        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut state = lock(&self.state);
         let fragments: Vec<&[u8]> = if message.is_empty() { vec![message] } else { message.chunks(MAX_FRAGMENT_BYTES).collect() };
         let count = fragments.len();
         fragments
@@ -106,7 +107,7 @@ impl Opener {
     pub(crate) fn open(&mut self, frame: &[u8]) -> LinkResult<Option<Vec<u8>>> {
         let mut plain = vec![0u8; frame.len()];
         let length = {
-            let mut state = self.channel.state.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut state = lock(&self.channel.state);
             state.read_message(frame, &mut plain)?
         };
         let (&flag, fragment) = plain[..length].split_first().ok_or(LinkError::Protocol("empty fragment"))?;

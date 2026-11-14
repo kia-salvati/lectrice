@@ -9,10 +9,11 @@
 
 use std::net::SocketAddr;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
+use crate::sync::lock;
 use lectrice_domain::{AppError, AppResult, Audio, ErrorName, HelperEngine, HelperEvent, HelperEvents, HelperItem, HelperState, SpeechHelper};
 use lectrice_link::client::{ClientConfig, ClientEvent, ClosedReason, Session, SocketFactory};
 use lectrice_link::limits::{MAX_ITEMS_PER_BATCH, MAX_SHORT_TEXT_BYTES, MAX_TEXT_BYTES, reconnect_delay};
@@ -343,8 +344,4 @@ impl Supervisor {
         }
         self.events.on_event(HelperEvent::State(next));
     }
-}
-
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }

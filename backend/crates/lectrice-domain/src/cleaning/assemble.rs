@@ -134,8 +134,7 @@ impl<'a> Assembler<'a> {
     }
 
     fn continues(&self, open: &OpenBlock, next: &PlacedLine) -> bool {
-        let previous = open.lines.last().expect("an open block has a line");
-        let first = &open.lines[0];
+        let (Some(first), Some(previous)) = (open.lines.first(), open.lines.last()) else { return false };
         match (open.kind, next.kind) {
             (LineKind::Code, LineKind::Code) | (LineKind::TableRow, LineKind::TableRow) => next.line.page <= previous.line.page + 1,
             (LineKind::Heading, LineKind::Heading) => {

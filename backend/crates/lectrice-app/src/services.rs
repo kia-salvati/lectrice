@@ -20,11 +20,9 @@ use crate::speech::{
     GetSpeechStats, HelperFill, HelperFillDeps, HelperWait, ListVoices, PrepareDeps, PrepareJobs, ReadAhead, ReadAheadDeps, ReadAheadSettings,
     SetReadAheadMinutes, SpeakSentence, SpeakSentenceDeps, SpeakVoiceSample, SpeechWorker, StopAllReadAhead, StopReadAhead, SynthesisGate,
 };
-use crate::{RequestContext, UseCase};
+use crate::{RequestContext, STARTUP_REQUEST_ID, UseCase};
 
 const NAME: &str = "assemble";
-/// The request id of the calls the core makes on its own while starting.
-const STARTUP_REQUEST_ID: &str = "startup";
 
 /// Every adapter the services need, so tests can assemble the app with fakes.
 pub struct Adapters {

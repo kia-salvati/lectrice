@@ -2,10 +2,10 @@
 
 use lectrice_domain::{Block, Document, Sentence, SentenceId};
 
+use crate::units::{MILLIS_PER_SECOND, SECONDS_PER_MINUTE};
+
 /// Speaking rate at 1x (spec §4, measured): text length → estimated audio length.
 pub(crate) const CHARS_PER_SECOND: f64 = 18.0;
-pub(crate) const SECONDS_PER_MINUTE: f64 = 60.0;
-pub(crate) const MILLIS_PER_SECOND: f64 = 1000.0;
 
 /// Estimated 1x audio of `chars` spoken characters, in whole milliseconds.
 pub(crate) fn chars_to_ms(chars: u64) -> u64 {

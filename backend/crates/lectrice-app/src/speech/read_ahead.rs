@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use lectrice_domain::{
     AppError, AppResult, AudioCache, AudioEncoder, AudioKey, AudioRetention, Document, DocumentId, DocumentReader, ErrorName, SentenceId, SpeechRequest,
@@ -13,8 +13,10 @@ use lectrice_domain::{
 };
 use tracing::{info, warn};
 
-use super::read_ahead_plan::{MILLIS_PER_SECOND, ReadAheadInput, SECONDS_PER_MINUTE, plan_read_ahead, ready_ahead_seconds};
+use super::read_ahead_plan::{ReadAheadInput, plan_read_ahead, ready_ahead_seconds};
 use super::worker::{CancelHandle, SpeechJob, SpeechOutcome, SpeechPriority, SpeechWorker};
+use crate::sync::lock;
+use crate::units::{MILLIS_PER_SECOND, SECONDS_PER_MINUTE};
 
 const NAME: &str = "ReadAhead";
 /// Plans kept at once; the least recently used one is dropped (and its jobs cancelled) past this.
@@ -95,7 +97,7 @@ struct Plans {
 impl Plans {
     /// Callbacks and cancels never panic under this lock, so a poisoned lock still holds consistent plans.
     fn lock(&self) -> MutexGuard<'_, PlansState> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.state)
     }
 }
 
@@ -199,7 +201,7 @@ impl ReadAhead {
     }
 
     fn paused_documents(&self) -> MutexGuard<'_, HashSet<DocumentId>> {
-        self.paused.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.paused)
     }
 
     /// Used from the next planning request on; a shorter read-ahead then cancels the queued jobs past it.
