@@ -78,6 +78,18 @@ Android and desktop apps pull by tag. While in beta (0.x), a change to a core tr
   an exporter must forward it (the desktop's `SwappableExporter`) or its files carry no map.
 - `ExportRecord` gains `sentences` and `marked_parts` (serde defaults; a job resumed from parts made before this
   version gets no map).
+- **Breaking:** `LinkError::PairingFailed` carries `PairingFailure` (`WrongCode`, `NoCodeShowing`) instead of a text;
+  a shell tells the wrong-code screen from "no code showing" by the variant.
+- The speech worker makes `Now` jobs lowest sentence first. While nobody listens (no sentence asked for within
+  `LISTENER_IDLE_AFTER`, 60 s; `SpeechWorker::note_listener`, which `SpeakSentence` calls), exports go before the
+  read-ahead and the read-ahead takes its `SynthesisGate` turn at export priority, so a paused player holds up neither
+  an export nor a phone's fill.
+- `Debug` of `Document`, `Block`, `Sentence`, `SpeechRequest`, `Audio` and `PeerRecord` shows ids, counts and lengths,
+  never book text, samples or a device name.
+- `STARTUP_REQUEST_ID` is exported from `lectrice-app`; `LinkSpeechHelper::with_reconnect_schedule` takes another
+  reconnect schedule. The workspace license field reads `MIT OR Apache-2.0`, like the license files.
+- The book-based tests read the books' file names, expected titles and looked-for text from the gitignored
+  `test-data/books/expected.json`, print `skipped: no local book fixtures` without it, and take `LECTRICE_TEST_DATA`.
 
 #### Fixed
 - **The phone's model no longer loads in the first-sentence races of a helper session (H4 on the S10+, H5).**
@@ -104,6 +116,8 @@ Android and desktop apps pull by tag. While in beta (0.x), a change to a core tr
   (heading lines join only in the same size, after a numbering label such as `CHAPTER 1`, and never before a line that
   starts with a section number such as `1.1`). A footnote mark after a full stop stays with that sentence instead of
   opening the next one. Cleaner version 5, so saved books are cleaned again.
+- `LECTRICE_STORAGE_CACHE_DIR` was refused as an unknown override because `config.toml` leaves the key out.
+- ffmpeg errors keep only the last line of its output (earlier lines can echo the metadata file's chapter titles).
 
 #### Security
 - `mp4_map::read_audiobook` treats the file as untrusted (security review S13): box sizes are checked without overflow
