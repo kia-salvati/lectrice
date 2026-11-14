@@ -44,7 +44,7 @@ impl Profile {
         self.inline_code_styles.contains(&(line.style.family.clone(), bucket(line.size)))
     }
 
-    /// The `mono_body` case of the survey: the body itself is set in a monospace font (GoF).
+    /// The `mono_body` case of the survey: the body itself is set in a monospace font (an all-Courier book).
     pub fn monospace_body(&self) -> bool {
         self.body_style.monospace
     }

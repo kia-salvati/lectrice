@@ -1,4 +1,4 @@
-//! Builds the cleaner's `TextRun` fixtures (survey §5) in `backend/test-data/books/` from the books.
+//! Builds the cleaner's `TextRun` fixtures in `backend/test-data/books/` (or under `LECTRICE_TEST_DATA`) from the books.
 //! That folder is gitignored: the fixtures hold book text and must never be committed.
 //! By default the ignored test only checks that the local fixtures still match the books (read-only).
 //! To rewrite them (after changing `FIXTURE_PAGES` or the PDF reader), run explicitly:
@@ -15,13 +15,12 @@ use pdf_support::{book, book_fixture_dir, text_source};
 use serde_json::json;
 
 const FIXTURE_PAGES: [(&str, &[u32]); 5] = [
-    // p282 spells "unfortunately" unbroken, which the book vocabulary needs to join p9's `Unfortu-nately`.
-    // Step T added K8s 4, 99, 121–124; DDS 153; GoF 397; CA 6, 32, 94, 169, 200; LinkedIn 212, 222.
-    ("kubernetes-book", &[1, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 36, 60, 61, 68, 99, 121, 122, 123, 124, 228, 282, 299, 308]),
-    ("designing-distributed-systems", &[4, 5, 15, 18, 23, 25, 26, 27, 29, 153, 159]),
-    ("design-patterns", &[2, 11, 12, 13, 15, 21, 69, 100, 397, 416]),
-    ("clean-architecture", &[5, 6, 20, 21, 25, 27, 28, 29, 32, 39, 53, 54, 74, 94, 169, 200, 335, 375]),
-    ("linkedin-posts", &[1, 3, 4, 5, 6, 7, 8, 9, 10, 56, 92, 107, 212, 222, 368]),
+    // Book E's p282 spells a word unbroken that the book vocabulary needs to join its syllable break on p9.
+    ("book-e", &[1, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 36, 60, 61, 68, 99, 121, 122, 123, 124, 228, 282, 299, 308]),
+    ("book-b", &[4, 5, 15, 18, 23, 25, 26, 27, 29, 153, 159]),
+    ("book-c", &[2, 11, 12, 13, 15, 21, 69, 100, 397, 416]),
+    ("book-a", &[5, 6, 20, 21, 25, 27, 28, 29, 32, 39, 53, 54, 74, 94, 169, 200, 335, 375]),
+    ("book-d", &[1, 3, 4, 5, 6, 7, 8, 9, 10, 56, 92, 107, 212, 222, 368]),
 ];
 
 /// Set to `1` to rewrite the local fixtures instead of comparing against them.
@@ -34,7 +33,8 @@ fn cleaner_fixtures_match_the_books() {
     let source = text_source();
     let mut stale = Vec::new();
     for (key, pages) in FIXTURE_PAGES {
-        let content = source.read_runs(&book(key).bytes()).unwrap();
+        let Some(book) = book(key) else { return };
+        let content = source.read_runs(&book.bytes()).unwrap();
         let path = book_fixture_dir().join(format!("{key}.jsonl"));
         let expected = fixture_text(&content, pages);
         if regenerate {

@@ -8,17 +8,18 @@ use std::time::Instant;
 use lectrice_domain::cleaning::RuleBasedCleaner;
 use lectrice_domain::{BlockKind, CleanedDocument, DocumentCleaner, PdfTextSource, SentenceSplitter};
 use lectrice_infra::SentencexSplitter;
-use pdf_support::{BOOKS, text_source};
+use pdf_support::{books, text_source};
 
 #[test]
 #[ignore = "reads the user's books from ~/Desktop"]
 fn every_book_cleans_without_error() {
+    let Some(books) = books() else { return };
     let source = text_source();
     println!(
         "{:<30} {:>5} {:>6} {:>9} {:>5} {:>7} {:>5} {:>9} {:>7} {:>8}",
         "book", "pages", "blocks", "sentences", "code", "caption", "table", "footnotes", "read_ms", "clean_ms"
     );
-    for book in &BOOKS {
+    for book in &books {
         let bytes = book.bytes();
         let started = Instant::now();
         let content = source.read_runs(&bytes).unwrap();

@@ -1,14 +1,18 @@
 #![allow(dead_code)]
 
 //! Loads the `TextRun` fixtures written by `lectrice-infra/tests/pdf_fixtures.rs` (a few pages of
-//! each book, survey §5) and helpers to look at the cleaned blocks.
+//! each book) and helpers to look at the cleaned blocks.
 //!
-//! The fixtures hold text from the user's books, so they live in the gitignored `backend/test-data/books/`
-//! and are never committed. On a fresh clone they are missing and the book tests skip with a message;
-//! `cleaning_invented.rs` covers the same rules with invented text.
+//! The fixtures and the text the tests look for (`expected.json`, "needles") come from the user's books, so they
+//! live in the gitignored `backend/test-data/books/` and are never committed. `LECTRICE_TEST_DATA` can point at
+//! another `test-data` folder (a second worktree uses the main checkout's). When the data is missing the book
+//! tests print one skip line and return; `cleaning_invented.rs` covers the same rules with invented text.
 
+use std::collections::HashMap;
 use std::io::Write as _;
+use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use lectrice_domain::cleaning::clean_content;
@@ -26,27 +30,71 @@ type Row = (u32, f32, f32, f32, f32, f32, f32, bool, String, String);
 
 /// How to rebuild the local book fixtures (needs the books in `~/Desktop`).
 pub const REGEN_COMMAND: &str = "LECTRICE_REGEN_FIXTURES=1 cargo test -p lectrice-infra --test pdf_fixtures -- --ignored";
+/// Points at a `test-data` folder other than this checkout's.
+pub const TEST_DATA_ENV: &str = "LECTRICE_TEST_DATA";
+const EXPECTED_FILE: &str = "expected.json";
+
+#[derive(Deserialize)]
+struct Expected {
+    needles: HashMap<String, HashMap<String, String>>,
+}
 
 pub fn book_data_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test-data/books")
+    std::env::var_os(TEST_DATA_ENV).map_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../test-data"), PathBuf::from).join("books")
+}
+
+/// A cleaned book plus the text its tests look for. Derefs to the document so the helpers take it as is.
+pub struct Book {
+    document: CleanedDocument,
+    key: String,
+    needles: &'static HashMap<String, String>,
+}
+
+impl Book {
+    /// The book text stored under `name` in the local `expected.json`.
+    pub fn needle(&self, name: &str) -> &'static str {
+        self.needles.get(name).map(String::as_str).unwrap_or_else(|| panic!("{EXPECTED_FILE} has no needle {}.{name}", self.key))
+    }
+}
+
+impl Deref for Book {
+    type Target = CleanedDocument;
+
+    fn deref(&self) -> &CleanedDocument {
+        &self.document
+    }
 }
 
 /// The book's runs, or `None` (with a skip message) when the local fixture is missing.
 pub fn content(book: &str) -> Option<PdfContent> {
     let path = book_data_dir().join(format!("{book}.jsonl"));
     if !path.exists() {
-        warn_once(&path);
+        skip(&path);
         return None;
     }
     let text = std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
     Some(parse(&text))
 }
 
+fn expected() -> Option<&'static Expected> {
+    static EXPECTED: OnceLock<Option<Expected>> = OnceLock::new();
+    EXPECTED
+        .get_or_init(|| {
+            let path = book_data_dir().join(EXPECTED_FILE);
+            let text = std::fs::read_to_string(&path).ok()?;
+            Some(serde_json::from_str(&text).unwrap_or_else(|error| panic!("{}: {error}", path.display())))
+        })
+        .as_ref()
+}
+
 /// Writes to the real stderr, not through `eprintln!`, which the test harness hides for passing tests.
-fn warn_once(path: &Path) {
+fn skip(path: &Path) {
     static WARNED: AtomicBool = AtomicBool::new(false);
     if !WARNED.swap(true, Ordering::Relaxed) {
-        let message = format!("book tests skipped: {} is missing (local book data, not in git); rebuild it with `{REGEN_COMMAND}`", path.display());
+        let message = format!(
+            "skipped: no local book fixtures ({} is missing; set {TEST_DATA_ENV} to a test-data folder or rebuild it with `{REGEN_COMMAND}`)",
+            path.display()
+        );
         let _ = writeln!(std::io::stderr(), "{message}");
     }
 }
@@ -65,9 +113,15 @@ pub fn parse(text: &str) -> PdfContent {
     PdfContent { title: header.title, pages: header.pages, runs, outline: header.outline }
 }
 
-/// The cleaned book, or `None` when its local fixture is missing (the test then returns early).
-pub fn clean(book: &str) -> Option<CleanedDocument> {
-    content(book).map(|content| clean_content(&content))
+/// The cleaned book with its needles, or `None` when the local data is missing (the test then returns early).
+pub fn clean(book: &str) -> Option<Book> {
+    let content = content(book)?;
+    let Some(expected) = expected() else {
+        skip(&book_data_dir().join(EXPECTED_FILE));
+        return None;
+    };
+    let needles = expected.needles.get(book).unwrap_or_else(|| panic!("{EXPECTED_FILE} has no needles for {book}"));
+    Some(Book { document: clean_content(&content), key: book.to_string(), needles })
 }
 
 pub fn shown(block: &CleanedBlock) -> String {
