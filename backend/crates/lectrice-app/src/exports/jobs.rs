@@ -20,7 +20,7 @@ use lectrice_domain::{
 };
 use tracing::{error, info, warn};
 
-use super::run::{ExportRunner, ExportRunnerDeps, FinishedPart, Progress, RunOutcome, RunReport};
+use super::run::{ExportRunner, ExportRunnerDeps, FinishedFile, FinishedPart, Progress, RunOutcome, RunReport};
 use crate::speech::SpeechWorker;
 
 const NAME: &str = "ExportJobs";
@@ -223,6 +223,7 @@ impl ExportJobs {
             parts_total: new.parts_total,
             estimated_seconds_left: None,
             file_bytes: None,
+            duration_seconds: None,
             location: None,
             waiting_for_engine: false,
         };
@@ -615,7 +616,7 @@ impl Shared {
         let shutdown = registry.shutdown;
         // With 1.0 file names an older finished export can own the same path.
         let file_owned_elsewhere = match &outcome {
-            RunOutcome::Done(file) => {
+            RunOutcome::Done(FinishedFile { file, .. }) => {
                 registry.jobs.values().any(|job| job.record.export.id != *id && app_storage_path(&job.record).as_ref() == Some(&file.path))
             }
             _ => false,
@@ -627,7 +628,7 @@ impl Shared {
         record.export.estimated_seconds_left = None;
         match outcome {
             _ if record.export.status == ExportStatus::Cancelled => {
-                if let RunOutcome::Done(file) = &outcome
+                if let RunOutcome::Done(FinishedFile { file, .. }) = &outcome
                     && !file_owned_elsewhere
                 {
                     self.delete_unwanted_file(id, &file.path);
@@ -636,16 +637,17 @@ impl Shared {
                 info!(service = NAME, export_id = %id, sentences_done = record.export.sentences_done, "export stopped after cancel");
             }
             // The file is complete, so a pause or shutdown that came during the last step changes nothing.
-            RunOutcome::Done(file) => {
+            RunOutcome::Done(FinishedFile { file, duration_seconds }) => {
                 record.export.status = ExportStatus::Done;
                 record.export.paused_by = None;
                 record.export.sentences_done = record.export.sentences_total;
                 record.export.estimated_seconds_left = Some(0);
                 record.export.file_bytes = Some(file.size_bytes);
+                record.export.duration_seconds = Some(duration_seconds);
                 record.export.location = Some(ExportLocation::AppStorage { path: file.path.clone() });
                 record.file = Some(file.path);
                 self.discard_parts(record);
-                info!(service = NAME, export_id = %id, bytes = file.size_bytes, "export done");
+                info!(service = NAME, export_id = %id, bytes = file.size_bytes, duration_seconds, "export done");
             }
             _ if record.export.status != ExportStatus::Running => {
                 info!(service = NAME, export_id = %id, status = ?record.export.status, parts_done = record.export.parts_done, "export stopped after pause");

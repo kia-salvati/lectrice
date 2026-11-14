@@ -169,6 +169,7 @@ fn a_job_goes_from_queued_to_done_and_streams_every_sentence_with_its_chapter() 
     }
     assert_eq!(starts, expected_starts);
     assert_eq!(map.duration_ms, expected_start * 1000 / u64::from(SAMPLE_RATE));
+    assert_eq!(done.duration_seconds, Some(u32::try_from(map.duration_ms.div_ceil(1000)).unwrap()), "the export says how long its file plays");
     assert_eq!(map.sentences[1].hash(), lectrice_domain::text_hash("One."));
     // What the exporter writes must pass the check a reader applies to any file's map.
     assert_eq!(map.check(), Ok(()));
@@ -373,6 +374,7 @@ fn saved(id: &str, status: ExportStatus) -> ExportRecord {
             parts_total: 1,
             estimated_seconds_left: Some(9),
             file_bytes: None,
+            duration_seconds: None,
             location: None,
             waiting_for_engine: false,
         },

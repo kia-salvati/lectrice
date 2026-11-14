@@ -45,8 +45,14 @@ pub(crate) struct ExportRunner {
     settings: ExportSettings,
 }
 
+pub(crate) struct FinishedFile {
+    pub file: ExportedFile,
+    /// The file's listening length.
+    pub duration_seconds: u32,
+}
+
 pub(crate) enum RunOutcome {
-    Done(ExportedFile),
+    Done(FinishedFile),
     /// Paused, cancelled or shut down; the job registry knows which.
     Stopped,
     Failed(AppError),
@@ -164,14 +170,14 @@ impl ExportRunner {
 
     pub fn run(&self, record: &ExportRecord, stop: &AtomicBool, report: &mut dyn RunReport) -> RunOutcome {
         match self.try_run(record, stop, report) {
-            Ok(Some(file)) => RunOutcome::Done(file),
+            Ok(Some(finished)) => RunOutcome::Done(finished),
             Ok(None) => RunOutcome::Stopped,
             Err(error) => RunOutcome::Failed(error),
         }
     }
 
     /// `Ok(None)` when stopped.
-    fn try_run(&self, record: &ExportRecord, stop: &AtomicBool, report: &mut dyn RunReport) -> AppResult<Option<ExportedFile>> {
+    fn try_run(&self, record: &ExportRecord, stop: &AtomicBool, report: &mut dyn RunReport) -> AppResult<Option<FinishedFile>> {
         let export = &record.export;
         let document = self.deps.reader.find(&export.document_id)?.ok_or_else(|| AppError::new(ErrorName::DocumentNotFound))?;
         let options = PlanOptions {
@@ -234,15 +240,16 @@ impl ExportRunner {
         }
         report.assembling();
         let mut file = self.deps.exporter.assemble(&run.target, &parts, &chapter_marks)?;
+        let duration_ms = state.output_samples * MILLIS_PER_SECOND as u64 / u64::from(run.sample_rate.max(1));
         // The parts written in this run are all marked; parts from an earlier run only if that run recorded them.
         if export.format == ExportFormat::M4b && record.has_complete_map() {
-            let duration_ms = state.output_samples * MILLIS_PER_SECOND as u64 / u64::from(run.sample_rate.max(1));
             file.size_bytes += self.deps.exporter.attach_map(&file, &lectrice_map(&run, sentence_marks, duration_ms))?;
         } else if export.format == ExportFormat::M4b {
             info!(service = NAME, export_id = %export.id, "export resumed from parts made before sentence maps; no map");
         }
         info!(service = NAME, export_id = %export.id, path = %file.path.display(), bytes = file.size_bytes, parts = parts.len(), chapters = chapter_marks.len(), cached = state.cached, synthesized = state.synthesized, elapsed_ms = elapsed_ms(state.started), "export file written");
-        Ok(Some(file))
+        let duration_seconds = u32::try_from(duration_ms.div_ceil(MILLIS_PER_SECOND as u64)).unwrap_or(u32::MAX);
+        Ok(Some(FinishedFile { file, duration_seconds }))
     }
 
     /// `Ok(None)` when stopped; the unfinished part is dropped, which abandons it.

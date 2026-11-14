@@ -197,6 +197,9 @@ pub struct AudioExport {
     /// Set when done.
     #[serde(default)]
     pub file_bytes: Option<u64>,
+    /// Set when done: the file's listening length (records saved before v0.4 have none).
+    #[serde(default)]
+    pub duration_seconds: Option<u32>,
     /// Set when done.
     #[serde(default)]
     pub location: Option<ExportLocation>,
