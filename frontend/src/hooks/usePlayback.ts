@@ -89,7 +89,7 @@ export const usePlayback = ({ document, voiceId, canPlay: engineCanPlay, onEngin
     engineUnavailableRef.current = onEngineUnavailable;
   });
 
-  const buffer = useMemo(() => (voiceId === null ? null : createSentenceAudioBuffer(document.id, voiceId)), [document.id, voiceId]);
+  const buffer = useMemo(() => (voiceId === null ? null : createSentenceAudioBuffer(api.getSentenceAudio, document.id, voiceId)), [document.id, voiceId]);
   useEffect(() => () => buffer?.clear(), [buffer]);
   // Declared before the load effect so the first request already carries the right rate and switch.
   useEffect(() => buffer?.setContext({ rate: speed, readSkipped }), [buffer, speed, readSkipped]);
