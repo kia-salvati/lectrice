@@ -1,6 +1,6 @@
 import type { AppInfo, Licenses, LinkId, ModelStatus } from './commands/types';
 import { AboutTab } from './components/SettingsDialog/AboutTab';
-import { PhoneTab } from './components/SettingsDialog/PhoneTab';
+import { PhoneTabState } from './components/SettingsDialog/PhoneTabState';
 import { SettingsDialog } from './components/SettingsDialog/SettingsDialog';
 import type { SettingsTab } from './components/SettingsDialog/SettingsDialog';
 import { VoiceModelTab } from './components/SettingsDialog/VoiceModelTab';
@@ -41,7 +41,7 @@ export const DesktopSettings = ({ initialTab, status, setup, phone, info, licens
           importKind={setup.importKind}
         />
       )}
-      phoneTab={phone.status && <PhoneTab status={phone.status} actions={phone.actions} onOpenLink={onOpenLink} />}
+      phoneTab={<PhoneTabState phone={phone} onOpenLink={onOpenLink} />}
       aboutTab={info && <AboutTab info={info} licenses={licenses} onOpenLink={onOpenLink} />}
     />
   );
