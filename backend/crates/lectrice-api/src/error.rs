@@ -55,7 +55,8 @@ fn log_error(error: &AppError, spec: ErrorSpec) {
     }
 }
 
-fn cause_chain(error: &AppError) -> String {
+/// The error's sources, outermost first, for the log (the desktop's commands log failures the same way).
+pub fn cause_chain(error: &AppError) -> String {
     let mut causes = Vec::new();
     let mut next = error.source();
     while let Some(cause) = next {
