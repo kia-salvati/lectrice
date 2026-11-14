@@ -6,7 +6,7 @@ members = ["crates/lectrice-domain", "crates/lectrice-infra", "crates/lectrice-a
 version = "0.3.0"
 edition = "2024"
 rust-version = "1.91"
-license = "Apache-2.0"
+license = "MIT OR Apache-2.0"
 publish = false
 
 [workspace.dependencies]
@@ -48,7 +48,7 @@ toml = "=1.1.8"
 tower = { version = "=0.5.3", features = ["util"] }
 http-body-util = "=0.1.5"
 
-# The helper link-drop simulator (`lectrice-app`, file 24 §13) plays a thousand virtual listening sessions; optimised
+# The helper link-drop simulator (`lectrice-app`) plays a thousand virtual listening sessions; optimised
 # test code keeps it at a few seconds instead of minutes.
 [profile.test.package.lectrice-app]
 opt-level = 2

@@ -8,8 +8,8 @@ All notable changes to Lectrice are listed here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The version in `backend/Cargo.toml`
 (`[workspace.package]`) equals the release tag.
 
-"Core" is the shared Rust library (`lectrice-domain`, `lectrice-app`, `lectrice-infra`) that the Android app
-pulls by tag. While in beta (0.x), a change to a core trait, public type or saved format raises the minor version.
+"Core" is the shared Rust library (`lectrice-domain`, `lectrice-app`, `lectrice-infra`, `lectrice-link`) that the
+Android and desktop apps pull by tag. While in beta (0.x), a change to a core trait, public type or saved format raises the minor version.
 
 ## [Unreleased]
 
