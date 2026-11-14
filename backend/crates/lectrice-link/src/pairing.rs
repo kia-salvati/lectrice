@@ -4,7 +4,7 @@
 
 use std::fmt;
 use std::io::{Read, Write};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use hkdf::Hkdf;
 use sha2::Sha256;
@@ -154,7 +154,7 @@ pub(crate) fn pair_as_computer<R: Read, W: Write>(
     code: &PairingCode,
     keys: &StaticKeys,
     hello: &PairHello,
-    step: Duration,
+    step: std::time::Duration,
     accept: &mut dyn FnMut(&Paired) -> LinkResult<()>,
 ) -> LinkResult<Paired> {
     let by = || Instant::now() + step;
@@ -190,6 +190,7 @@ pub(crate) fn pair_as_computer<R: Read, W: Write>(
 mod tests {
     use std::net::{Ipv4Addr, TcpListener, TcpStream};
     use std::thread;
+    use std::time::Duration;
 
     use super::*;
 
