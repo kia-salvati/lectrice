@@ -12,12 +12,19 @@ interface RecentDocumentListProps {
   hrefFor: (documentId: DocumentId) => string;
   hasMore: boolean;
   isLoadingMore: boolean;
+  /** Why "Show more" failed, when it did; the list stays and the button tries again. */
+  moreErrorText: string | null;
   onShowMore: () => void;
 }
 
 const HEADING_ID = 'recent-documents-heading';
 
-export const RecentDocumentList = ({ documents, now, hrefFor, hasMore, isLoadingMore, onShowMore }: RecentDocumentListProps) => (
+const moreLabel = (isLoading: boolean, failed: boolean): string => {
+  if (isLoading) return 'Loading…';
+  return failed ? 'Try again' : 'Show more';
+};
+
+export const RecentDocumentList = ({ documents, now, hrefFor, hasMore, isLoadingMore, moreErrorText, onShowMore }: RecentDocumentListProps) => (
   <section aria-labelledby={HEADING_ID}>
     <h2 id={HEADING_ID} className={styles.heading}>Recent documents</h2>
     <ul className={styles.list}>
@@ -40,8 +47,9 @@ export const RecentDocumentList = ({ documents, now, hrefFor, hasMore, isLoading
         );
       })}
     </ul>
+    {moreErrorText !== null && <p className={styles.moreError} role="alert">Couldn't load more documents. {moreErrorText}</p>}
     {hasMore && (
-      <button type="button" className={`${controls.button} ${styles.more}`} disabled={isLoadingMore} onClick={onShowMore}>{isLoadingMore ? 'Loading…' : 'Show more'}</button>
+      <button type="button" className={`${controls.button} ${styles.more}`} disabled={isLoadingMore} onClick={onShowMore}>{moreLabel(isLoadingMore, moreErrorText !== null)}</button>
     )}
   </section>
 );

@@ -181,6 +181,8 @@ export const ReaderScreen = ({ document, voices, engine, onBack, shell }: Reader
       voiceGroups={voiceGroups}
       voiceId={voiceId ?? ''}
       voicesAvailable={voices.status === 'ready'}
+      voicesFailed={voices.status === 'failed'}
+      onRetryVoices={voices.retry}
       onVoiceChange={voices.selectVoice}
       readSkipped={playback.readSkipped}
       onReadSkippedChange={playback.setReadSkipped}

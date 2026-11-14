@@ -16,6 +16,8 @@
 }
 .row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .muted { color: var(--fg2); }
+.error { color: var(--err-fg); }
+.keys { margin: 0; color: var(--fg2); font-size: .8125rem; }
 .position { display: grid; gap: .5rem; }
 .locationRow { display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap; }
 .location { color: var(--fg2); font-size: .8125rem; }
