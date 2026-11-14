@@ -14,7 +14,7 @@ Read this first, then `CLAUDE.md` (the full decision log and rules). The section
   - **Android v0.1.0** (first release, tag `v0.1.0`): signed release APK `Lectrice-0.1.0.apk` (key on this laptop,
     `CN=Lectrice`) + `SHA256SUMS`. Pins the core by `tag = "v0.4.0"`. `versionCode=1`: raise it for the next APK.
 - **Book titles are out of the new core commits** (user: "remove going forward"): the book tests use the keys
-  `book-a` … `book-e` (A = the calibre e-book, B = the O'Reilly-style book, C = the all-Courier book, D = the Google
+  `book-a` … `book-e` (A = the calibre e-book, B = the book with U+2010 syllable breaks, C = the all-Courier book, D = the Google
   Docs export, E = the XeTeX book). The gitignored `backend/test-data/books/expected.json` uses the same keys and
   `book-?.jsonl` links to the old fixture files. Older public mentions (`backend/README.md`, `toc.rs` unit tests,
   `cleaning_invented.rs`, some cleaner comments, docs, CLAUDE.md) are a later clean-up.
