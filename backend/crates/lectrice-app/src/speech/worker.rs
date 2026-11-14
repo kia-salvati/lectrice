@@ -64,7 +64,7 @@ pub struct SpeechJob {
 pub type SpeechOutcome = AppResult<Arc<Audio>>;
 
 /// One synthesis at a time on the machine, shared with other users of the CPU (the desktop's helper server makes
-/// phones' items through the same gate; file 24 C48). The worker asks for a turn with the job's priority, so the
+/// phones' items through the same gate). The worker asks for a turn with the job's priority, so the
 /// shell can rank its own `Now`, read-ahead and export work against the phones' items.
 pub trait SynthesisGate: Send + Sync {
     /// Runs `synthesize` once it is this priority's turn; the turn ends when it returns.
@@ -748,7 +748,7 @@ mod tests {
         assert_eq!(engine.spoken(), ["s0"]);
     }
 
-    /// C17: the median real-time factor appears after ten synthesized jobs.
+    /// The median real-time factor appears after ten synthesized jobs.
     #[test]
     fn timings_report_the_median_real_time_factor_after_enough_jobs() {
         let worker = SpeechWorker::start(Arc::new(GatedEngine::open())).unwrap();
@@ -777,7 +777,7 @@ mod tests {
         }
     }
 
-    /// C48: each job takes its turn at the machine's gate with its own priority (no more "everything is Now").
+    /// Each job takes its turn at the machine's gate with its own priority (no more "everything is Now").
     #[test]
     fn every_job_takes_its_turn_at_the_gate_with_its_priority() {
         let gate = Arc::new(RecordingGate::default());

@@ -58,7 +58,7 @@ pub struct Settings {
     pub export: ExportSettings,
 }
 
-/// What only some shells give the speech services (file 24): the desktop shares the CPU with the phones it helps, and
+/// What only some shells give the speech services: the desktop shares the CPU with the phones it helps, and
 /// the phone may have a helper computer.
 #[derive(Default)]
 pub struct SpeechOptions {
@@ -131,7 +131,7 @@ pub struct SpeechServices {
     pub set_read_ahead_minutes: SetReadAheadMinutes,
     /// Making a range of a book ahead of time, for phones slower than real time (C21).
     pub prepare: Arc<PrepareJobs>,
-    /// The helper computer's fill (file 24 C43), when the shell gave a helper; the shell starts and stops it.
+    /// The helper computer's fill, when the shell gave a helper; the shell starts and stops it.
     pub helper: Option<Arc<HelperFill>>,
 }
 

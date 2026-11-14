@@ -3,7 +3,7 @@
 //! priority (listening comes first), skips what is already cached, and pins the range so the listener's cache window
 //! doesn't delete it. The shell decides when it runs (e.g. while charging) and lifts the pin.
 //!
-//! With a helper computer connected (file 24 §3.13), [`PrepareJobs::start_on_helper`] has the computer make the range
+//! With a helper computer connected, [`PrepareJobs::start_on_helper`] has the computer make the range
 //! instead (after the listener's own plan); the phone's engine does nothing and no charger is needed.
 
 use std::collections::HashMap;
@@ -94,7 +94,7 @@ impl PrepareJobs {
         Ok(status)
     }
 
-    /// Has the helper computer make the range (file 24 §3.13) instead of this phone's engine; replaces the document's
+    /// Has the helper computer make the range instead of this phone's engine; replaces the document's
     /// job and pin like [`Self::start`]. `HelperUnreachable` when no helper is connected.
     pub fn start_on_helper(&self, args: PrepareArgs) -> AppResult<PrepareStatus> {
         let helper = self

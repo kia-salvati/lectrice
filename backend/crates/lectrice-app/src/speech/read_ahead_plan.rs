@@ -230,7 +230,7 @@ mod tests {
         assert_eq!(plan.ids(), [SentenceId(4)]);
     }
 
-    /// C25: only the unbroken run of cached sentences after the current one counts.
+    /// Only the unbroken run of cached sentences after the current one counts.
     #[test]
     fn ready_ahead_counts_the_cached_run_after_the_sentence() {
         let document = uniform_document(10, 2);

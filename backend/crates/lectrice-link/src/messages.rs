@@ -1,4 +1,4 @@
-//! Protocol v1 messages (file 24 §3.5). Client = the phone, server = the computer. Encoded with `postcard`; every
+//! Protocol v1 messages. Client = the phone, server = the computer. Encoded with `postcard`; every
 //! decoded message is checked against [`crate::limits`] before anyone uses it.
 
 use std::fmt;

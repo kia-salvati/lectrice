@@ -215,7 +215,7 @@ mod tests {
         assert_eq!(plan.parts, [PartPlan { steps: 0..10, sentences: 8, spoken_chars: plan.spoken_chars }], "a short book is one part");
     }
 
-    /// C23: with a TOC, its level 1–2 entries are the marks (titles cut at 120 chars); level 3 and headings are not.
+    /// With a TOC, its level 1–2 entries are the marks (titles cut at 120 chars); level 3 and headings are not.
     #[test]
     fn the_toc_gives_the_chapter_marks() {
         let mut document = book();
@@ -258,7 +258,7 @@ mod tests {
         assert_eq!(plan.sentences, 3);
     }
 
-    /// C30: only the range is planned, and a range that starts mid-chapter opens with that chapter's mark.
+    /// Only the range is planned, and a range that starts mid-chapter opens with that chapter's mark.
     #[test]
     fn a_range_plans_only_its_sentences_and_opens_with_the_current_chapter() {
         let document = book();

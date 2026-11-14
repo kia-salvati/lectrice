@@ -1,5 +1,5 @@
 //! `ListVoices`, `SpeakSentence`, `SpeakVoiceSample`, the read-ahead controls, prepare jobs, the speech worker, the
-//! read-ahead and the helper fill (a paired computer making the audio, file 24).
+//! read-ahead and the helper fill (a paired computer making the audio).
 
 mod control;
 #[cfg(test)]

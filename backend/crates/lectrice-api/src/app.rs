@@ -24,7 +24,7 @@ pub fn build_app(state: AppState, allowed_origin: HeaderValue) -> Router {
     assemble(state, allowed_origin, None)
 }
 
-/// The app for the loopback TCP server: [`build_app`] plus the `Host` / `Origin` guard (security review S2).
+/// The app for the loopback TCP server: [`build_app`] plus the `Host` / `Origin` guard.
 pub fn build_local_app(state: AppState, allowed_origin: HeaderValue, access: LocalAccess) -> Router {
     assemble(state, allowed_origin, Some(access))
 }

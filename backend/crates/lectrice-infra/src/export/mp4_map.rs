@@ -1,4 +1,4 @@
-//! The Lectrice map in an M4B (spec 23 §3.1–3.2): written as a top-level `uuid` box after the file is assembled (no
+//! The Lectrice map in an M4B: written as a top-level `uuid` box after the file is assembled (no
 //! sample offset moves, players skip unknown boxes), and read back with the file's length, chapter marks and title
 //! without touching the audio.
 
@@ -46,7 +46,7 @@ pub fn append_map(path: &Path, map: &LectriceMap) -> AppResult<()> {
     file.sync_all().map_err(storage)
 }
 
-/// Reads what spec 23 §3.2 needs. The file is untrusted: every size is checked against the file's length and capped
+/// Reads the map, the length, the chapters and the title. The file is untrusted: every size is checked against the file's length and capped
 /// before anything is allocated. `AudiobookUnreadable` when it isn't an MP4 with an AAC track; a map that doesn't parse
 /// or can't be true is left out and the file reads as a foreign audiobook.
 pub fn read_audiobook(path: &Path) -> AppResult<AudiobookInfo> {

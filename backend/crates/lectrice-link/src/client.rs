@@ -47,7 +47,7 @@ pub struct ClientConfig {
 }
 
 /// Opens the TCP connection to the computer. The phone's shell binds the socket to the Wi-Fi network before it
-/// connects (file 24 §3.10, `android_setsocknetwork`), so mobile data or a VPN can never carry the link. The link
+/// connects (`android_setsocknetwork`), so mobile data or a VPN can never carry the link. The link
 /// checks the address rule before asking, and checks that the socket is connected to that address afterwards.
 pub trait SocketFactory: Send + Sync {
     fn connect(&self, address: SocketAddr, timeout: Duration) -> io::Result<TcpStream>;

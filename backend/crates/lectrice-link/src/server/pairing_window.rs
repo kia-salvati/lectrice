@@ -1,4 +1,4 @@
-//! The computer's pairing window (file 24 §3.2, hardened by security review S4): opened only by the computer's user,
+//! The computer's pairing window: opened only by the computer's user,
 //! 2 minutes, up to `MAX_PARALLEL_PAIRINGS` attempts at once. Wrong codes are counted per window across every
 //! address: the third closes the window and only the user opens a new one. On top, more than
 //! `PAIR_FAILURES_PER_HOUR` wrong codes in an hour make "Pair a phone" wait `PAIR_COOLDOWN`. Attempts that stop

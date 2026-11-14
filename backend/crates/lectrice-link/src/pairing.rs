@@ -1,4 +1,4 @@
-//! Pairing (file 24 §3.2, C41): SPAKE2 on the 6-digit code gives a key `K`; Noise `XXpsk3` with
+//! Pairing: SPAKE2 on the 6-digit code gives a key `K`; Noise `XXpsk3` with
 //! `psk = HKDF(K, "lectrice-pair-v1")` then carries both static keys, authenticated by the code. The code itself never
 //! crosses the network, and a recorded attempt can't be brute-forced offline: each attempt is one online guess.
 

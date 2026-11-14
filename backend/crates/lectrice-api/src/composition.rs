@@ -69,8 +69,7 @@ pub fn build_state(config: &Config) -> AppResult<AppState> {
 }
 
 /// Creates the folder and makes it the user's only (0700 on Unix, also when an older version made it): the books,
-/// their cleaned text and the audio are nobody else's to read, even where home folders are open to other users
-/// (security review S11).
+/// their cleaned text and the audio are nobody else's to read, even where home folders are open to other users.
 fn private_dir(dir: &Path) -> AppResult<()> {
     create_private(dir).map_err(|error| AppError::new(ErrorName::StorageFailed).with_detail(format!("cannot prepare {}", dir.display())).with_source(error))
 }

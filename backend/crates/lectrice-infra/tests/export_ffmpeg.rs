@@ -159,7 +159,7 @@ fn parts_bytes_count_every_part_and_only_export_files_are_deleted() {
     assert!(outside.exists());
 }
 
-/// C22: ffmpeg reports a full disk only in its error text.
+/// An ffmpeg that runs out of space says so only in its error text.
 #[cfg(unix)]
 #[test]
 fn an_ffmpeg_that_runs_out_of_space_is_storage_full() {
@@ -176,7 +176,7 @@ fn an_ffmpeg_that_runs_out_of_space_is_storage_full() {
     assert_eq!(error.names(), [ErrorName::StorageFull, ErrorName::StorageFailed]);
 }
 
-/// C10 on the desktop: 3 s of 1x audio stretched to 1.5x in two parts lasts 2 s, and the file is named after it.
+/// 3 s of 1x audio stretched to 1.5x in two parts lasts 2 s, and the file is named after it.
 #[test]
 #[ignore = "runs the system ffmpeg and ffprobe"]
 fn a_baked_in_speed_shortens_the_file() {
@@ -238,7 +238,7 @@ fn exports_an_aac_m4b_with_chapters() {
     assert_eq!(files_in(path.parent().unwrap()), ["af_heart.m4b"], "no partial files are left");
 }
 
-/// Spec 23 §3.1: the Lectrice map appended to a real M4B reads back with ffmpeg's length and chapters, and the file still
+/// The Lectrice map appended to a real M4B reads back with ffmpeg's length and chapters, and the file still
 /// plays (ffprobe reads it).
 #[test]
 #[ignore = "runs the system ffmpeg and ffprobe"]

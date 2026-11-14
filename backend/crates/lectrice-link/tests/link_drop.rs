@@ -1,4 +1,4 @@
-//! Link-drop tests through `FaultyLink` (file 24 §13): cuts, stalls, cuts mid-chunk, a slow and jittery link. The
+//! Link-drop tests through `FaultyLink`: cuts, stalls, cuts mid-chunk, a slow and jittery link. The
 //! phone side here is a small filler loop like `HelperFill`: keep a few items in flight, reconnect after a drop, ask
 //! again for what didn't arrive. The player and virtual-clock assertions (1 000 runs) are in `lectrice-app`'s
 //! `speech/helper_sim.rs`; the real `HelperFill` over this link is `lectrice-infra/tests/helper_link.rs`.

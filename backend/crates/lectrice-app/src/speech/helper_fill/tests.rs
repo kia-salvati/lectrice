@@ -151,7 +151,7 @@ fn the_helper_is_opened_with_the_phones_own_engine_and_revision() {
     assert_eq!(opened, HelperEngine { engine_id: ENGINE_ID.into(), revision: REVISION.into(), sample_rate: SAMPLE_RATE });
 }
 
-/// C43: nearest first, at most 12 items in flight; each clip lets one more go; the local engine never runs.
+/// Nearest first, at most 12 items in flight; each clip lets one more go; the local engine never runs.
 #[test]
 fn fills_nearest_first_within_the_flow_control_and_keeps_the_local_engine_idle() {
     let setup = connected();
@@ -162,14 +162,14 @@ fn fills_nearest_first_within_the_flow_control_and_keeps_the_local_engine_idle()
 
     let first = setup.helper.take_made();
     assert_eq!(sentences(&first), [1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
-    assert!(setup.read_ahead.is_paused(&document.id), "C44: the local read-ahead is paused for this book");
+    assert!(setup.read_ahead.is_paused(&document.id), "the local read-ahead is paused for this book");
     for item in &first[..3] {
         setup.helper.deliver(item);
     }
     assert_eq!(sentences(&setup.helper.take_made()), [14, 15, 16]);
     assert_eq!(setup.fill.status().stats.stored, 3);
     assert!(setup.cache.contains(&key(&document, 2)).unwrap());
-    assert!(setup.engine.spoken().is_empty(), "C46: the phone's engine never speaks while the helper fills");
+    assert!(setup.engine.spoken().is_empty(), "the phone's engine never speaks while the helper fills");
 }
 
 #[test]
@@ -231,7 +231,7 @@ fn a_small_step_keeps_what_is_in_flight() {
     assert_eq!(setup.fill.status().in_flight, 12);
 }
 
-/// C44: Lost gives the book back to the local read-ahead; reconnecting takes it again and asks anew.
+/// Lost gives the book back to the local read-ahead; reconnecting takes it again and asks anew.
 #[test]
 fn losing_the_link_hands_the_book_to_the_phone_and_reconnecting_takes_it_back() {
     let setup = connected();
@@ -252,7 +252,7 @@ fn losing_the_link_hands_the_book_to_the_phone_and_reconnecting_takes_it_back() 
     assert_eq!(sentences(&setup.helper.take_made()), (2..=13).collect::<Vec<_>>());
 }
 
-/// File 24 §3.12 / file 21: a book switched to its audiobook file, or removed, stops being filled.
+/// A book switched to its audiobook file, or removed, stops being filled.
 #[test]
 fn stopping_a_document_drops_the_helpers_queue_and_gives_the_book_back() {
     let setup = connected();
@@ -285,7 +285,7 @@ fn items_the_helper_refuses_are_left_to_the_phone() {
     assert_eq!(setup.fill.status().stats.failed, 1);
 }
 
-/// C45: a miss while connected is sent urgent and played from the helper within the grace.
+/// A miss while connected is sent urgent and played from the helper within the grace.
 #[test]
 fn a_miss_while_connected_is_made_by_the_helper_within_the_grace() {
     let setup = Arc::new(connected());
@@ -305,7 +305,7 @@ fn a_miss_while_connected_is_made_by_the_helper_within_the_grace() {
     let urgent = delivering.join().unwrap();
     assert_eq!(sentence_of(&urgent), 50);
     assert_eq!(bytes, format!("{SAMPLE_RATE}:{}", urgent.text.len() * 100).into_bytes());
-    assert!(setup.engine.spoken().is_empty(), "C46: the phone's engine was never needed");
+    assert!(setup.engine.spoken().is_empty(), "the phone's engine was never needed");
     assert_eq!(setup.helper.made().iter().filter(|item| item.urgent).count(), 1);
 }
 
@@ -364,7 +364,7 @@ fn a_miss_while_lost_goes_to_the_phones_engine_at_once() {
     assert!(setup.helper.made().is_empty());
 }
 
-/// H4 open item 1a: play while the first connection is still under way. The miss waits for the link instead of
+/// Play while the first connection is still under way. The miss waits for the link instead of
 /// starting the phone's engine, and the local read-ahead stays paused meanwhile.
 #[test]
 fn a_miss_while_the_first_link_connects_waits_for_it() {
@@ -424,7 +424,7 @@ fn the_connect_wait_ends() {
     assert!(!setup.read_ahead.is_paused(&document.id));
 }
 
-/// H4 open item 1b: with the phone's engine still unloaded, a computer that answers after the normal grace still
+/// With the phone's engine still unloaded, a computer that answers after the normal grace still
 /// wins (the cold grace), and the model is never loaded.
 #[test]
 fn an_unloaded_engine_waits_the_cold_grace() {
@@ -469,7 +469,7 @@ fn range(document: &Document, from: u32, to: u32) -> Vec<(SentenceId, String)> {
     document.blocks.iter().flat_map(|block| &block.sentences).filter(|sentence| (from..=to).contains(&sentence.id.0)).map(|s| (s.id, s.text.clone())).collect()
 }
 
-/// File 24 §3.13: a Prepare range goes to the helper after the listener's plan, survives a lost link, and is
+/// A Prepare range goes to the helper after the listener's plan, survives a lost link, and is
 /// counted from the cache.
 #[test]
 fn a_prepare_range_is_made_by_the_helper_after_the_listeners_plan() {

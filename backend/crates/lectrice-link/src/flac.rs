@@ -1,4 +1,4 @@
-//! Clips on the wire are FLAC (lossless) of the 16-bit mono PCM the audio cache stores (file 24 §3.8). Encoder:
+//! Clips on the wire are FLAC (lossless) of the 16-bit mono PCM the audio cache stores. Encoder:
 //! `flacenc` (pure Rust); decoder: `claxon` (pure Rust), with hard bounds on what it accepts.
 
 use flacenc::bitsink::ByteSink;
@@ -25,7 +25,7 @@ pub fn encode_clip(samples: &[i16], sample_rate: u32) -> LinkResult<Vec<u8>> {
     let source = flacenc::source::MemSource::from_samples(&wide, CHANNELS, BITS_PER_SAMPLE, rate);
     let mut stream = flacenc::encode_with_fixed_block_size(&config, source, config.block_size).map_err(|error| LinkError::Codec(error.to_string()))?;
     // flacenc 0.5.1 writes the short last block's size as STREAMINFO's minimum, and decoders refuse a minimum under 16
-    // (clips whose length mod 4096 is 1–15). A fixed-block stream may state the full size for both (H0 report §3).
+    // (clips whose length mod 4096 is 1–15). A fixed-block stream may state the full size for both.
     let max_block = stream.stream_info().max_block_size();
     stream.stream_info_mut().set_block_sizes(max_block, max_block).map_err(|error| LinkError::Codec(error.to_string()))?;
     let mut sink = ByteSink::new();

@@ -78,7 +78,7 @@ fn only_the_most_recent_documents_are_kept() {
     assert_eq!(library.find(&second).unwrap().unwrap().title, "Second");
 }
 
-/// C28: a removed or deleted document is not served from memory.
+/// A removed or deleted document is not served from memory.
 #[test]
 fn removing_or_deleting_drops_the_cached_copy() {
     let dir = TempDir::new().unwrap();

@@ -1,4 +1,4 @@
-//! The speech helper port (file 24 C42): another machine that makes sentence clips for this one (the phone's paired
+//! The speech helper port: another machine that makes sentence clips for this one (the phone's paired
 //! computer). No network words here: the adapter decides how items travel, the app only asks for clips and stores
 //! what comes back in its normal audio cache.
 
@@ -40,7 +40,7 @@ impl fmt::Debug for HelperItem {
     }
 }
 
-/// Where the helper stands (file 24 §3.9). Only `Connected` and `Busy` make clips.
+/// Where the helper stands. Only `Connected` and `Busy` make clips.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HelperState {
     /// Not asked to help (no engine opened, or closed).

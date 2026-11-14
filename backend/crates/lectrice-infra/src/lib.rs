@@ -3,7 +3,7 @@
 //! Features (all on by default, for the desktop): `pdfium` (PDF text), `kokoro` (the voice, sherpa-onnx),
 //! `sherpa-static` (links sherpa-onnx statically; off on Android, which ships its shared libraries) and
 //! `ffmpeg-export` (exports through the system ffmpeg; Android brings its own exporter) and `time-stretch` (exports
-//! with a baked-in speed). Off by default: `helper-client` (the phone's side of the computer helper, file 24).
+//! with a baked-in speed). Off by default: `helper-client` (the phone's side of the computer helper).
 
 #[cfg(feature = "time-stretch")]
 pub mod audio;

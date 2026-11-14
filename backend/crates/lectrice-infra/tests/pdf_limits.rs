@@ -1,4 +1,4 @@
-//! Import limits (security review S7): a PDF past the page, character or time budget fails with `PdfTooComplex`
+//! Import limits: a PDF past the page, character or time budget fails with `PdfTooComplex`
 //! instead of holding the import thread or the memory.
 
 mod pdf_support;

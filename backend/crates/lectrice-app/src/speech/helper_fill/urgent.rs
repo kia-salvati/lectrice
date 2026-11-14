@@ -10,20 +10,20 @@ use tracing::debug;
 use super::{HelperFill, InFlight, NAME, estimated_ms};
 use crate::Cancellation;
 
-/// How long a sentence the player needs now waits for the helper before the phone makes it itself (H0: the
+/// How long a sentence the player needs now waits for the helper before the phone makes it itself (the
 /// laptop's p95 for a 10-word sentence is 1.09 s). Counted from the moment the link is ready.
 pub const HELPER_NOW_GRACE: Duration = Duration::from_millis(1500);
-/// The grace while the phone's engine isn't loaded. The local path then pays the load first (2.2 s on the S10+, H4),
-/// so waiting longer for the computer costs little and keeps the model out of memory (H4: a cold desktop engine or a
+/// The grace while the phone's engine isn't loaded. The local path then pays the load first (2.2 s on a Galaxy S10+),
+/// so waiting longer for the computer costs little and keeps the model out of memory (a cold desktop engine or a
 /// voice change during an item answered in 1.95–2.06 s).
 pub const HELPER_COLD_GRACE: Duration = Duration::from_millis(3000);
 /// How long after `start` the first connection may take before the phone stops waiting for it: no local speech or
-/// read-ahead meanwhile (H4: the link was Connecting ~100 ms at play; TCP + Noise IK took 37 ms).
+/// read-ahead meanwhile (the link was Connecting ~100 ms at play; TCP + Noise IK took 37 ms).
 pub const HELPER_CONNECT_WAIT: Duration = Duration::from_millis(1500);
 /// How often a waiting caller checks whether it was cancelled.
 const WAIT_POLL: Duration = Duration::from_millis(100);
 
-/// How long a sentence the player needs now waits for the helper (file 24 §3.7).
+/// How long a sentence the player needs now waits for the helper.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct HelperWait {
     pub grace: Duration,

@@ -1,4 +1,4 @@
-//! Crypto vectors (file 24 §13): the Noise patterns this link uses, run through the same `snow` build, must give the
+//! Crypto vectors: the Noise patterns this link uses, run through the same `snow` build, must give the
 //! standard cacophony results; SPAKE2 with a fixed RNG must keep giving the recorded key (a change in the crate's
 //! maths or hashing would silently break pairing between app versions).
 

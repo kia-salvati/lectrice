@@ -1,4 +1,4 @@
-//! The link-drop simulator (file 24 §13) on a virtual clock, so a thousand long listening sessions run in seconds.
+//! The link-drop simulator on a virtual clock, so a thousand long listening sessions run in seconds.
 //!
 //! Real code under test: `HelperFill` (plan, flow control, urgent items, cancel on jumps, first writer wins, the
 //! first connection after `start`) with its `ReadAhead` pause and resume, `HelperWait` (how long a sentence the player
@@ -38,7 +38,7 @@ const LISTEN_SECONDS: f64 = 75.0 * 60.0;
 const RECONNECT_DELAYS: [f64; 6] = [1.0, 2.0, 5.0, 10.0, 30.0, 60.0];
 /// A reconnect attempt succeeds once the link has been back this long (TCP + Noise IK on a LAN).
 const CONNECT_SECONDS: f64 = 0.2;
-/// The phone's model load before its first sentence (S10+, H4).
+/// The phone's model load before its first sentence (measured on a Galaxy S10+).
 const PHONE_LOAD_SECONDS: f64 = 2.2;
 /// A first connection to a computer that isn't there fails after this long (TCP timeout on the LAN).
 const FIRST_FAIL_SECONDS: f64 = 3.0;
@@ -156,8 +156,8 @@ struct Scenario {
     cold_start: f64,
 }
 
-/// How the player decides to make a sentence itself. `CURRENT` is the core's rule; `BEFORE_H5` is the rule H4
-/// measured on the S10+ (1.5 s from the request, no wait for a link that is still connecting).
+/// How the player decides to make a sentence itself. `current` is the core's rule; `without_link_wait` is the earlier
+/// rule measured on a Galaxy S10+ (1.5 s from the request, no wait for a link that is still connecting).
 #[derive(Debug, Clone, Copy)]
 struct Policy {
     wait: HelperWait,
@@ -169,14 +169,14 @@ impl Policy {
         Self { wait: HelperWait::default(), connect_wait: true }
     }
 
-    fn before_h5() -> Self {
+    fn without_link_wait() -> Self {
         let grace = Duration::from_millis(1500);
         Self { wait: HelperWait { grace, cold_grace: grace }, connect_wait: false }
     }
 }
 
 impl Scenario {
-    /// Green phones at any speed; red phones (S10+ class) at 1x, which is what file 24 §3.6 promises them. Cuts start
+    /// Green phones at any speed; red phones (Galaxy S10+ class) at 1x, which is what the helper promises them. Cuts start
     /// once a little is buffered (a cut in the first two minutes is a cold start, not a drop) and last up to 25 min.
     fn draw(rng: &mut Rng) -> Self {
         let red = rng.next().is_multiple_of(3);
@@ -196,7 +196,7 @@ impl Scenario {
     }
 
     /// A session start with nothing else happening: the link takes up to 1.2 s, the computer's first item up to
-    /// 1.5 s more (H4 measured 1.95–2.06 s for a cold desktop's first sentence).
+    /// 1.5 s more (a cold desktop took 1.95–2.06 s for its first sentence).
     fn start(rng: &mut Rng) -> Self {
         Self {
             rate: 1.0,
@@ -621,7 +621,7 @@ impl World {
     }
 }
 
-/// File 24 §13 assertions 1, 3, 4, 5 and 6 over a thousand random runs.
+/// No gap, the cache, the local engine and the read-ahead behave across a thousand random runs.
 #[test]
 fn a_thousand_link_drops_never_make_a_gap() {
     let document = Arc::new(book(SENTENCE_CHARS));
@@ -661,7 +661,7 @@ fn a_thousand_link_drops_never_make_a_gap() {
 }
 
 /// A red phone loses the computer right after a full fill and never gets it back: starting at the far end of the 30
-/// buffered minutes at once, it plays the rest of the session without a gap (file 24 §3.6: ~5 h at 1x).
+/// buffered minutes at once, it plays the rest of the session without a gap (~5 h at 1x).
 #[test]
 fn a_red_phone_plays_on_without_the_computer() {
     let document = Arc::new(book(SENTENCE_CHARS));
@@ -700,7 +700,7 @@ fn start_runs(policy: Policy) -> Vec<(Scenario, Outcome)> {
         .collect()
 }
 
-/// H5 (H4 open item 1): play pressed while the link is still connecting, and a cold computer that answers the first
+/// Play pressed while the link is still connecting, and a cold computer that answers the first
 /// sentence in up to ~2.6 s. The phone waits for both and never loads its own engine; nothing gaps afterwards.
 #[test]
 fn the_first_sentence_waits_for_the_link_and_a_cold_computer() {
@@ -715,11 +715,11 @@ fn the_first_sentence_waits_for_the_link_and_a_cold_computer() {
     }
 }
 
-/// The same starts with the rule H4 measured: most of them load the phone's engine (so the test above tells the two
-/// rules apart).
+/// The same starts with the earlier rule: most of them load the phone's engine (so the test above tells the two rules
+/// apart).
 #[test]
-fn the_rule_before_h5_loaded_the_engine_at_most_starts() {
-    let loaded = start_runs(Policy::before_h5()).iter().filter(|(_, outcome)| outcome.engine_loaded_at.is_some()).count();
+fn the_rule_without_a_link_wait_loaded_the_engine_at_most_starts() {
+    let loaded = start_runs(Policy::without_link_wait()).iter().filter(|(_, outcome)| outcome.engine_loaded_at.is_some()).count();
     assert!(loaded * 4 >= START_RUNS as usize * 3, "{loaded} of {START_RUNS}");
 }
 

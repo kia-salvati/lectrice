@@ -31,7 +31,7 @@ use crate::socket::{monotonic_ms, receive_by, send};
 const VOICE_UNKNOWN: (&str, u32) = ("VoiceUnknown", 2001);
 const ENGINE_UNAVAILABLE: (&str, u32) = ("SpeechEngineUnavailable", 2002);
 const SYNTHESIS_FAILED: (&str, u32) = ("SpeechSynthesisFailed", 2003);
-/// Over the per-phone item budget (security review S15).
+/// Over the per-phone item budget.
 const HELPER_BUSY: (&str, u32) = (LinkErrorName::HelperBusy.as_str(), LinkErrorName::HelperBusy.code());
 const BUDGET_WINDOW: Duration = Duration::from_secs(60);
 

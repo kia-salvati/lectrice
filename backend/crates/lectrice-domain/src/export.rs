@@ -228,10 +228,10 @@ pub struct ExportRecord {
     /// timed from it. 0 in records saved before v0.2, which were all made at 1x.
     #[serde(default)]
     pub source_samples: u64,
-    /// The spoken sentences inside the finished parts and where they start in the output (spec 23 §3.1).
+    /// The spoken sentences inside the finished parts and where they start in the output.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sentences: Vec<SentenceMark>,
-    /// How many of `parts` recorded their sentences. Parts finished before spec 23 didn't, and an export with such a
+    /// How many of `parts` recorded their sentences. Parts finished before the map existed didn't, and an export with such a
     /// part gets no Lectrice map.
     #[serde(default)]
     pub marked_parts: u32,

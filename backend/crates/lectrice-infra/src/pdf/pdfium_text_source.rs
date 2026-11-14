@@ -16,7 +16,7 @@ const MAX_OUTLINE_DEPTH: u8 = 16;
 /// The clock is looked at once per this many characters within a page.
 const CHARS_PER_DEADLINE_CHECK: usize = 4096;
 
-/// What reading one PDF may cost (security review S7). A PDF is untrusted input, and the file-size limit alone
+/// What reading one PDF may cost. A PDF is untrusted input, and the file-size limit alone
 /// doesn't bound the work: a small file can declare a huge page tree or pages with millions of characters. Past a
 /// limit the import fails with `PdfTooComplex` instead of holding a thread or the memory.
 ///

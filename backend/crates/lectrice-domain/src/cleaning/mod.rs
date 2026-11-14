@@ -1,5 +1,5 @@
 //! B2: the pure PDF cleaning rules (`PdfContent` -> `CleanedDocument`) and the `DocumentCleaner`
-//! implementation. Rule numbers refer to `research/2026-10-21-pdf-survey.md` §4.
+//! implementation. Rule numbers follow the order the pipeline below applies them in.
 
 mod assemble;
 mod bands;
@@ -49,7 +49,7 @@ use crate::ports::DocumentCleaner;
 /// Raise this whenever a rule changes what a cleaned document looks like.
 pub const CLEANER_VERSION: u32 = 5;
 
-/// The survey's v1 pipeline (rules 1–20).
+/// The v1 pipeline (rules 1–20).
 #[derive(Debug, Default, Clone, Copy)]
 pub struct RuleBasedCleaner;
 

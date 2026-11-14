@@ -1,4 +1,4 @@
-//! The Lectrice map an exported M4B carries (spec 23 §3.1) and matching an audiobook file to a book (§3.3).
+//! The Lectrice map an exported M4B carries and matching an audiobook file to a book.
 //! Pure: the container format lives in `lectrice-infra` (`export::mp4_map`).
 
 use std::collections::{HashMap, HashSet};
@@ -185,7 +185,7 @@ pub enum AudiobookMismatch {
     OtherBook(DocumentId),
 }
 
-/// Spec 23 §3.3. A map of this book gives sentence follow-along (remapped across cleaner versions when ≥ 90 % is
+/// A map of this book gives sentence follow-along (remapped across cleaner versions when ≥ 90 % is
 /// found); anything else falls back to chapter titles.
 pub fn match_audiobook(document: &Document, info: &AudiobookInfo) -> Result<AudiobookTimeline, AudiobookMismatch> {
     let Some(map) = info.map.as_ref().filter(|map| map.is_supported() && map.check().is_ok()) else {

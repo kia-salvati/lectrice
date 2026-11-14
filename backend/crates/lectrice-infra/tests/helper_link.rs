@@ -1,4 +1,4 @@
-//! The computer helper end to end over real sockets (file 24 §13): a `lectrice-link` server with a fake engine on one
+//! The computer helper end to end over real sockets: a `lectrice-link` server with a fake engine on one
 //! side; on the phone side the real `LinkSpeechHelper`, `HelperFill`, `SpeakSentence`, the file audio cache and the WAV
 //! encoder. `FaultyLink` sits in between to cut the link. Invented text only.
 
@@ -364,11 +364,11 @@ fn the_computer_fills_the_phones_cache_with_exact_clips_and_the_phones_engine_st
         phone.assert_exact(sentence);
     }
     assert!(phone.read_ahead.is_paused(&phone.document.id));
-    assert_eq!(phone.engine.synthesized.load(Ordering::SeqCst), 0, "C46: the phone's model is never needed");
+    assert_eq!(phone.engine.synthesized.load(Ordering::SeqCst), 0, "the phone's model is never needed");
     assert!(phone.sockets.0.load(Ordering::SeqCst) >= 1, "the shell's socket factory opened the connection");
 }
 
-/// C45 end to end: a miss is sent urgent and the computer's clip is played within the grace.
+/// A miss is sent urgent and the computer's clip is played within the grace.
 #[test]
 fn a_sentence_the_player_needs_now_comes_from_the_computer() {
     let computer = Computer::start(REVISION, true);
@@ -418,7 +418,7 @@ fn a_cut_link_hands_the_book_to_the_phone_and_the_helper_comes_back() {
     }
 }
 
-/// File 24 §3.11: a computer that answers with another revision never puts a clip in the phone's cache.
+/// A computer that answers with another revision never puts a clip in the phone's cache.
 #[test]
 fn a_computer_with_another_revision_or_without_the_model_needs_attention_and_fills_nothing() {
     for (revision, has_model, expected) in

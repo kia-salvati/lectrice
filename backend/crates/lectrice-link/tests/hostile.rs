@@ -1,4 +1,4 @@
-//! Malicious peers (security review pass 3): a paired phone, a stranger on the network, and a paired computer that
+//! Malicious peers: a paired phone, a stranger on the network, and a paired computer that
 //! misbehave must not crash the other side, grow its memory, hold its slots or get more than the protocol gives.
 
 mod support;

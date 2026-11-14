@@ -1,4 +1,4 @@
-//! "LAN only" (file 24 §3.3): both sides talk only to private and link-local addresses.
+//! "LAN only": both sides talk only to private and link-local addresses.
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 

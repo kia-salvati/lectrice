@@ -1,4 +1,4 @@
-//! One synthesis at a time on the computer (desktop spec §2.1): the computer's own speech and every phone's items take
+//! One synthesis at a time on the computer: the computer's own speech and every phone's items take
 //! turns through this gate, highest priority first, first come first served within a priority.
 
 use crate::sync::lock;
@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use std::sync::{Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
-/// Highest first (file 24 §3.7): the computer's own `Now` > phone urgent > the computer's read-ahead > phone fill >
+/// Highest first: the computer's own `Now` > phone urgent > the computer's read-ahead > phone fill >
 /// the computer's exports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum GatePriority {

@@ -42,7 +42,7 @@ pub struct SpokenSentence {
 /// One sentence's audio: from the cache, or made by the speech worker at the highest priority, then cached.
 /// Every request also moves the read-ahead and the cache window to this sentence.
 ///
-/// With a helper computer connected (file 24 §3.7), a miss first goes to the helper as urgent and waits up to the
+/// With a helper computer connected, a miss first goes to the helper as urgent and waits up to the
 /// grace (counted from the moment the link is ready; longer while the phone's engine isn't loaded); then the local
 /// engine makes it too, and whichever finishes first is cached and played. While the first connection after the
 /// helper's start is under way, the miss waits for it.
@@ -64,7 +64,7 @@ pub struct SpeakSentenceDeps {
     pub cache: Arc<dyn AudioCache>,
     pub encoder: Arc<dyn AudioEncoder>,
     pub read_ahead: Arc<ReadAhead>,
-    /// The phone's helper computer, when the shell has one (file 24).
+    /// The phone's helper computer, when the shell has one.
     pub helper: Option<Arc<HelperFill>>,
     /// How long a miss waits for the helper before the local engine starts.
     pub helper_wait: HelperWait,
@@ -339,7 +339,7 @@ mod tests {
         setup.service.run(ctx, args(document_id, sentence, voice))
     }
 
-    /// C13: without planning, only the sentence itself is made and the cache window stays put.
+    /// Without planning, only the sentence itself is made and the cache window stays put.
     #[test]
     fn plan_ahead_off_makes_only_the_sentence_and_a_later_request_plans_again() {
         let setup = setup_with_read_ahead(10);
@@ -354,7 +354,7 @@ mod tests {
         assert_eq!(setup.cache.retained().len(), 1);
     }
 
-    /// C25: the sentences cached right after this one are reported as ready.
+    /// The sentences cached right after this one are reported as ready.
     #[test]
     fn the_answer_says_how_much_is_ready_ahead() {
         let setup = setup();

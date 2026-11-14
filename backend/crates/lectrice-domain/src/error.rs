@@ -182,9 +182,9 @@ mod tests {
     use std::collections::HashSet;
 
     /// Spec §8, plus `RequestInvalid` (B4), `RouteNotFound`, `MethodNotAllowed`, `RequestCancelled` (B-fixes)
-    /// the five device-neutral 4xxx names (Android spec C4), `FileUnreadable` (C26), the three audiobook names (C39)
-    /// the six helper names 5001–5006 (file 24 C47; `HelperBusy` from security review S15), and `RequestForbidden`
-    /// and `PdfTooComplex` (security review S2 and S7).
+    /// the five device-neutral 4xxx names (Android spec C4), `FileUnreadable` (C26), the three audiobook names
+    /// the six helper names 5001–5006, and `RequestForbidden`
+    /// and `PdfTooComplex`.
     const SPEC_ERROR_COUNT: usize = 37;
 
     #[test]

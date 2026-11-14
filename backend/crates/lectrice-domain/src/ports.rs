@@ -95,7 +95,7 @@ pub trait AudioCache: Send + Sync {
     fn put(&self, key: &AudioKey, bytes: &[u8]) -> AppResult<()>;
     /// Stores the clip only if none is stored for this key yet; returns whether it was stored. When two producers
     /// make the same sentence (the phone and its helper computer), the first one wins and the clip never changes
-    /// under the player (file 24 C45). Adapters that can write without replacing should override this default.
+    /// under the player. Adapters that can write without replacing should override this default.
     fn put_if_absent(&self, key: &AudioKey, bytes: &[u8]) -> AppResult<bool> {
         if self.get(key)?.is_some() {
             return Ok(false);
@@ -120,7 +120,7 @@ pub trait AudioExporter: Send + Sync {
     fn parts_bytes(&self) -> AppResult<u64>;
     /// Deletes a finished export's file. A file that is already gone is fine.
     fn delete_file(&self, path: &Path) -> AppResult<()>;
-    /// Adds the Lectrice map to an assembled M4B (spec 23 §3.1) and returns the bytes added. Formats or shells that
+    /// Adds the Lectrice map to an assembled M4B and returns the bytes added. Formats or shells that
     /// can't carry one keep the default, which adds nothing.
     fn attach_map(&self, _file: &ExportedFile, _map: &LectriceMap) -> AppResult<u64> {
         Ok(0)

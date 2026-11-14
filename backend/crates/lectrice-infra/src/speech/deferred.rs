@@ -1,4 +1,4 @@
-//! The deferred engine (file 24 C46): knows its id, revision, voices and sample rate from the bundle without loading
+//! The deferred engine: knows its id, revision, voices and sample rate from the bundle without loading
 //! the model, and loads it only when it first has to speak. While a helper computer makes the audio, the phone's own
 //! model then never takes memory or start-up time; it is ready (`preload`) as soon as the link is lost.
 

@@ -14,7 +14,7 @@ kokoro = ["dep:sherpa-onnx"]
 sherpa-static = ["kokoro", "sherpa-onnx/static"]
 ffmpeg-export = []
 time-stretch = []
-# The phone's side of the computer helper (file 24): the `SpeechHelper` adapter over `lectrice-link`'s client.
+# The phone's side of the computer helper: the `SpeechHelper` adapter over `lectrice-link`'s client.
 helper-client = ["dep:lectrice-link", "lectrice-link/client"]
 
 [dependencies]

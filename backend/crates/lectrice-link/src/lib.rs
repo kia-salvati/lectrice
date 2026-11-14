@@ -1,4 +1,4 @@
-//! The helper link between a phone and a paired computer on the same home network (file 24, C40 and C41).
+//! The helper link between a phone and a paired computer on the same home network.
 //!
 //! The phone (the `client` feature) sends sentence items; the computer (the `server` feature) turns them into speech
 //! and sends the clips back as FLAC. Pairing is a 6-digit code checked with SPAKE2 and Noise `XXpsk3`; every later

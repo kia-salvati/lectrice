@@ -1,4 +1,4 @@
-//! The phone's side of the computer helper (file 24) as the domain's [`SpeechHelper`] port, over `lectrice-link`'s
+//! The phone's side of the computer helper as the domain's [`SpeechHelper`] port, over `lectrice-link`'s
 //! client. One supervisor thread per opened engine connects to the paired computer, opens the phone's exact engine
 //! (same id, revision and sample rate, or no clips at all), passes items on and clips back, and reconnects on the
 //! 1-2-5-10-30-60 s schedule when the link goes. Every port call returns at once: commands go to that thread.
@@ -145,7 +145,7 @@ impl SpeechHelper for LinkSpeechHelper {
     }
 }
 
-/// The registry name a link error ends in (C47; `lectrice-link` mirrors the registry's helper names).
+/// The registry name a link error ends in (`lectrice-link` mirrors the registry's helper names).
 pub fn registry_name(name: LinkErrorName) -> ErrorName {
     ErrorName::from_name(name.as_str()).unwrap_or(ErrorName::Internal)
 }
@@ -264,7 +264,7 @@ impl Supervisor {
     }
 
     /// Asks for the phone's engine and checks the answer: a computer that says another engine, revision or sample
-    /// rate never makes a clip for this phone (file 24 §3.11).
+    /// rate never makes a clip for this phone.
     fn open(&self, session: Session, client: &ClientConfig) -> Result<Session, LinkError> {
         let open = Open { engine_id: self.engine.engine_id.clone(), revision: self.engine.revision.clone(), voice_ids: Vec::new() };
         let ready = session.open(open, client.timing.handshake)?;

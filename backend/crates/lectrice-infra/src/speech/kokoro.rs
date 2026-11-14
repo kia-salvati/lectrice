@@ -67,7 +67,7 @@ pub struct KokoroSpeechEngine {
 }
 
 impl KokoroSpeechEngine {
-    /// The front end behind the sound (file 24 §3.11): the pinned sherpa-onnx version with its espeak-ng data and
+    /// The front end behind the sound: the pinned sherpa-onnx version with its espeak-ng data and
     /// lexicons, plus our own text handling. Raise the last number when this adapter changes what the model hears.
     pub const REVISION: &'static str = "sherpa-onnx-1.13.8/kokoro-1";
     pub const SAMPLE_RATE: u32 = KOKORO_SAMPLE_RATE;

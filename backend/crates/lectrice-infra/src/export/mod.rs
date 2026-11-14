@@ -1,5 +1,5 @@
 //! `FfmpegExporter` (feature `ffmpeg-export`): WAV parts, joined into MP3 or M4B (with chapter marks) through the
-//! system ffmpeg. `mp4_map` (always): the Lectrice map inside an M4B (spec 23), shared by every shell's exporter.
+//! system ffmpeg. `mp4_map` (always): the Lectrice map inside an M4B, shared by every shell's exporter.
 
 #[cfg(feature = "ffmpeg-export")]
 mod ffmetadata;

@@ -1,7 +1,7 @@
-//! `HelperFill` (file 24 C43–C45): while a helper computer is connected, it plans 30 listening-minutes ahead of the
+//! `HelperFill`: while a helper computer is connected, it plans 30 listening-minutes ahead of the
 //! listener and asks the helper for the sentences that aren't cached, nearest first, a few at a time; the clips that
 //! come back go into the normal audio cache under the normal keys (first writer wins). The local read-ahead is paused
-//! for that book meanwhile (C44) and the local engine stays unloaded (C46). When the link goes, the in-flight items
+//! for that book meanwhile and the local engine stays unloaded. When the link goes, the in-flight items
 //! are forgotten and the local read-ahead resumes: the player only ever reads the cache or the local engine, so a
 //! lost link can't make a gap.
 //!
@@ -34,15 +34,15 @@ use crate::sync::lock;
 
 const NAME: &str = "HelperFill";
 
-/// How far ahead the helper fills, in listening minutes (file 24 §3.6, user 2026-11-13).
+/// How far ahead the helper fills, in listening minutes.
 pub const HELPER_AHEAD_MINUTES: u32 = 30;
-/// Flow control (file 24 §3.5): at most this many items, or this much estimated 1x audio, in flight at once.
+/// Flow control: at most this many items, or this much estimated 1x audio, in flight at once.
 pub const HELPER_MAX_IN_FLIGHT_ITEMS: usize = 12;
 pub const HELPER_MAX_IN_FLIGHT_MS: u64 = 3 * 60 * 1000;
 /// A phone whose sustained `rtf × rate` is at most this keeps up alone ("green", file 12 §3.3).
 pub const GREEN_RTF_TIMES_RATE: f32 = 0.6;
 
-/// The local read-ahead's length once the link is lost (file 24 §3.6): a green phone waits with its normal setting
+/// The local read-ahead's length once the link is lost: a green phone waits with its normal setting
 /// (the 30 buffered minutes last long), any other phone (or one without stats yet) starts at the far end of the
 /// buffer at once.
 pub fn lost_read_ahead_minutes(rtf_median: Option<f32>, rate: f32, setting_minutes: u32) -> u32 {

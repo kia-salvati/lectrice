@@ -1,4 +1,4 @@
-//! The whole link in one process: pairing, sessions, clips, refusals, priorities (file 24 §13).
+//! The whole link in one process: pairing, sessions, clips, refusals, priorities.
 
 mod support;
 

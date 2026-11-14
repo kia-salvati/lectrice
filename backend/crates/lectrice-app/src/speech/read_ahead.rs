@@ -83,7 +83,7 @@ pub struct ReadAhead {
     read_ahead_minutes: AtomicU32,
     keep_minutes_per_document: u32,
     plans: Arc<Plans>,
-    /// Documents whose audio a helper computer makes (file 24 C44): their cache window is still kept, nothing is planned.
+    /// Documents whose audio a helper computer makes: their cache window is still kept, nothing is planned.
     paused: Mutex<HashSet<DocumentId>>,
 }
 
@@ -608,7 +608,7 @@ mod tests {
         setup.engine.release();
     }
 
-    /// C13: a stop withdraws the queued jobs of that document only; the clip being made is still cached.
+    /// A stop withdraws the queued jobs of that document only; the clip being made is still cached.
     #[test]
     fn stopping_a_document_withdraws_its_queued_jobs_and_the_next_request_plans_again() {
         let book = document(400);
@@ -628,7 +628,7 @@ mod tests {
         assert_eq!((again.cached, again.queued), (1, 59));
     }
 
-    /// C44: while a helper makes the audio, nothing is planned (the window is still kept); resuming plans again.
+    /// While a helper makes the audio, nothing is planned (the window is still kept); resuming plans again.
     #[test]
     fn a_paused_document_plans_nothing_until_resumed() {
         let book = document(400);
@@ -665,7 +665,7 @@ mod tests {
         assert_eq!(spoken_ids(&setup.engine), [1]);
     }
 
-    /// C14: minutes change at runtime within 1..=60 and the cache window; the next request uses them.
+    /// Minutes change at runtime within 1..=60 and the cache window; the next request uses them.
     #[test]
     fn read_ahead_minutes_change_at_runtime() {
         let book = document(400);
@@ -687,7 +687,7 @@ mod tests {
         setup.engine.release();
     }
 
-    /// C28: a clip made for a document that was removed meanwhile is not stored.
+    /// A clip made for a document that was removed meanwhile is not stored.
     #[test]
     fn a_removed_document_gets_no_new_clips() {
         let book = document(200);

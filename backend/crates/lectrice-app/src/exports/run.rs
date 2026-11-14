@@ -82,7 +82,7 @@ struct WrittenPart {
     sentences: Vec<SentenceMark>,
 }
 
-/// What the finished file says about itself (spec 23 §3.1).
+/// What the finished file says about itself.
 fn lectrice_map(run: &Run<'_>, sentences: Vec<SentenceMark>, duration_ms: u64) -> LectriceMap {
     let export = &run.record.export;
     LectriceMap {
@@ -130,7 +130,7 @@ impl Drop for PendingSpeech {
 
 enum Prepared {
     Chapter(String),
-    /// `mark` is the sentence's id and text hash, timed when its audio goes in (spec 23 §3.1).
+    /// `mark` is the sentence's id and text hash, timed when its audio goes in.
     Sentence {
         clip: Clip,
         chars: u64,

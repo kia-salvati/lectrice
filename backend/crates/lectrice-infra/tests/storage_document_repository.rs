@@ -226,7 +226,7 @@ fn saving_again_drops_a_saved_position_the_new_document_lacks() {
     assert_eq!(repository.find_summary(&saved.id).unwrap().unwrap().last_sentence_id, None);
 }
 
-/// C28: a removed document is hidden everywhere but `list_removed`, keeps its files and comes back when restored.
+/// A removed document is hidden everywhere but `list_removed`, keeps its files and comes back when restored.
 #[test]
 fn a_removed_document_is_hidden_until_restored() {
     let data_dir = TempDir::new().unwrap();
@@ -265,7 +265,7 @@ fn a_deleted_document_is_gone_with_its_folder() {
     repository.delete(&saved.id).unwrap();
 }
 
-/// C15: a document's disk use is its three files.
+/// A document's disk use is its three files.
 #[test]
 fn library_usage_is_the_size_of_the_three_files() {
     let data_dir = TempDir::new().unwrap();
@@ -278,7 +278,7 @@ fn library_usage_is_the_size_of_the_three_files() {
     assert_eq!(repository.library_usage().unwrap()[0].bytes, expected);
 }
 
-/// C27: the summary tells the cleaner version; a `meta.json` from before v0.2 gets it from `document.json`.
+/// The summary tells the cleaner version; a `meta.json` from before v0.2 gets it from `document.json`.
 #[test]
 fn the_summary_has_the_cleaner_version_also_for_old_meta_files() {
     let data_dir = TempDir::new().unwrap();

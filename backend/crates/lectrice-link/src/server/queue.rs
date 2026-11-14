@@ -1,6 +1,6 @@
 //! The phones' items waiting for the gate: urgent before fill, phones served in turn, each phone's items in order.
 //! A phone that keeps sending urgent items gets fill priority after `PHONE_URGENT_IN_A_ROW` of them, so it can't
-//! starve the computer's own read-ahead (security review S15).
+//! starve the computer's own read-ahead.
 
 use std::collections::{HashMap, VecDeque};
 

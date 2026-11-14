@@ -7,7 +7,7 @@ use tracing::info;
 
 use super::{FillState, HelperFill, NAME, Planned, estimated_ms};
 
-/// A Prepare range (file 24 §3.13, C21) the helper makes after the listener's plan, in playback order.
+/// A Prepare range (C21) the helper makes after the listener's plan, in playback order.
 pub(super) struct PrepareTarget {
     /// Book, cleaner version, engine and voice of the range (its `sentence_id` means nothing).
     pub(super) scope: AudioKey,
@@ -25,7 +25,7 @@ pub struct HelperPrepareProgress {
 }
 
 impl HelperFill {
-    /// Has the helper make these sentences of one book (a Prepare range, file 24 §3.13) after the listener's plan,
+    /// Has the helper make these sentences of one book (a Prepare range) after the listener's plan,
     /// replacing any earlier range. `scope` names the book, cleaner version, engine and voice. Survives a lost link:
     /// the range continues once the helper is back. `HelperUnreachable` when the helper can't make clips now.
     pub fn prepare(&self, scope: AudioKey, sentences: Vec<(SentenceId, String)>) -> AppResult<HelperPrepareProgress> {

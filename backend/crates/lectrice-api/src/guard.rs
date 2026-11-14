@@ -1,4 +1,4 @@
-//! Who may call the local web server (security review S2). Binding to loopback keeps other machines out, but not
+//! Who may call the local web server. Binding to loopback keeps other machines out, but not
 //! web pages in the user's own browser: a page on any site can send requests to `localhost`, and with DNS rebinding
 //! (the attacker's host name answering `127.0.0.1`) it can read the answers too. CORS only adds response headers; it
 //! never refuses a request. So every request is checked here before a route runs:

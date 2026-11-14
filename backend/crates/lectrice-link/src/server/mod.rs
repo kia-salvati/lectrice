@@ -1,9 +1,9 @@
-//! The computer's side (feature `server`, file 24 C48 for the link part): accepts paired phones on the listeners the
+//! The computer's side (feature `server`): accepts paired phones on the listeners the
 //! shell opened, makes their items one at a time through the shared [`CpuGate`], and sends the clips back. Blocking
 //! threads over `std::net`: an accept loop (also the housekeeping tick), one maker, and a reader + a writer per
 //! session. The shell plugs in its engines ([`EngineProvider`]), paired-phone store ([`PeerStore`]) and an observer.
 //!
-//! The listeners are the shell's choice (security review S5): bind only the addresses of the network the user turned
+//! The listeners are the shell's choice: bind only the addresses of the network the user turned
 //! the helper on for, never `0.0.0.0`.
 
 mod gate;

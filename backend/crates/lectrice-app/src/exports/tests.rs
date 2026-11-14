@@ -155,7 +155,7 @@ fn a_job_goes_from_queued_to_done_and_streams_every_sentence_with_its_chapter() 
     let download = GetAudioExportFile::new(setup.jobs.clone(), setup.library.reader(), setup.engine.clone()).run(&ctx(), queued.id).unwrap();
     assert_eq!((download.title.as_str(), download.voice_name.as_str(), download.format), ("Fake Book", "Heart", ExportFormat::M4b));
 
-    // Spec 23 §3.1: the file carries every spoken sentence, timed back to back from the 1x audio.
+    // The file carries every spoken sentence, timed back to back from the 1x audio.
     let maps = setup.exporter.maps();
     assert_eq!(maps.len(), 1);
     let map = &maps[0];
@@ -531,7 +531,7 @@ fn start_with(setup: &Setup, args: StartAudioExportArgs) -> AudioExport {
     setup.start.run(&ctx(), args).unwrap()
 }
 
-/// C10: chapter marks are timed from the 1x audio and divided by the speed; the stretched output is what the parts hold.
+/// Chapter marks are timed from the 1x audio and divided by the speed; the stretched output is what the parts hold.
 #[test]
 fn at_two_times_the_chapter_marks_are_halved_and_the_parts_shorter() {
     let setup = setup_with_settings(GatedEngine::open(), Arc::default(), ONE_SENTENCE_PARTS);
@@ -600,7 +600,7 @@ fn an_export_moved_to_shared_storage_is_not_replaced() {
     assert!(setup.store.get(&first.id).is_some());
 }
 
-/// C10: a resumed export takes its speed from the record.
+/// A resumed export takes its speed from the record.
 #[test]
 fn a_resumed_export_keeps_its_speed() {
     let setup = setup_with_settings(GatedEngine::new("Beta"), Arc::default(), ONE_SENTENCE_PARTS);
@@ -623,7 +623,7 @@ fn a_resumed_export_keeps_its_speed() {
     assert_eq!(begins, [0, 1, 2, 2, 3, 4, 5], "part 2 is made again, the finished ones are not");
 }
 
-/// C10 same-target rule: another speed while one is paused is a new job.
+/// Another speed while one is paused is a new job.
 #[test]
 fn another_speed_of_a_paused_export_is_a_new_job() {
     let setup = setup_with_settings(GatedEngine::new("Beta"), Arc::default(), ONE_SENTENCE_PARTS);
@@ -670,7 +670,7 @@ fn short_file_names_keep_the_1_0_name_for_whole_book_1x_exports() {
     assert_eq!(setup.exporter.assembled()[0].file_stem, "af_heart");
 }
 
-/// C12: an export for another engine waits in the queue; the loaded engine's exports run.
+/// An export for another engine waits in the queue; the loaded engine's exports run.
 #[test]
 fn an_export_for_another_engine_waits() {
     let setup = setup();
@@ -687,7 +687,7 @@ fn an_export_for_another_engine_waits() {
     assert!(!setup.store.get(&other.id).unwrap().export.waiting_for_engine, "never stored");
 }
 
-/// C24: out of space while writing a part pauses the export and keeps the finished parts; only the user resumes it.
+/// Out of space while writing a part pauses the export and keeps the finished parts; only the user resumes it.
 #[test]
 fn out_of_space_while_writing_pauses_and_keeps_the_finished_parts() {
     let setup = setup_with_settings(GatedEngine::open(), Arc::default(), ONE_SENTENCE_PARTS);
@@ -713,7 +713,7 @@ fn out_of_space_while_writing_pauses_and_keeps_the_finished_parts() {
     assert_eq!(setup.exporter.events()[0], Event::BeginPart { index: 2, sample_rate: SAMPLE_RATE });
 }
 
-/// C24: out of space while joining the parts pauses at the assemble stage; resuming only joins them.
+/// Out of space while joining the parts pauses at the assemble stage; resuming only joins them.
 #[test]
 fn out_of_space_while_assembling_pauses_and_resuming_only_assembles() {
     let setup = setup_with_settings(GatedEngine::open(), Arc::default(), ONE_SENTENCE_PARTS);
@@ -735,7 +735,7 @@ fn out_of_space_while_assembling_pauses_and_resuming_only_assembles() {
     assert!(matches!(&events[0], Event::Assemble { parts, .. } if parts == &[0, 1, 2, 3]));
 }
 
-/// C24: user pauses wait for the user; system pauses continue with "resume what you can".
+/// User pauses wait for the user; system pauses continue with "resume what you can".
 #[test]
 fn only_system_and_engine_switch_pauses_resume_by_themselves() {
     let setup = setup_with(GatedEngine::new("Intro"), Arc::default());
@@ -755,7 +755,7 @@ fn only_system_and_engine_switch_pauses_resume_by_themselves() {
     setup.engine.release();
 }
 
-/// C30: a range export reads only its sentences, opens with its chapter and names the file and title after it.
+/// A range export reads only its sentences, opens with its chapter and names the file and title after it.
 #[test]
 fn a_range_export_covers_only_its_sentences() {
     let setup = setup();
@@ -782,7 +782,7 @@ fn a_range_export_covers_only_its_sentences() {
     }
 }
 
-/// C18 + C30: sizes from the text, the cached part, and cumulative offsets per TOC entry and per part.
+/// Sizes from the text, the cached part, and cumulative offsets per TOC entry and per part.
 #[test]
 fn an_estimate_sizes_the_export_without_making_audio() {
     let setup = setup_with_settings(GatedEngine::open(), Arc::default(), ONE_SENTENCE_PARTS);
@@ -815,7 +815,7 @@ fn an_estimate_sizes_the_export_without_making_audio() {
     assert!(setup.engine.spoken().is_empty());
 }
 
-/// C19: finished exports can be deleted (file and record); unfinished ones must be cancelled first.
+/// Finished exports can be deleted (file and record); unfinished ones must be cancelled first.
 #[test]
 fn a_finished_export_is_deleted_with_its_file_and_an_unfinished_one_is_refused() {
     let setup = setup_with(GatedEngine::new("Intro"), Arc::default());
@@ -833,7 +833,7 @@ fn a_finished_export_is_deleted_with_its_file_and_an_unfinished_one_is_refused()
     assert!(setup.jobs.get(&running.id).is_none() && setup.store.get(&running.id).is_none());
 }
 
-/// C19: a file moved to shared storage is only a handle afterwards; deleting the record leaves it to the shell.
+/// A file moved to shared storage is only a handle afterwards; deleting the record leaves it to the shell.
 #[test]
 fn a_saved_export_keeps_only_its_shared_handle() {
     let setup = setup();
@@ -869,7 +869,7 @@ fn every_export_is_listed_across_documents() {
     assert_eq!(all.iter().map(|export| export.id.clone()).collect::<Vec<_>>(), [b.id, a.id]);
 }
 
-/// C28: purging a document cancels its unfinished exports and keeps the finished ones unless asked.
+/// Purging a document cancels its unfinished exports and keeps the finished ones unless asked.
 #[test]
 fn purging_a_document_cancels_its_unfinished_exports_and_keeps_finished_ones() {
     let store = Arc::new(MemoryRecordStore::default());
