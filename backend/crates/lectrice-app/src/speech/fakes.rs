@@ -1,14 +1,96 @@
-//! Fakes for the speech tests: an engine that can be held on one text, an in-memory cache and a tiny encoder.
+//! Fakes for the speech tests: an engine that can be held on one text, an in-memory cache, a tiny encoder and a
+//! helper computer the test drives by hand.
 
 use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Condvar, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Condvar, Mutex};
 
 use lectrice_domain::{
     AppError, AppResult, Audio, AudioCache, AudioEncoder, AudioEviction, AudioKey, AudioRetention, CacheUsage, Document, DocumentBytes, DocumentCacheUsage,
-    DocumentId, DocumentReader, DocumentSummary, ErrorName, ListOptions, Page, SentenceId, SpeechEngine, SpeechRequest, Timestamp, Voice, VoiceGender, VoiceId,
-    VoiceLanguage,
+    DocumentId, DocumentReader, DocumentSummary, ErrorName, HelperEngine, HelperEvent, HelperEvents, HelperItem, HelperState, ListOptions, Page, SentenceId,
+    SpeechEngine, SpeechHelper, SpeechRequest, Timestamp, Voice, VoiceGender, VoiceId, VoiceLanguage,
 };
+
+/// The fake engine's front-end revision.
+pub(crate) const REVISION: &str = "fake-rev-1";
+
+/// A helper computer the test drives: it records what the app asks for, and the test sends its events.
+#[derive(Default)]
+pub(crate) struct FakeHelper {
+    state: Mutex<Option<HelperState>>,
+    events: Mutex<Option<Arc<dyn HelperEvents>>>,
+    opened: Mutex<Option<HelperEngine>>,
+    made: Mutex<Vec<HelperItem>>,
+    cancels: AtomicUsize,
+}
+
+impl FakeHelper {
+    /// Sends an event to the app (as the adapter's thread would); a state event also becomes this helper's state.
+    pub fn emit(&self, event: HelperEvent) {
+        if let HelperEvent::State(state) = &event {
+            *self.state.lock().unwrap() = Some(state.clone());
+        }
+        let events = self.events.lock().unwrap().clone();
+        if let Some(events) = events {
+            events.on_event(event);
+        }
+    }
+
+    pub fn connect(&self) {
+        self.emit(HelperEvent::State(HelperState::Connected));
+    }
+
+    pub fn opened(&self) -> Option<HelperEngine> {
+        self.opened.lock().unwrap().clone()
+    }
+
+    pub fn made(&self) -> Vec<HelperItem> {
+        self.made.lock().unwrap().clone()
+    }
+
+    pub fn take_made(&self) -> Vec<HelperItem> {
+        std::mem::take(&mut *self.made.lock().unwrap())
+    }
+
+    pub fn cancels(&self) -> usize {
+        self.cancels.load(Ordering::SeqCst)
+    }
+
+    /// The clip the fake engine would make for `item`, sent back as the helper's.
+    pub fn deliver(&self, item: &HelperItem) {
+        let samples = vec![0.1; item.text.len() * SAMPLES_PER_CHAR];
+        self.emit(HelperEvent::Clip { item_id: item.item_id, audio: Audio { samples, sample_rate: SAMPLE_RATE } });
+    }
+}
+
+impl SpeechHelper for FakeHelper {
+    fn state(&self) -> HelperState {
+        self.state.lock().unwrap().clone().unwrap_or(HelperState::Off)
+    }
+
+    fn open(&self, engine: HelperEngine, events: Arc<dyn HelperEvents>) -> AppResult<()> {
+        *self.opened.lock().unwrap() = Some(engine);
+        *self.events.lock().unwrap() = Some(events);
+        Ok(())
+    }
+
+    fn make(&self, items: Vec<HelperItem>) -> AppResult<()> {
+        if !self.state().makes_clips() {
+            return Err(AppError::new(ErrorName::HelperUnreachable));
+        }
+        self.made.lock().unwrap().extend(items);
+        Ok(())
+    }
+
+    fn cancel_all(&self) -> AppResult<()> {
+        self.cancels.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn close(&self) {
+        *self.state.lock().unwrap() = Some(HelperState::Off);
+    }
+}
 
 pub(crate) const ENGINE_ID: &str = "fake-engine";
 pub(crate) const SAMPLE_RATE: u32 = 24_000;
@@ -31,12 +113,13 @@ struct Gate {
 }
 
 /// Records every text it speaks. With a gate text, it blocks on that text until [`GatedEngine::release`].
-/// Texts `s900` and `s901` fail and panic.
+/// Texts `s900` and `s901` fail and panic. A [`GatedEngine::cold`] one reports itself unloaded until it first speaks.
 pub(crate) struct GatedEngine {
     gate_text: Option<String>,
     gate: Mutex<Gate>,
     changed: Condvar,
     spoken: Mutex<Vec<String>>,
+    loaded: AtomicBool,
 }
 
 impl GatedEngine {
@@ -48,7 +131,11 @@ impl GatedEngine {
     }
 
     pub fn open() -> Self {
-        Self { gate_text: None, gate: Mutex::default(), changed: Condvar::new(), spoken: Mutex::default() }
+        Self { gate_text: None, gate: Mutex::default(), changed: Condvar::new(), spoken: Mutex::default(), loaded: AtomicBool::new(true) }
+    }
+
+    pub fn cold() -> Self {
+        Self { loaded: AtomicBool::new(false), ..Self::open() }
     }
 
     pub fn wait_until_blocked(&self) {
@@ -96,7 +183,16 @@ impl SpeechEngine for GatedEngine {
         SAMPLE_RATE
     }
 
+    fn revision(&self) -> &str {
+        REVISION
+    }
+
+    fn is_loaded(&self) -> bool {
+        self.loaded.load(Ordering::SeqCst)
+    }
+
     fn synthesize(&self, request: SpeechRequest) -> AppResult<Audio> {
+        self.loaded.store(true, Ordering::SeqCst);
         self.hold_if_gated(&request.text);
         if request.text == format!("s{}", Self::PANICKING) {
             panic!("fake engine panic");
@@ -118,6 +214,7 @@ pub(crate) struct MemoryCache {
     puts: AtomicUsize,
     refreshes: AtomicUsize,
     retained: Mutex<Vec<(AudioKey, f64)>>,
+    pins: Mutex<Vec<(DocumentId, u32, u32)>>,
 }
 
 impl MemoryCache {
@@ -135,6 +232,10 @@ impl MemoryCache {
 
     pub fn retained(&self) -> Vec<(AudioKey, f64)> {
         self.retained.lock().unwrap().clone()
+    }
+
+    pub fn pins(&self) -> Vec<(DocumentId, u32, u32)> {
+        self.pins.lock().unwrap().clone()
     }
 }
 
@@ -177,6 +278,18 @@ impl AudioRetention for MemoryCache {
 
     fn refresh(&self) -> AppResult<()> {
         self.refreshes.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn pin(&self, scope: &AudioKey, from: SentenceId, to: SentenceId) -> AppResult<()> {
+        let mut pins = self.pins.lock().unwrap();
+        pins.retain(|(document_id, _, _)| *document_id != scope.document_id);
+        pins.push((scope.document_id.clone(), from.0, to.0));
+        Ok(())
+    }
+
+    fn unpin(&self, document_id: &DocumentId) -> AppResult<()> {
+        self.pins.lock().unwrap().retain(|(id, _, _)| id != document_id);
         Ok(())
     }
 }

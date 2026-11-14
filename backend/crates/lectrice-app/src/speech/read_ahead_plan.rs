@@ -2,10 +2,10 @@
 
 use lectrice_domain::{Block, Document, Sentence, SentenceId};
 
+use crate::units::{MILLIS_PER_SECOND, SECONDS_PER_MINUTE};
+
 /// Speaking rate at 1x (spec §4, measured): text length → estimated audio length.
 pub(crate) const CHARS_PER_SECOND: f64 = 18.0;
-pub(crate) const SECONDS_PER_MINUTE: f64 = 60.0;
-pub(crate) const MILLIS_PER_SECOND: f64 = 1000.0;
 
 /// Estimated 1x audio of `chars` spoken characters, in whole milliseconds.
 pub(crate) fn chars_to_ms(chars: u64) -> u64 {
@@ -230,7 +230,7 @@ mod tests {
         assert_eq!(plan.ids(), [SentenceId(4)]);
     }
 
-    /// C25: only the unbroken run of cached sentences after the current one counts.
+    /// Only the unbroken run of cached sentences after the current one counts.
     #[test]
     fn ready_ahead_counts_the_cached_run_after_the_sentence() {
         let document = uniform_document(10, 2);

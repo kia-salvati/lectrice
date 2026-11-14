@@ -142,6 +142,21 @@ fn the_window_deletes_the_farthest_behind_first() {
 }
 
 #[test]
+fn a_pinned_range_stays_out_of_the_window_until_unpinned() {
+    let dir = TempDir::new().unwrap();
+    let cache = FsAudioCache::open(dir.path(), NO_CAP).unwrap();
+    put_clips(&cache, 1, "af_heart", 0..10);
+    cache.pin(&clip_key(1, "af_heart", 0), SentenceId(7), SentenceId(9)).unwrap();
+
+    cache.retain_around(&clip_key(1, "af_heart", 2), 4.0).unwrap();
+
+    assert_eq!(cached_sentences(&cache, 1, "af_heart", 0..10), [2, 3, 4, 5, 7, 8, 9]);
+    cache.unpin(&clip_key(1, "af_heart", 0).document_id).unwrap();
+    cache.retain_around(&clip_key(1, "af_heart", 2), 4.0).unwrap();
+    assert_eq!(cached_sentences(&cache, 1, "af_heart", 0..10), [2, 3, 4, 5]);
+}
+
+#[test]
 fn after_everything_behind_the_farthest_ahead_go() {
     let dir = TempDir::new().unwrap();
     let cache = FsAudioCache::open(dir.path(), NO_CAP).unwrap();
@@ -282,7 +297,7 @@ fn a_miss_racing_a_put_keeps_the_new_clip() {
     assert!((cache.retain_around(&clip_key(1, "af_heart", 0), 1e9).unwrap().kept_seconds - 300.0).abs() < 1e-6);
 }
 
-/// C29: the system may delete clips at any time; a vanished clip is a miss and can be put again.
+/// The system may delete clips at any time; a vanished clip is a miss and can be put again.
 #[test]
 fn clips_deleted_behind_the_caches_back_are_misses_and_refresh_forgets_them() {
     let dir = TempDir::new().unwrap();
@@ -299,7 +314,7 @@ fn clips_deleted_behind_the_caches_back_are_misses_and_refresh_forgets_them() {
     assert!(cache.get(&keys[1]).unwrap().is_some(), "folders the system removed are made again");
 }
 
-/// C29: an empty clip (the system cleared it halfway) is never returned as audio.
+/// An empty clip (the system cleared it halfway) is never returned as audio.
 #[test]
 fn an_empty_clip_is_a_miss_and_is_deleted() {
     let dir = TempDir::new().unwrap();
@@ -312,7 +327,7 @@ fn an_empty_clip_is_a_miss_and_is_deleted() {
     assert!(!clip_path(dir.path(), &key).exists());
 }
 
-/// C15: usage per document, and a clear deletes every clip.
+/// Usage per document, and a clear deletes every clip.
 #[test]
 fn usage_is_counted_per_document_and_clear_empties_the_cache() {
     let dir = TempDir::new().unwrap();
@@ -333,7 +348,7 @@ fn usage_is_counted_per_document_and_clear_empties_the_cache() {
     assert!(cached_sentences(&cache, 1, "af_heart", 0..2).is_empty());
 }
 
-/// C28: removing a document's audio deletes every cleaner version, engine and voice of it, and only of it.
+/// Removing a document's audio deletes every cleaner version, engine and voice of it, and only of it.
 #[test]
 fn removing_a_documents_audio_deletes_all_of_it_and_nothing_else() {
     let dir = TempDir::new().unwrap();
@@ -353,7 +368,7 @@ fn removing_a_documents_audio_deletes_all_of_it_and_nothing_else() {
     assert_eq!(cache.usage().unwrap().clips, 1);
 }
 
-/// C29: the cache can live in its own folder, apart from the library.
+/// The cache can live in its own folder, apart from the library.
 #[test]
 fn the_cache_root_is_its_own_folder() {
     let dir = TempDir::new().unwrap();
@@ -363,4 +378,29 @@ fn the_cache_root_is_its_own_folder() {
 
     assert!(clip_path(&cache_dir, &key).is_file());
     assert_eq!(FsAudioCache::open(&cache_dir, NO_CAP).unwrap().usage().unwrap().clips, 1);
+}
+
+/// The first writer of a sentence wins, even when two writers race; the clip never changes afterwards.
+#[test]
+fn put_if_absent_keeps_the_first_clip() {
+    let dir = TempDir::new().unwrap();
+    let cache = Arc::new(FsAudioCache::open(dir.path(), NO_CAP).unwrap());
+    let key = clip_key(1, "af_heart", 3);
+
+    assert!(cache.put_if_absent(&key, &one_second_clip(0.1)).unwrap());
+    assert!(!cache.put_if_absent(&key, &one_second_clip(0.2)).unwrap());
+
+    assert_eq!(cache.get(&key).unwrap().unwrap(), one_second_clip(0.1));
+    assert_eq!(cache.usage().unwrap().clips, 1);
+
+    let racing = clip_key(1, "af_heart", 4);
+    let writers: Vec<_> = (0..8)
+        .map(|writer| {
+            let (cache, racing) = (cache.clone(), racing.clone());
+            std::thread::spawn(move || cache.put_if_absent(&racing, &one_second_clip(0.01 * writer as f32)).unwrap())
+        })
+        .collect();
+    let winners = writers.into_iter().map(|writer| writer.join().unwrap()).filter(|stored| *stored).count();
+    assert_eq!(winners, 1);
+    assert!(cache.contains(&racing).unwrap());
 }

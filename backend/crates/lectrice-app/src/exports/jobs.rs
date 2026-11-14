@@ -20,8 +20,9 @@ use lectrice_domain::{
 };
 use tracing::{error, info, warn};
 
-use super::run::{ExportRunner, ExportRunnerDeps, FinishedPart, Progress, RunOutcome, RunReport};
+use super::run::{ExportRunner, ExportRunnerDeps, FinishedFile, FinishedPart, Progress, RunOutcome, RunReport};
 use crate::speech::SpeechWorker;
+use crate::sync::lock;
 
 const NAME: &str = "ExportJobs";
 const THREAD_NAME: &str = "export-runner";
@@ -223,6 +224,7 @@ impl ExportJobs {
             parts_total: new.parts_total,
             estimated_seconds_left: None,
             file_bytes: None,
+            duration_seconds: None,
             location: None,
             waiting_for_engine: false,
         };
@@ -234,6 +236,8 @@ impl ExportJobs {
             parts: Vec::new(),
             chapters: Vec::new(),
             source_samples: 0,
+            sentences: Vec::new(),
+            marked_parts: 0,
         };
         self.shared.store.save(&record)?;
         info!(service = NAME, export_id = %id, doc_id = %export.document_id, voice_id = %export.voice_id, format = export.format.extension(), engine_id = %export.engine_id, speed_percent = export.speed.percent(), ranged = export.range.is_some(), sentences_total = export.sentences_total, parts_total = export.parts_total, "export job saved and queued");
@@ -506,7 +510,7 @@ impl Registry {
 
 impl Shared {
     fn lock(&self) -> MutexGuard<'_, Registry> {
-        self.registry.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.registry)
     }
 
     /// The export as callers see it: whether it waits for another engine is worked out here.
@@ -586,6 +590,8 @@ impl Shared {
         let Some(job) = registry.jobs.get_mut(id) else { return };
         job.record.parts.push(finished.part);
         job.record.chapters.extend(finished.chapters);
+        job.record.sentences.extend(finished.sentences);
+        job.record.marked_parts += 1;
         job.record.source_samples = finished.source_samples;
         job.record.export.parts_done = u32::try_from(job.record.parts.len()).unwrap_or(u32::MAX);
         self.save_or_stop(job);
@@ -611,7 +617,7 @@ impl Shared {
         let shutdown = registry.shutdown;
         // With 1.0 file names an older finished export can own the same path.
         let file_owned_elsewhere = match &outcome {
-            RunOutcome::Done(file) => {
+            RunOutcome::Done(FinishedFile { file, .. }) => {
                 registry.jobs.values().any(|job| job.record.export.id != *id && app_storage_path(&job.record).as_ref() == Some(&file.path))
             }
             _ => false,
@@ -621,9 +627,9 @@ impl Shared {
         let forget = job.forget_when_stopped;
         let record = &mut job.record;
         record.export.estimated_seconds_left = None;
-        match outcome {
-            _ if record.export.status == ExportStatus::Cancelled => {
-                if let RunOutcome::Done(file) = &outcome
+        match completion(record.export.status, outcome, out_of_space, shutdown) {
+            Completion::StoppedAfterCancel(finished) => {
+                if let Some(FinishedFile { file, .. }) = &finished
                     && !file_owned_elsewhere
                 {
                     self.delete_unwanted_file(id, &file.path);
@@ -631,40 +637,40 @@ impl Shared {
                 self.discard_parts(record);
                 info!(service = NAME, export_id = %id, sentences_done = record.export.sentences_done, "export stopped after cancel");
             }
-            // The file is complete, so a pause or shutdown that came during the last step changes nothing.
-            RunOutcome::Done(file) => {
+            Completion::Done(FinishedFile { file, duration_seconds }) => {
                 record.export.status = ExportStatus::Done;
                 record.export.paused_by = None;
                 record.export.sentences_done = record.export.sentences_total;
                 record.export.estimated_seconds_left = Some(0);
                 record.export.file_bytes = Some(file.size_bytes);
+                record.export.duration_seconds = Some(duration_seconds);
                 record.export.location = Some(ExportLocation::AppStorage { path: file.path.clone() });
                 record.file = Some(file.path);
                 self.discard_parts(record);
-                info!(service = NAME, export_id = %id, bytes = file.size_bytes, "export done");
+                info!(service = NAME, export_id = %id, bytes = file.size_bytes, duration_seconds, "export done");
             }
-            _ if record.export.status != ExportStatus::Running => {
+            Completion::StoppedAfterPause => {
                 info!(service = NAME, export_id = %id, status = ?record.export.status, parts_done = record.export.parts_done, "export stopped after pause");
             }
-            RunOutcome::Failed(failure) if failure.primary() == ErrorName::StorageFull => {
+            Completion::PausedForSpace(Some(failure)) => {
                 pause_for_space(record);
                 warn!(service = NAME, export_id = %id, stage = ?record.export.stage, parts_done = record.export.parts_done, error = %failure, "export paused, out of space");
             }
-            RunOutcome::Stopped if out_of_space => {
+            Completion::PausedForSpace(None) => {
                 pause_for_space(record);
                 warn!(service = NAME, export_id = %id, parts_done = record.export.parts_done, "export paused, out of space saving its record");
             }
-            _ if shutdown => {
+            Completion::PausedByShutdown => {
                 record.export.status = ExportStatus::Paused;
                 record.export.paused_by = Some(PauseReason::System);
                 info!(service = NAME, export_id = %id, parts_done = record.export.parts_done, "export paused by shutdown");
             }
-            RunOutcome::Stopped => {
+            Completion::PausedUnasked => {
                 record.export.status = ExportStatus::Paused;
                 record.export.paused_by = Some(PauseReason::System);
                 warn!(service = NAME, export_id = %id, "export stopped without a request; paused");
             }
-            RunOutcome::Failed(failure) => {
+            Completion::Failed(failure) => {
                 record.export.status = ExportStatus::Failed;
                 record.export.error = Some(failure.primary());
                 self.discard_parts(record);
@@ -691,6 +697,8 @@ impl Shared {
         let parts = record.parts.len();
         record.parts.clear();
         record.chapters.clear();
+        record.sentences.clear();
+        record.marked_parts = 0;
         record.source_samples = 0;
         match self.exporter.discard_parts(&record.export.id) {
             Ok(()) => info!(service = NAME, export_id = %record.export.id, parts, "export parts deleted"),
@@ -737,6 +745,37 @@ impl Shared {
 }
 
 /// Keeps every finished part, so nothing is made again once there is room.
+/// What a run's end means for its export, decided in this order.
+#[derive(Debug)]
+enum Completion {
+    /// Cancelled while it ran: whatever it made (maybe a whole file) is thrown away.
+    StoppedAfterCancel(Option<FinishedFile>),
+    /// The file is complete, so a pause or shutdown that came during the last step changes nothing.
+    Done(FinishedFile),
+    /// Paused by request while it ran: the record already says so.
+    StoppedAfterPause,
+    /// The disk filled up (the error, or `None` when only saving the record failed).
+    PausedForSpace(Option<AppError>),
+    PausedByShutdown,
+    /// Stopped although nobody asked; it can be resumed.
+    PausedUnasked,
+    Failed(AppError),
+}
+
+fn completion(status: ExportStatus, outcome: RunOutcome, out_of_space: bool, shutdown: bool) -> Completion {
+    match outcome {
+        RunOutcome::Done(finished) if status == ExportStatus::Cancelled => Completion::StoppedAfterCancel(Some(finished)),
+        _ if status == ExportStatus::Cancelled => Completion::StoppedAfterCancel(None),
+        RunOutcome::Done(finished) => Completion::Done(finished),
+        _ if status != ExportStatus::Running => Completion::StoppedAfterPause,
+        RunOutcome::Failed(failure) if failure.primary() == ErrorName::StorageFull => Completion::PausedForSpace(Some(failure)),
+        RunOutcome::Stopped if out_of_space => Completion::PausedForSpace(None),
+        _ if shutdown => Completion::PausedByShutdown,
+        RunOutcome::Stopped => Completion::PausedUnasked,
+        RunOutcome::Failed(failure) => Completion::Failed(failure),
+    }
+}
+
 fn pause_for_space(record: &mut ExportRecord) {
     record.export.status = ExportStatus::Paused;
     record.export.paused_by = Some(PauseReason::StorageFull);
@@ -768,5 +807,45 @@ fn run_loop(shared: &Shared, runner: &ExportRunner) {
         let id = claimed.record.export.id.clone();
         let outcome = runner.run(&claimed.record, &claimed.stop, &mut JobReport { shared, id: &id });
         shared.complete(&id, outcome);
+    }
+}
+
+#[cfg(test)]
+mod completion_tests {
+    use std::path::PathBuf;
+
+    use lectrice_domain::ExportedFile;
+
+    use super::*;
+
+    fn done() -> RunOutcome {
+        RunOutcome::Done(FinishedFile { file: ExportedFile { path: PathBuf::from("book.m4b"), size_bytes: 1 }, duration_seconds: 1 })
+    }
+
+    fn failed(name: ErrorName) -> RunOutcome {
+        RunOutcome::Failed(AppError::new(name))
+    }
+
+    /// Every outcome against every state that changes the answer, in the order the rules apply.
+    #[test]
+    fn a_runs_end_maps_to_its_completion() {
+        use ExportStatus::{Cancelled, Paused, Running};
+        let cases: [(ExportStatus, RunOutcome, bool, bool, &str); 11] = [
+            (Cancelled, done(), false, false, "StoppedAfterCancel(Some"),
+            (Cancelled, RunOutcome::Stopped, true, true, "StoppedAfterCancel(None)"),
+            (Paused, done(), false, true, "Done("),
+            (Running, done(), true, true, "Done("),
+            (Paused, failed(ErrorName::StorageFull), true, false, "StoppedAfterPause"),
+            (Running, failed(ErrorName::StorageFull), false, true, "PausedForSpace(Some"),
+            (Running, RunOutcome::Stopped, true, true, "PausedForSpace(None)"),
+            (Running, RunOutcome::Stopped, false, true, "PausedByShutdown"),
+            (Running, failed(ErrorName::Internal), false, true, "PausedByShutdown"),
+            (Running, RunOutcome::Stopped, false, false, "PausedUnasked"),
+            (Running, failed(ErrorName::Internal), false, false, "Failed("),
+        ];
+        for (status, outcome, out_of_space, shutdown, expected) in cases {
+            let completion = format!("{:?}", completion(status, outcome, out_of_space, shutdown));
+            assert!(completion.starts_with(expected), "{status:?}, out of space {out_of_space}, shutdown {shutdown}: {completion}");
+        }
     }
 }

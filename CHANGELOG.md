@@ -8,10 +8,171 @@ All notable changes to Lectrice are listed here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The version in `backend/Cargo.toml`
 (`[workspace.package]`) equals the release tag.
 
-"Core" is the shared Rust library (`lectrice-domain`, `lectrice-app`, `lectrice-infra`) that the Android app
-pulls by tag. While in beta (0.x), a change to a core trait, public type or saved format raises the minor version.
+"Core" is the shared Rust library (`lectrice-domain`, `lectrice-app`, `lectrice-infra`, `lectrice-link`) that the
+Android and desktop apps pull by tag. While in beta (0.x), a change to a core trait, public type or saved format raises the minor version.
 
 ## [Unreleased]
+
+### Core
+
+#### Added
+- `KokoroSpeechEngine::voice_catalog()`: the voices without loading a model (for a voice list before the engine is ready).
+- Prepare jobs (C21): `SpeechServices.prepare` (`PrepareJobs`: `start`, `stop`, `cancel`, `status`) makes a range of a book
+  into the sentence cache at export priority, one sentence at a time, skipping cached ones, and pins the range.
+- `AudioRetention::pin` / `unpin` (default: no pins): pinned clips are neither counted in nor deleted by
+  `retain_around`'s window. `FsAudioCache` implements them (in memory; the shell pins again after a restart).
+- Audiobook source (Android spec 23, C35–C39): M4B exports carry a **Lectrice map** (a top-level `uuid` box with JSON:
+  document id, cleaner version, engine, voice, speed, and every spoken sentence's id, text hash and start time).
+  `lectrice_domain::audiobook` (`LectriceMap`, `text_hash`, `match_audiobook`: sentence follow-along for the same book,
+  remapped by hash across cleaner versions, else chapter titles), `lectrice_infra::export::mp4_map` (`append_map`,
+  `read_audiobook`: map, length, `chpl` chapters, title). New error names `AudiobookNotLectrice` 3101,
+  `AudiobookOtherBook` 3102, `AudiobookUnreadable` 3103.
+- New crate **`lectrice-link`** (Android spec 24, C40–C41; desktop helper): wire protocol v1 (`postcard` messages, u16
+  framing, fragment joining, limits), SPAKE2 + Noise `XXpsk3` pairing on a 6-digit code (3 wrong codes close the window,
+  10 per hour start a 10-minute wait, stalled attempts free their slot), Noise `IK` sessions with pinned keys, FLAC clips
+  (`flacenc` / `claxon`, bit-exact with the WAV encoder's PCM16), "LAN only" address rule. Features: `client` (the phone:
+  `pair`, `Session`), `server` (the computer: `Server` over shell-bound listeners, `EngineProvider` / `ClipEngine` /
+  `PeerStore` ports, `CpuGate` priorities, per-phone item budget), `testing` (`FaultyLink` proxy). Tests: cacophony
+  Noise vectors, a recorded SPAKE2 vector, end-to-end client↔server, link-drop tests, fuzz smoke (+ `fuzz/` targets).
+- Computer helper in the core (Android spec 24, C42–C48, milestone H2):
+  - `lectrice_domain::SpeechHelper` port (`state`, `open`, `make`, `cancel_all`, `close`; no network words) with
+    `HelperEngine`, `HelperItem` (its `Debug` prints the text length only), `HelperState`, `HelperEvent`, `HelperEvents`.
+  - `SpeechEngine::revision()` (default `""`); `KokoroSpeechEngine::REVISION` = `"sherpa-onnx-1.13.8/kokoro-1"` and
+    `KokoroSpeechEngine::SAMPLE_RATE`. Clips from elsewhere are used only when id, revision and sample rate match.
+  - `AudioCache::put_if_absent` (default: `get` then `put`); `FsAudioCache` stores without replacing in one atomic step
+    (`persist_noclobber`), so of the phone and its computer the first writer wins.
+  - `lectrice_app::speech::HelperFill`: plans 30 listening-minutes ahead (`HELPER_AHEAD_MINUTES`), asks for the
+    uncached sentences nearest first within 12 items / 3 minutes in flight, stores clips through the normal encoder
+    and cache, cancels the computer's queue on a jump (at most the item being made is wasted), and leaves refused items
+    to the phone. `UrgentWait` and `HELPER_NOW_GRACE` (1.5 s): a miss while connected goes to the computer as urgent,
+    then races the local engine. `lost_read_ahead_minutes` (green phones keep their setting, others take 30 minutes).
+  - `ReadAhead::pause_for_helper` / `resume` / `is_paused`; `ReadAheadOutcome.paused`.
+  - `SynthesisGate` port and `SpeechWorker::start_gated`: each job takes its turn at a shell's CPU gate with its own
+    priority (the desktop ranks its `Now`, read-ahead and exports against the phones' items).
+  - `services::assemble_with(adapters, settings, SpeechOptions { gate, helper, helper_wait })`; `assemble` is
+    `assemble_with` with the defaults. `SpeechTicket::wait_timeout`.
+  - `lectrice_infra::DeferredSpeechEngine` (+ `KokoroSpeechEngine::deferred`): id, revision, voices and sample rate
+    without loading the model; loads on the first sentence or `preload`, can `unload`, refuses a model that isn't the
+    promised one.
+  - `lectrice_infra::helper::LinkSpeechHelper` (feature `helper-client`, off by default): the `SpeechHelper` over
+    `lectrice-link`'s client with reconnects (1, 2, 5, 10, 30, then every 60 s; `retry_now`, `set_addresses`), the
+    engine check on `Ready`, and `registry_name`.
+  - `lectrice-link`: `client::SocketFactory` with `Session::connect_via` / `pair_via` (Android binds the socket to the
+    Wi-Fi network; the link still checks the address before and the peer after), `DirectSockets`,
+    `limits::reconnect_delay`, `LinkErrorName::HelperBusy` and `LinkErrorName::ALL`.
+  - Prepare through the computer (file 24 §3.13): `PrepareJobs::start_on_helper` sends a pinned range to
+    `HelperFill::prepare` (made after the listener's own plan, kept across a lost link; `stop_prepare`,
+    `prepare_progress` → `HelperPrepareProgress`); `PrepareJobs::status` reports either kind, `on_helper` tells which.
+    **Breaking:** `PrepareDeps` gains `helper`.
+  - Registry names (C47): `HelperNotPaired` 5001, `HelperPairingFailed` 5002, `HelperUnreachable` 5003,
+    `HelperModelMissing` 5004, `HelperIncompatible` 5005, `HelperBusy` 5006.
+  - Tests: the link-drop simulator on a virtual clock (1 000 random runs, no gap, file 24 §13 assertions 1, 3, 4, 5,
+    6) and the helper end to end over real sockets through `FaultyLink` (`lectrice-infra/tests/helper_link.rs`).
+
+#### Changed
+- **Breaking:** `SpeechServices` gains `prepare` and `helper`; `SpeakSentenceDeps` gains `helper` and `helper_wait`.
+- `SpeakSentence` and the read-ahead store clips with `put_if_absent`; when another producer stored the sentence
+  first, its clip is the one returned.
+- The test profile builds `lectrice-app` optimised (the simulator's thousand runs).
+- `AudioExporter` gains `attach_map` (default: adds nothing). `FfmpegExporter` implements it for M4B; a shell that wraps
+  an exporter must forward it (the desktop's `SwappableExporter`) or its files carry no map.
+- `ExportRecord` gains `sentences` and `marked_parts` (serde defaults; a job resumed from parts made before this
+  version gets no map).
+- **Breaking:** `LinkError::PairingFailed` carries `PairingFailure` (`WrongCode`, `NoCodeShowing`) instead of a text;
+  a shell tells the wrong-code screen from "no code showing" by the variant.
+- The speech worker makes `Now` jobs lowest sentence first. While nobody listens (no sentence asked for within
+  `LISTENER_IDLE_AFTER`, 60 s; `SpeechWorker::note_listener`, which `SpeakSentence` calls), exports go before the
+  read-ahead and the read-ahead takes its `SynthesisGate` turn at export priority, so a paused player holds up neither
+  an export nor a phone's fill.
+- `Debug` of `Document`, `Block`, `Sentence`, `SpeechRequest`, `Audio` and `PeerRecord` shows ids, counts and lengths,
+  never book text, samples or a device name.
+- `STARTUP_REQUEST_ID` is exported from `lectrice-app`; `LinkSpeechHelper::with_reconnect_schedule` takes another
+  reconnect schedule. The workspace license field reads `MIT OR Apache-2.0`, like the license files.
+- The book-based tests read the books' file names, expected titles and looked-for text from the gitignored
+  `test-data/books/expected.json`, print `skipped: no local book fixtures` without it, and take `LECTRICE_TEST_DATA`.
+
+#### Fixed
+- **The phone's model no longer loads in the first-sentence races of a helper session (H4 on the S10+, H5).**
+  (a) Play pressed while the link was still connecting (~100 ms): the miss went straight to the local engine and the
+  local read-ahead started one item. Now, for `HELPER_CONNECT_WAIT` (1.5 s) after `HelperFill::start`, a miss waits
+  for the first connection and the local read-ahead stays paused (`HelperFill::first_link_left`); a reconnect never
+  waits. (b) The grace now counts from the moment the link is ready, and while the phone's engine isn't loaded it is
+  `HELPER_COLD_GRACE` (3 s): the local path would pay the model load (2.2 s on the S10+) first, and a cold computer
+  answered in 1.95–2.06 s. (c) When the link becomes ready while the player waits, the listener's own sentence is the
+  first item, sent urgent, so the computer doesn't start on a later sentence first; an urgent item already asked for
+  isn't sent again (the computer would make it twice). New: `HelperWait` (`grace`, `cold_grace`, `left`; replaces
+  `helper_grace`), `SpeechEngine::is_loaded` (default `true`; `DeferredSpeechEngine` reports its state without
+  waiting for a load), `HelperFill::wait_for_change`; `UrgentWait::wait` is gone. Simulator: first-sentence runs
+  (link up to 1.2 s, cold computer up to 1.5 s more: the engine never loads; the H4 rule loaded it in most runs),
+  a computer that isn't there (local after the connect wait) and one that never answers (local after the cold grace).
+- Chapter headings at the top of a page were dropped when each chapter took one page and started with its number
+  (`2 Blossom` on PDF page 2, e.g. HTML printed to PDF by Chrome): the numbers were taken for printed page numbers.
+  Page numbers are now inferred only from header/footer lines whose shape repeats across pages. Cleaner version 4, so
+  saved books are cleaned again.
+- A reference list inside a body page was read aloud and became an audiobook chapter. A `References`,
+  `Bibliography` or `Works cited` heading whose section opens with numbered entries (`[1] …`, `1. …`) is now shown
+  but not spoken, up to the next heading of the same or a higher level, and an export puts a chapter mark only before
+  a sentence with something to say. A wrapped chapter title is no longer joined with the section heading under it
+  (heading lines join only in the same size, after a numbering label such as `CHAPTER 1`, and never before a line that
+  starts with a section number such as `1.1`). A footnote mark after a full stop stays with that sentence instead of
+  opening the next one. Cleaner version 5, so saved books are cleaned again.
+- `LECTRICE_STORAGE_CACHE_DIR` was refused as an unknown override because `config.toml` leaves the key out.
+- ffmpeg errors keep only the last line of its output (earlier lines can echo the metadata file's chapter titles).
+
+#### Security
+- `mp4_map::read_audiobook` treats the file as untrusted (security review S13): box sizes are checked without overflow
+  (a 64-bit size could wrap the offset), at most 200 000 top-level boxes are walked, `moov` is capped at 64 MB and
+  the map at 8 MB before anything is allocated, only the 16-byte type of a foreign `uuid` box is read, the `mvhd`
+  length can't overflow, and the title tag is cut to 1 KB without control characters.
+- `LectriceMap::check` (new): a map from a file is refused (the file then reads as a foreign audiobook) unless its speed
+  is 50–300 %, its sample rate and length are sane, it has at most `MAX_MAP_SENTENCES` (200 000) sentences, each id
+  once, 8-hex-digit hashes, and start times that never go back or past the end. `match_audiobook` applies it too, so
+  a timeline never has `end_ms < start_ms` or a zero speed.
+- **Web server (`lectrice-api`), security review S2:** every request to the loopback server is checked before its
+  route (`guard::LocalAccess`, `app::build_local_app`). `Host` must be `localhost`, `127.0.0.1` or `[::1]` with the
+  server's port (or the configured page's own loopback host, for a dev server that proxies `/api`), so a page that
+  reaches the server through DNS rebinding is refused. `Origin`, when sent, must be `server.allowed_origin` or the
+  server itself; `POST`, `PUT` and `DELETE` need it, so a cross-site form or multipart upload is refused; a
+  `Sec-Fetch-Site: cross-site` request without an allowed `Origin` is refused too. Refusals are `RequestForbidden`
+  (1009, HTTP 403). **Scripts that change data with `curl` now need `-H 'Origin: http://localhost:5173'`**; reads
+  (`curl localhost:7878/api/health`) work as before. `build_app` stays unguarded for shells that route requests in
+  process (the desktop bridge checks its own host).
+- **PDF import limits (`lectrice-infra`), security review S7:** `PdfLimits` (default 20 000 pages, 20 million
+  characters, 5 minutes; `PdfiumTextSource::with_limits`, `read_runs_within`). A PDF past a limit fails with the new
+  `PdfTooComplex` (1010, HTTP 422) instead of holding the import thread or the memory. The time limit is checked
+  between pages and every 4 096 characters; a single PDFium call that never returns can't be interrupted in process.
+- **`lectrice-link`, security review pass 3:**
+  - Sample rates outside 8 000–48 000 Hz are refused in `Welcome`, `Ready` and `Clip` (every clip bound is
+    `seconds × rate`: a paired computer that named 4 GHz could make the phone reserve gigabytes), and `decode_clip`
+    never sizes its output beyond the longest clip the protocol allows.
+  - The phone no longer queues what it didn't ask for: unasked `Ready` / `Refused` answers end the session, and at
+    most 8 unread `Load` events are kept. The session's sample rate is noted on the thread that reads the clips (a
+    clip right after `Ready` could be judged before the rate was known).
+  - **Fixed: the computer dropped a phone in the middle of a long stream of clips.** The phone sent its pings only
+    when a read timed out, so while clips kept arriving (no 200 ms pause) for longer than `dead_after` it sent
+    nothing and was taken for gone. It now checks after every frame too.
+  - A wrong pairing code is reported as "wrong code" also when the computer hangs up before the phone has sent its
+    hello (it was a network error then: "the computer isn't reachable").
+  - Per phone, the computer keeps at most 256 waiting items (`MAX_QUEUED_ITEMS_PER_PHONE`), stops making clips while
+    8 MB of them wait unread (`CLIP_BACKLOG_BYTES`, answered `HelperBusy`), and ends a session with 16 MB unwritten
+    (`MAX_OUTBOX_BYTES`): a phone that floods pings or asks for clips and never reads can't grow the computer's memory.
+  - Pairing: the phone is saved **before** it is told it is paired and only while its window is still open, so the
+    attempts that outlive the third wrong code can't pair, two right codes in one window save one phone, and a phone
+    that hears "paired" can connect at once. Wrong codes from such late attempts still count towards the hourly limit.
+    One attempt per address at a time.
+  - Floods: at most 4 handshakes under way per address (`MAX_HALF_OPEN_PER_ADDRESS`); the per-address back-off list
+    is capped at 1 024 entries and forgets old failures (it grew without limit, and three failures spread over days
+    blocked an address). The back-off now stops sessions only: a phone the computer forgot can pair again at once.
+  - Ids, versions, revisions, voice ids and error names with control or direction-changing characters are refused
+    (they reach the other side's logs and screens).
+  - `testing::RawPhone` / `RawComputer` (feature `testing`): hand-driven peers for malicious-peer tests
+    (`tests/hostile.rs`: floods, never-reading phones, replayed frames and handshakes, garbage, lying clips).
+- `LinkSpeechHelper` (`lectrice-infra`): a computer that takes the phone and drops it at once, again and again, is
+  retried on the 1-2-5-10-30-60 s schedule. Before, each short session restarted the schedule (a retry every second
+  for ever), and `Bye(engine_switch)` was answered with no wait at all (a busy loop). A session counts as stable
+  after twice `Timing::dead_after` (30 s).
+- The web server makes its data and cache folders the user's only at start (`0700` on Unix, also for folders an
+  older version made; security review S11).
 
 ## [0.3.0] - 2026-10-25
 

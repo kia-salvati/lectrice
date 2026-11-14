@@ -272,6 +272,8 @@ same export is started again)
 | `RouteNotFound` | 1006 | 404 | yes | There is nothing at this address. |
 | `MethodNotAllowed` | 1007 | 405 | yes | This address doesn't accept that method. |
 | `RequestCancelled` | 1008 | 499 | yes | The request was cancelled. (only for clients that already disconnected) |
+| `RequestForbidden` | 1009 | 403 | yes | This request didn't come from the Lectrice page. (wrong `Host` or `Origin`; web server only) |
+| `PdfTooComplex` | 1010 | 422 | yes | This PDF is too long or too complex to open. |
 | `DocumentNotFound` | 1101 | 404 | yes | Document not found. |
 | `SentenceNotFound` | 1102 | 404 | yes | Sentence not found. |
 | `VoiceUnknown` | 2001 | 400 | yes | Unknown voice. |

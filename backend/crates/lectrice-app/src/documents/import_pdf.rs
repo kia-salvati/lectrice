@@ -198,7 +198,7 @@ mod tests {
         assert_eq!(again.summary.last_sentence_id.map(|id| id.0), Some(2));
     }
 
-    /// C28: importing a book that is removed but not deleted yet restores it, with its position, without cleaning.
+    /// Importing a book that is removed but not deleted yet restores it, with its position, without cleaning.
     #[test]
     fn importing_a_removed_book_restores_it() {
         let library = Library::new(1);

@@ -159,7 +159,7 @@ fn parts_bytes_count_every_part_and_only_export_files_are_deleted() {
     assert!(outside.exists());
 }
 
-/// C22: ffmpeg reports a full disk only in its error text.
+/// An ffmpeg that runs out of space says so only in its error text.
 #[cfg(unix)]
 #[test]
 fn an_ffmpeg_that_runs_out_of_space_is_storage_full() {
@@ -176,7 +176,7 @@ fn an_ffmpeg_that_runs_out_of_space_is_storage_full() {
     assert_eq!(error.names(), [ErrorName::StorageFull, ErrorName::StorageFailed]);
 }
 
-/// C10 on the desktop: 3 s of 1x audio stretched to 1.5x in two parts lasts 2 s, and the file is named after it.
+/// 3 s of 1x audio stretched to 1.5x in two parts lasts 2 s, and the file is named after it.
 #[test]
 #[ignore = "runs the system ffmpeg and ffprobe"]
 fn a_baked_in_speed_shortens_the_file() {
@@ -236,4 +236,41 @@ fn exports_an_aac_m4b_with_chapters() {
     assert!((second_start - 2.0).abs() < 0.01, "second chapter starts at {second_start}");
     assert_eq!(probe["format"]["tags"]["title"], "A Book; with = signs");
     assert_eq!(files_in(path.parent().unwrap()), ["af_heart.m4b"], "no partial files are left");
+}
+
+/// The Lectrice map appended to a real M4B reads back with ffmpeg's length and chapters, and the file still
+/// plays (ffprobe reads it).
+#[test]
+#[ignore = "runs the system ffmpeg and ffprobe"]
+fn an_m4b_carries_the_lectrice_map() {
+    use lectrice_domain::audiobook::{MAP_FORMAT, MAP_VERSION};
+    use lectrice_domain::{ExportedFile, LectriceMap, SentenceId, SentenceMark};
+    use lectrice_infra::export::mp4_map::read_audiobook;
+
+    let data_dir = TempDir::new().unwrap();
+    let path = export(data_dir.path(), ExportFormat::M4b);
+    let exporter = FfmpegExporter::new("ffmpeg", data_dir.path());
+    let map = LectriceMap {
+        format: MAP_FORMAT.into(),
+        version: MAP_VERSION,
+        document_id: target(ExportFormat::M4b).document_id,
+        cleaner_version: 4,
+        engine_id: "engine-a".into(),
+        voice_id: "af_heart".into(),
+        speed_percent: 100,
+        read_skipped: false,
+        range: None,
+        sample_rate: SAMPLE_RATE,
+        duration_ms: 3_000,
+        sentences: (0..3u32).map(|id| SentenceMark(SentenceId(id), format!("{id:08x}"), u64::from(id) * 1000)).collect(),
+    };
+    let size = std::fs::metadata(&path).unwrap().len();
+    let added = exporter.attach_map(&ExportedFile { path: path.clone(), size_bytes: size }, &map).unwrap();
+    assert!(added > 0);
+
+    let info = read_audiobook(&path).unwrap();
+    assert_eq!(info.map, Some(map));
+    assert!(info.duration_ms.abs_diff(3_000) < 100, "length {} ms", info.duration_ms);
+    assert_eq!(info.chapters.iter().map(|c| c.title.as_str()).collect::<Vec<_>>(), ["Chapter 1. Start", "Chapter 2. Next"]);
+    assert!((duration(&ffprobe(&path)) - 3.0).abs() < 0.1);
 }

@@ -84,6 +84,7 @@ fn record(id: &str, document_id: DocumentId, status: ExportStatus, file_bytes: O
             parts_total: 1,
             estimated_seconds_left: None,
             file_bytes,
+            duration_seconds: None,
             location: done.then(|| ExportLocation::AppStorage { path: path.clone().into() }),
             waiting_for_engine: false,
         },
@@ -93,6 +94,8 @@ fn record(id: &str, document_id: DocumentId, status: ExportStatus, file_bytes: O
         parts: Vec::new(),
         chapters: Vec::new(),
         source_samples: 0,
+        sentences: Vec::new(),
+        marked_parts: 0,
     }
 }
 

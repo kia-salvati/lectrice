@@ -27,6 +27,7 @@ fn record(id: &str, status: ExportStatus) -> ExportRecord {
             parts_total: 2,
             estimated_seconds_left: None,
             file_bytes: None,
+            duration_seconds: None,
             location: None,
             waiting_for_engine: false,
         },
@@ -36,6 +37,8 @@ fn record(id: &str, status: ExportStatus) -> ExportRecord {
         parts: Vec::new(),
         chapters: Vec::new(),
         source_samples: 12_000,
+        sentences: Vec::new(),
+        marked_parts: 0,
     }
 }
 

@@ -1,14 +1,16 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use lectrice_domain::{AppError, AppResult, Audio, ErrorName, SpeechEngine, SpeechRequest, Voice};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsKokoroModelConfig, OfflineTtsModelConfig};
 
+use super::deferred::{DeferredEngineInfo, DeferredSpeechEngine};
 use super::voices;
 
 const FP32_ENGINE_ID: &str = "kokoro-v1.0";
 const INT8_ENGINE_ID: &str = "kokoro-v1.0-int8";
 const FP32_MODEL_FILE: &str = "model.onnx";
-/// The name in sherpa-onnx's int8 Kokoro bundle (to be confirmed by the Android spike).
+/// The model file name in sherpa-onnx's int8 Kokoro bundle.
 const INT8_MODEL_FILE: &str = "model.int8.onnx";
 const VOICES_FILE: &str = "voices.bin";
 const TOKENS_FILE: &str = "tokens.txt";
@@ -17,6 +19,8 @@ const LEXICON_FILE: &str = "lexicon-us-en.txt";
 const ESPEAK_DATA_DIR: &str = "espeak-ng-data";
 const ESPEAK_REQUIRED_FILES: [&str; 4] = ["phontab", "phonindex", "phondata", "intonations"];
 const NUL: char = '\0';
+/// Kokoro v1.0 always speaks at 24 kHz; a loaded model that says otherwise is refused by the deferred engine.
+const KOKORO_SAMPLE_RATE: u32 = 24_000;
 
 type NoProgress = fn(&[f32], f32) -> bool;
 
@@ -63,6 +67,13 @@ pub struct KokoroSpeechEngine {
 }
 
 impl KokoroSpeechEngine {
+    /// The front end behind the sound: the pinned sherpa-onnx version with its espeak-ng data and
+    /// lexicons, plus our own text handling. Raise the last number when this adapter changes what the model hears.
+    pub const REVISION: &'static str = "sherpa-onnx-1.13.8/kokoro-1";
+    pub const SAMPLE_RATE: u32 = KOKORO_SAMPLE_RATE;
+    /// How many voices every bundle offers, known before a model is loaded.
+    pub const VOICE_COUNT: usize = voices::count();
+
     /// Fails with `SpeechEngineUnavailable` instead of creating sherpa-onnx with a bad config, which would exit the process.
     pub fn load(settings: &KokoroSettings) -> AppResult<Self> {
         let config = engine_config(settings)?;
@@ -75,6 +86,59 @@ impl KokoroSpeechEngine {
         }
         let sample_rate = u32::try_from(tts.sample_rate()).map_err(|_| unavailable("the model reports an invalid sample rate"))?;
         Ok(Self { tts, sample_rate, variant: settings.variant })
+    }
+
+    /// The voices any Kokoro bundle offers, without loading one (a shell can list them before the model is ready).
+    pub fn voice_catalog() -> Vec<Voice> {
+        voices::all()
+    }
+
+    /// An engine that answers id, revision, voices and sample rate at once and loads the model only when it first
+    /// speaks (or on [`DeferredSpeechEngine::preload`]). `engine_id` is the bundle's own id when the shell has one.
+    pub fn deferred(settings: KokoroSettings, engine_id: Option<String>) -> DeferredSpeechEngine {
+        let info = DeferredEngineInfo {
+            engine_id: engine_id.unwrap_or_else(|| settings.variant.engine_id().to_string()),
+            revision: Self::REVISION.to_string(),
+            sample_rate: Self::SAMPLE_RATE,
+            voices: voices::all(),
+        };
+        let declared_id = info.engine_id.clone();
+        DeferredSpeechEngine::new(info, move || {
+            let engine = Self::load(&settings)?;
+            Ok(Arc::new(RenamedEngine { inner: engine, engine_id: declared_id.clone() }) as Arc<dyn SpeechEngine>)
+        })
+    }
+}
+
+/// The Kokoro engine under the bundle id the deferred engine promised.
+struct RenamedEngine {
+    inner: KokoroSpeechEngine,
+    engine_id: String,
+}
+
+impl SpeechEngine for RenamedEngine {
+    fn id(&self) -> &str {
+        &self.engine_id
+    }
+
+    fn voices(&self) -> Vec<Voice> {
+        self.inner.voices()
+    }
+
+    fn sample_rate(&self) -> u32 {
+        self.inner.sample_rate()
+    }
+
+    fn synthesize(&self, request: SpeechRequest) -> AppResult<Audio> {
+        self.inner.synthesize(request)
+    }
+
+    fn revision(&self) -> &str {
+        self.inner.revision()
+    }
+
+    fn is_loaded(&self) -> bool {
+        self.inner.is_loaded()
     }
 }
 
@@ -106,6 +170,10 @@ impl SpeechEngine for KokoroSpeechEngine {
             return Err(AppError::new(ErrorName::SpeechSynthesisFailed).with_detail(format!("sherpa-onnx returned no audio for voice {}", request.voice_id)));
         };
         Ok(Audio { samples: generated.samples().to_vec(), sample_rate: self.sample_rate })
+    }
+
+    fn revision(&self) -> &str {
+        Self::REVISION
     }
 }
 

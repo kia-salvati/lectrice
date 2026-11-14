@@ -41,6 +41,9 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ./build-release.sh                   # release build without /home/<user>/... paths in the binary
 ```
+The server only answers requests that name it (`Host: localhost:7878`, `127.0.0.1:7878` or `[::1]:7878`) and, when
+they change something, come from the configured page: a web page on another site can't read the library or upload
+into it. To upload or delete with `curl`, add `-H 'Origin: http://localhost:5173'` (`server.allowed_origin`).
 `cargo test -- --ignored` also runs tests that read the user's books in `~/Desktop`. They never write
 into the repo: `pdf_fixtures` only checks that `test-data/books/*.jsonl` still match the books.
 
@@ -53,11 +56,16 @@ The books are copyrighted, so nothing taken from them is in git. `test-data/` an
   invented text and always runs. To build them (the books must be in `~/Desktop`), or to rewrite them after
   changing `FIXTURE_PAGES` or the PDF reader:
   `LECTRICE_REGEN_FIXTURES=1 cargo test -p lectrice-infra --test pdf_fixtures -- --ignored`.
+- **Expected book data:** `test-data/books/expected.json` holds the books' file names, their expected
+  chapter titles (`toc_books`) and the short text the book tests look for. It is written by hand, not
+  regenerated. Without it the book tests print `skipped: no local book fixtures` and return.
+- **Another checkout:** `LECTRICE_TEST_DATA=<absolute path to a test-data folder>` makes a second worktree use the
+  main checkout's data (tests run from their crate folder, so the path must be absolute).
 - **Review samples** (`docs/progress/B2-samples/*.txt`): the cleaned text of a few chapters, written by the
   dev command `cargo run -p lectrice-api -- clean <book.pdf> --out <dir> --pages <first>-<last>` (it writes
   `<name>.txt` and `<name>.document.json`). The pages used: Clean Architecture 52-64, Designing Distributed
   Systems 25-34, Design Patterns 99-109, The Kubernetes Book 222-235, LinkedIn Posts 8-30. For example:
-  `cargo run -p lectrice-api -- clean ~/Desktop/Linkedin_Posts_2024_Blue.pdf --out ../docs/progress/B2-samples --pages 8-30`.
+  `cargo run -p lectrice-api -- clean ~/Desktop/<book>.pdf --out ../docs/progress/B2-samples --pages 8-30`.
 Stop the server with Ctrl+C or SIGTERM; it drains open requests first.
 
 ## Config

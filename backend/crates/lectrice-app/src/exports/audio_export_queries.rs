@@ -4,7 +4,7 @@ use std::sync::Arc;
 use lectrice_domain::{
     AppError, AppResult, AudioExport, DocumentId, DocumentReader, ErrorName, ExportFormat, ExportId, ExportLocation, ExportStatus, PauseReason, SpeechEngine,
 };
-use tracing::info;
+use tracing::{debug, info};
 
 use super::jobs::ExportJobs;
 use super::run::voice_name;
@@ -32,7 +32,7 @@ impl UseCase for GetAudioExport {
 
     fn run(&self, ctx: &RequestContext, id: ExportId) -> AppResult<AudioExport> {
         let export = self.jobs.get(&id).ok_or_else(|| not_found(&id))?;
-        info!(service = Self::NAME, request_id = %ctx.request_id, export_id = %id, status = ?export.status, sentences_done = export.sentences_done, sentences_total = export.sentences_total, "audio export found");
+        debug!(service = Self::NAME, request_id = %ctx.request_id, export_id = %id, status = ?export.status, sentences_done = export.sentences_done, sentences_total = export.sentences_total, "audio export found");
         Ok(export)
     }
 }
@@ -55,14 +55,14 @@ impl UseCase for ListAudioExports {
     type Output = Vec<AudioExport>;
 
     fn run(&self, ctx: &RequestContext, document_id: DocumentId) -> AppResult<Vec<AudioExport>> {
-        info!(service = Self::NAME, request_id = %ctx.request_id, doc_id = %document_id, "listing audio exports");
+        debug!(service = Self::NAME, request_id = %ctx.request_id, doc_id = %document_id, "listing audio exports");
         let summary = self.reader.find_summary(&document_id)?;
-        info!(service = Self::NAME, doc_id = %document_id, found = summary.is_some(), "document summary loaded");
+        debug!(service = Self::NAME, doc_id = %document_id, found = summary.is_some(), "document summary loaded");
         if summary.is_none() {
             return Err(AppError::new(ErrorName::DocumentNotFound));
         }
         let exports = self.jobs.list(&document_id);
-        info!(service = Self::NAME, doc_id = %document_id, exports = exports.len(), "audio exports listed");
+        debug!(service = Self::NAME, doc_id = %document_id, exports = exports.len(), "audio exports listed");
         Ok(exports)
     }
 }
@@ -85,7 +85,7 @@ impl UseCase for ListAllAudioExports {
 
     fn run(&self, ctx: &RequestContext, (): ()) -> AppResult<Vec<AudioExport>> {
         let exports = self.jobs.list_all();
-        info!(service = Self::NAME, request_id = %ctx.request_id, exports = exports.len(), "all audio exports listed");
+        debug!(service = Self::NAME, request_id = %ctx.request_id, exports = exports.len(), "all audio exports listed");
         Ok(exports)
     }
 }

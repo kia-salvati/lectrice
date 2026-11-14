@@ -7,9 +7,11 @@ pub mod exports;
 pub mod library;
 pub mod services;
 pub mod speech;
+mod sync;
+mod units;
 pub mod use_case;
 
-pub use context::{Cancellation, RequestContext};
+pub use context::{Cancellation, RequestContext, STARTUP_REQUEST_ID};
 pub use use_case::UseCase;
 
 /// The core's release version (the workspace version), for every shell to report.

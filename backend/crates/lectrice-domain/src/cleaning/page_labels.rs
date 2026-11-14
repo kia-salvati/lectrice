@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::bands::{band_of, edge_tokens};
+use super::bands::{Band, band_key_of, band_key_pages, edge_tokens};
 use super::page::Page;
 use crate::document::PageLabel;
 
@@ -11,6 +11,8 @@ use crate::document::PageLabel;
 const MIN_OFFSET_SHARE: f32 = 0.2;
 /// …and on at least this many pages.
 const MIN_OFFSET_PAGES: usize = 3;
+/// A band line backs an offset only when its shape is seen on at least this many pages.
+const MIN_SHAPE_PAGES: usize = 2;
 
 /// The label expected on each page, in page order.
 pub fn resolve_labels(pages: &[Page]) -> Vec<Option<String>> {
@@ -25,7 +27,11 @@ pub fn page_labels(pages: &[Page], labels: &[Option<String>]) -> Vec<PageLabel> 
     pages.iter().zip(labels).filter_map(|(page, label)| label.as_ref().map(|label| PageLabel { index: page.index, label: label.clone() })).collect()
 }
 
+/// Only band lines whose shape (digits as `#`) repeats count: a printed page number sits in a running
+/// header or footer, while a one-off chapter heading near the top (`2 Blossom` on PDF page 2) does not.
 fn printed_number_offset(pages: &[Page]) -> Option<i64> {
+    let key_pages = band_key_pages(pages);
+    let repeats = |key: &(Band, String)| key_pages.get(key).is_some_and(|count| *count >= MIN_SHAPE_PAGES);
     let mut pages_per_offset: HashMap<i64, usize> = HashMap::new();
     let mut text_pages = 0;
     for page in pages.iter().filter(|page| !page.lines.is_empty()) {
@@ -33,7 +39,7 @@ fn printed_number_offset(pages: &[Page]) -> Option<i64> {
         let offsets: HashSet<i64> = page
             .lines
             .iter()
-            .filter(|line| band_of(line, page.height).is_some())
+            .filter(|line| band_key_of(line, page.height).is_some_and(|key| repeats(&key)))
             .filter_map(|line| edge_tokens(&line.text))
             .flat_map(|(first, last)| [first, last])
             .filter_map(|token| token.parse::<u32>().ok())
@@ -70,5 +76,11 @@ mod tests {
         embedded.embedded_label = Some("1".into());
         assert_eq!(resolve_labels(&[embedded]), [Some("1".into())]);
         assert_eq!(resolve_labels(&[page(1, "7"), page(2, "40")]), [None, None]);
+    }
+
+    #[test]
+    fn one_off_numbered_chapter_titles_are_not_page_numbers() {
+        let pages = [page(0, "1 Morning Tide"), page(1, "2 Harbour Lights"), page(2, "3 The Long Pier")];
+        assert_eq!(resolve_labels(&pages), [None, None, None]);
     }
 }

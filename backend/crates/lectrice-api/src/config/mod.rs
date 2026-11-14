@@ -226,6 +226,12 @@ mod tests {
     }
 
     #[test]
+    fn a_cache_dir_left_out_of_the_file_can_be_set_by_env() {
+        let config = load_shipped(&[("LECTRICE_STORAGE_CACHE_DIR", "~/.cache/lectrice")]).unwrap();
+        assert_eq!(config.storage.cache_dir(), Path::new("/home/reader/.cache/lectrice"));
+    }
+
+    #[test]
     fn other_env_vars_are_ignored() {
         assert!(load_shipped(&[("PATH", "/usr/bin"), (CONFIG_PATH_ENV, "elsewhere.toml")]).is_ok());
     }

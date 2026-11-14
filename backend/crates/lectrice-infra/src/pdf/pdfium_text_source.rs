@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 use lectrice_domain::{AppError, AppResult, BoundingBox, ErrorName, OutlineItem, PdfContent, PdfPage as PageInfo, PdfTextSource, TextRun};
 use pdfium_render::prelude::*;
@@ -12,9 +13,77 @@ const MAX_OUTLINE_ITEMS: usize = 20_000;
 /// Deeper bookmarks are dropped; the cleaner caps heading levels at 4 anyway.
 const MAX_OUTLINE_DEPTH: u8 = 16;
 
+/// The clock is looked at once per this many characters within a page.
+const CHARS_PER_DEADLINE_CHECK: usize = 4096;
+
+/// What reading one PDF may cost. A PDF is untrusted input, and the file-size limit alone
+/// doesn't bound the work: a small file can declare a huge page tree or pages with millions of characters. Past a
+/// limit the import fails with `PdfTooComplex` instead of holding a thread or the memory.
+///
+/// The time budget is checked between pages and every few thousand characters; one call into PDFium that never
+/// returns can't be interrupted from here (that needs a separate process).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PdfLimits {
+    pub max_pages: usize,
+    /// Characters read from all pages together; what the import keeps in memory grows with it.
+    pub max_chars: usize,
+    pub max_duration: Duration,
+}
+
+impl PdfLimits {
+    /// Far above a real book (a dense 1 000-page book has about 3 million characters), with time for a slow phone.
+    pub const DEFAULT: Self = Self { max_pages: 20_000, max_chars: 20_000_000, max_duration: Duration::from_secs(300) };
+}
+
+impl Default for PdfLimits {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+/// The limits and what one read has used of them so far.
+struct Budget<'a> {
+    limits: &'a PdfLimits,
+    started: Instant,
+    chars: usize,
+}
+
+impl<'a> Budget<'a> {
+    fn new(limits: &'a PdfLimits) -> Self {
+        Self { limits, started: Instant::now(), chars: 0 }
+    }
+
+    fn check_pages(&self, pages: usize) -> AppResult<()> {
+        if pages > self.limits.max_pages {
+            return Err(too_complex(format!("{pages} pages, limit {}", self.limits.max_pages)));
+        }
+        Ok(())
+    }
+
+    fn add_chars(&mut self, chars: usize) -> AppResult<()> {
+        self.chars = self.chars.saturating_add(chars);
+        if self.chars > self.limits.max_chars {
+            return Err(too_complex(format!("more than {} characters", self.limits.max_chars)));
+        }
+        Ok(())
+    }
+
+    fn check_time(&self) -> AppResult<()> {
+        if self.started.elapsed() > self.limits.max_duration {
+            return Err(too_complex(format!("reading took longer than {} s", self.limits.max_duration.as_secs())));
+        }
+        Ok(())
+    }
+}
+
+fn too_complex(detail: String) -> AppError {
+    AppError::new(ErrorName::PdfTooComplex).with_detail(detail)
+}
+
 /// Reads text runs, page labels and the outline with PDFium (pdfium-render).
 pub struct PdfiumTextSource {
     pdfium: Pdfium,
+    limits: PdfLimits,
 }
 
 impl PdfiumTextSource {
@@ -25,18 +94,26 @@ impl PdfiumTextSource {
         let bindings = Pdfium::bind_to_library(library_path).map_err(|error| {
             AppError::new(ErrorName::Internal).with_detail(format!("cannot load pdfium from {}", library_path.display())).with_source(error)
         })?;
-        Ok(Self { pdfium: Pdfium::new(bindings) })
+        Ok(Self { pdfium: Pdfium::new(bindings), limits: PdfLimits::DEFAULT })
     }
-}
 
-impl PdfTextSource for PdfiumTextSource {
-    fn read_runs(&self, pdf: &[u8]) -> AppResult<PdfContent> {
+    /// Other limits than [`PdfLimits::DEFAULT`] for every read.
+    pub fn with_limits(mut self, limits: PdfLimits) -> Self {
+        self.limits = limits;
+        self
+    }
+
+    /// [`PdfTextSource::read_runs`] within `limits` instead of this source's own.
+    pub fn read_runs_within(&self, pdf: &[u8], limits: &PdfLimits) -> AppResult<PdfContent> {
+        let mut budget = Budget::new(limits);
         let document = self.pdfium.load_pdf_from_byte_slice(pdf, None).map_err(load_error)?;
+        budget.check_pages(usize::try_from(document.pages().len()).unwrap_or(usize::MAX))?;
         let mut pages = Vec::new();
         let mut runs = Vec::new();
         for (zero_based, page) in document.pages().iter().enumerate() {
+            budget.check_time()?;
             let index = page_number(zero_based);
-            runs.extend(read_page_runs(&page, index)?);
+            runs.extend(read_page_runs(&page, index, &mut budget)?);
             pages.push(PageInfo {
                 index,
                 width: page.width().value,
@@ -53,6 +130,12 @@ impl PdfTextSource for PdfiumTextSource {
     }
 }
 
+impl PdfTextSource for PdfiumTextSource {
+    fn read_runs(&self, pdf: &[u8]) -> AppResult<PdfContent> {
+        self.read_runs_within(pdf, &self.limits)
+    }
+}
+
 fn load_error(error: PdfiumError) -> AppError {
     let name = match error {
         PdfiumError::PdfiumLibraryInternalError(PdfiumInternalError::PasswordError | PdfiumInternalError::SecurityError) => ErrorName::PdfEncrypted,
@@ -65,11 +148,16 @@ fn page_number(zero_based: usize) -> u32 {
     u32::try_from(zero_based + 1).unwrap_or(u32::MAX)
 }
 
-fn read_page_runs(page: &PdfPage<'_>, index: u32) -> AppResult<Vec<TextRun>> {
+fn read_page_runs(page: &PdfPage<'_>, index: u32, budget: &mut Budget<'_>) -> AppResult<Vec<TextRun>> {
     let text =
         page.text().map_err(|error| AppError::new(ErrorName::PdfInvalid).with_detail(format!("cannot read the text of page {index}")).with_source(error))?;
+    let chars = text.chars();
+    budget.add_chars(chars.len())?;
     let mut builder = RunBuilder::new(index);
-    for character in text.chars().iter() {
+    for (position, character) in chars.iter().enumerate() {
+        if position % CHARS_PER_DEADLINE_CHECK == 0 {
+            budget.check_time()?;
+        }
         if let Some(char_info) = char_info(&character) {
             builder.push(char_info);
         }

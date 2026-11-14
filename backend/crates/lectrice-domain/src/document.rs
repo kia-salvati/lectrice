@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 use crate::clock::Timestamp;
@@ -6,8 +8,8 @@ use crate::ids::{BlockId, DocumentId, SentenceId};
 const CODE_CUE: &str = "Code example.";
 const TABLE_CUE: &str = "Table.";
 
-/// The cleaned document, saved as `document.json` (spec §5) and sent to the reader as is.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+/// The cleaned document, saved as `document.json` and sent to the reader as is.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Document {
     pub id: DocumentId,
@@ -78,7 +80,7 @@ impl BlockKind {
 }
 
 /// `text` is set for skipped kinds (display text with its line breaks); `cue` only for code and tables.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Block {
     pub id: BlockId,
@@ -105,7 +107,7 @@ fn is_spoken(spoken: &bool) -> bool {
 
 /// `speech_text` is what the engine reads when it differs from the shown `text`
 /// (citation markers, URLs and emoji removed); `None` means read `text`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Sentence {
     pub id: SentenceId,
@@ -118,6 +120,46 @@ pub struct Sentence {
 impl Sentence {
     pub fn spoken_text(&self) -> &str {
         self.speech_text.as_deref().unwrap_or(&self.text)
+    }
+}
+
+// Book text never reaches a log: `Debug` shows ids, counts and lengths only.
+
+impl fmt::Debug for Document {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Document")
+            .field("id", &self.id)
+            .field("page_count", &self.page_count)
+            .field("cleaner_version", &self.cleaner_version)
+            .field("toc_entries", &self.toc.len())
+            .field("blocks", &self.blocks.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Debug for Block {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Block")
+            .field("id", &self.id)
+            .field("kind", &self.kind)
+            .field("level", &self.level)
+            .field("page_index", &self.page_index)
+            .field("spoken", &self.spoken)
+            .field("text_chars", &self.text.as_ref().map(|text| text.chars().count()))
+            .field("sentences", &self.sentences)
+            .field("cue", &self.cue)
+            .finish()
+    }
+}
+
+impl fmt::Debug for Sentence {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Sentence")
+            .field("id", &self.id)
+            .field("page_index", &self.page_index)
+            .field("text_chars", &self.text.chars().count())
+            .field("speech_text_chars", &self.speech_text.as_ref().map(|text| text.chars().count()))
+            .finish()
     }
 }
 
@@ -237,5 +279,22 @@ mod tests {
         assert_eq!(shown.spoken_text(), "See [12] for more.");
         shown.speech_text = Some("See for more.".into());
         assert_eq!(shown.spoken_text(), "See for more.");
+    }
+
+    #[test]
+    fn debug_shows_lengths_not_book_text() {
+        let block = Block {
+            id: 1,
+            kind: BlockKind::Code,
+            level: None,
+            page_index: 2,
+            spoken: false,
+            text: Some("let secret = 1;".into()),
+            sentences: vec![sentence(4, "A private line.")],
+            cue: None,
+        };
+        let shown = format!("{block:?}");
+        assert!(!shown.contains("secret") && !shown.contains("private"), "{shown}");
+        assert!(shown.contains("text_chars: 15"), "{shown}");
     }
 }

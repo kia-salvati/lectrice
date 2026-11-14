@@ -5,7 +5,8 @@ use std::ops::Range;
 
 use lectrice_domain::{AppError, AppResult, Block, BlockKind, Document, ErrorName, ExportRange, Sentence, SentenceId};
 
-use crate::speech::{CHARS_PER_SECOND, SECONDS_PER_MINUTE, playable_in_order};
+use crate::speech::{CHARS_PER_SECOND, playable_in_order};
+use crate::units::SECONDS_PER_MINUTE;
 
 /// TOC entries and headings up to this level become chapter marks (1 = parts/chapters, 2 = chapters/sections).
 const CHAPTER_MAX_LEVEL: u8 = 2;
@@ -63,7 +64,9 @@ pub fn export_plan(document: &Document, options: PlanOptions) -> ExportPlan<'_> 
     let sentences = playable_in_order(document, options.read_skipped).into_iter().map(|(_, sentence)| sentence).filter(in_range).take(limit);
     for sentence in sentences {
         let mut title = None;
-        while let Some((_, point_title)) = points.get(next_point).filter(|(start, _)| *start <= sentence.id) {
+        // A mark waits for a sentence with something to say, so a silent section (a reference list) is no chapter.
+        let says_something = spoken_chars(sentence) > 0;
+        while let Some((_, point_title)) = points.get(next_point).filter(|(start, _)| says_something && *start <= sentence.id) {
             title = Some(point_title.clone());
             next_point += 1;
         }
@@ -212,7 +215,7 @@ mod tests {
         assert_eq!(plan.parts, [PartPlan { steps: 0..10, sentences: 8, spoken_chars: plan.spoken_chars }], "a short book is one part");
     }
 
-    /// C23: with a TOC, its level 1–2 entries are the marks (titles cut at 120 chars); level 3 and headings are not.
+    /// With a TOC, its level 1–2 entries are the marks (titles cut at 120 chars); level 3 and headings are not.
     #[test]
     fn the_toc_gives_the_chapter_marks() {
         let mut document = book();
@@ -223,6 +226,19 @@ mod tests {
 
         let expected_long = format!("# {}", "L".repeat(MAX_CHAPTER_TITLE_CHARS));
         assert_eq!(describe(&plan), ["# First", "0", "1", "2", "3", "4", &expected_long, "6", "7", "8"]);
+    }
+
+    #[test]
+    fn a_silent_section_at_the_end_gets_no_chapter_mark() {
+        let mut document = book();
+        let silent = |id: u32| Sentence { speech_text: Some(String::new()), ..sentence(id, "[1] Shown only.") };
+        document.blocks.push(block(BlockKind::Heading, Some(1), vec![Sentence { speech_text: Some(String::new()), ..sentence(9, "References") }], None));
+        document.blocks.push(block(BlockKind::Paragraph, None, vec![silent(10)], None));
+        document.toc = vec![toc_entry(0, "Chapter 1", 1, 0), toc_entry(1, "References", 1, 9)];
+
+        let plan = export_plan(&document, whole_book());
+
+        assert_eq!(describe(&plan), ["# Chapter 1", "0", "1", "2", "3", "4", "6", "7", "8", "9", "10"]);
     }
 
     #[test]
@@ -242,7 +258,7 @@ mod tests {
         assert_eq!(plan.sentences, 3);
     }
 
-    /// C30: only the range is planned, and a range that starts mid-chapter opens with that chapter's mark.
+    /// Only the range is planned, and a range that starts mid-chapter opens with that chapter's mark.
     #[test]
     fn a_range_plans_only_its_sentences_and_opens_with_the_current_chapter() {
         let document = book();

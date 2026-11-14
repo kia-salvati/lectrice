@@ -48,7 +48,7 @@ pub fn classify_pages(pages: &mut [Page], outline: &[OutlineItem]) {
     }
 }
 
-fn role_for_title(title: &str) -> Option<PageRole> {
+pub(super) fn role_for_title(title: &str) -> Option<PageRole> {
     let normalized: String = title.trim_start_matches(|character: char| !character.is_alphabetic()).to_lowercase();
     match normalized.trim() {
         "contents" | "table of contents" | "toc" => Some(PageRole::TableOfContents),

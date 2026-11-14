@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use lectrice_domain::{
     AppError, AppResult, AudioCache, AudioEncoder, AudioKey, AudioRetention, Document, DocumentId, DocumentReader, ErrorName, SentenceId, SpeechRequest,
@@ -13,8 +13,10 @@ use lectrice_domain::{
 };
 use tracing::{info, warn};
 
-use super::read_ahead_plan::{MILLIS_PER_SECOND, ReadAheadInput, SECONDS_PER_MINUTE, plan_read_ahead, ready_ahead_seconds};
+use super::read_ahead_plan::{ReadAheadInput, plan_read_ahead, ready_ahead_seconds};
 use super::worker::{CancelHandle, SpeechJob, SpeechOutcome, SpeechPriority, SpeechWorker};
+use crate::sync::lock;
+use crate::units::{MILLIS_PER_SECOND, SECONDS_PER_MINUTE};
 
 const NAME: &str = "ReadAhead";
 /// Plans kept at once; the least recently used one is dropped (and its jobs cancelled) past this.
@@ -59,6 +61,8 @@ pub struct ReadAheadOutcome {
     pub cached: usize,
     pub cancelled: usize,
     pub unchanged: bool,
+    /// The document's read-ahead is paused while a helper makes its audio: nothing was planned.
+    pub paused: bool,
 }
 
 pub struct ReadAheadDeps {
@@ -79,6 +83,8 @@ pub struct ReadAhead {
     read_ahead_minutes: AtomicU32,
     keep_minutes_per_document: u32,
     plans: Arc<Plans>,
+    /// Documents whose audio a helper computer makes: their cache window is still kept, nothing is planned.
+    paused: Mutex<HashSet<DocumentId>>,
 }
 
 type PlanKey = (DocumentId, VoiceId);
@@ -91,7 +97,7 @@ struct Plans {
 impl Plans {
     /// Callbacks and cancels never panic under this lock, so a poisoned lock still holds consistent plans.
     fn lock(&self) -> MutexGuard<'_, PlansState> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.state)
     }
 }
 
@@ -156,6 +162,7 @@ impl ReadAhead {
             read_ahead_minutes: AtomicU32::new(settings.read_ahead_minutes),
             keep_minutes_per_document: settings.keep_minutes_per_document,
             plans: Arc::default(),
+            paused: Mutex::default(),
         })
     }
 
@@ -163,7 +170,38 @@ impl ReadAhead {
     /// caller: errors are logged, because playback of the requested sentence doesn't depend on them.
     pub fn follow(&self, position: ListenerPosition<'_>) -> ReadAheadOutcome {
         self.trim_cache(&position);
+        if self.is_paused(&position.key.document_id) {
+            return ReadAheadOutcome { paused: true, ..ReadAheadOutcome::default() };
+        }
         self.plan(&position)
+    }
+
+    /// While a helper computer makes this document's audio, the local read-ahead plans nothing and its queued jobs
+    /// are withdrawn (the clip being made is still cached). Returns how many jobs were cancelled.
+    pub fn pause_for_helper(&self, document_id: &DocumentId) -> usize {
+        let newly = self.paused_documents().insert(document_id.clone());
+        let cancelled = self.stop(document_id);
+        if newly {
+            info!(service = NAME, doc_id = %document_id, cancelled, "read-ahead paused for the helper");
+        }
+        cancelled
+    }
+
+    /// Plans again from the next request on, with whatever minutes the shell set for the link's loss.
+    pub fn resume(&self, document_id: &DocumentId) -> bool {
+        let resumed = self.paused_documents().remove(document_id);
+        if resumed {
+            info!(service = NAME, doc_id = %document_id, "read-ahead resumed");
+        }
+        resumed
+    }
+
+    pub fn is_paused(&self, document_id: &DocumentId) -> bool {
+        self.paused_documents().contains(document_id)
+    }
+
+    fn paused_documents(&self) -> MutexGuard<'_, HashSet<DocumentId>> {
+        lock(&self.paused)
     }
 
     /// Used from the next planning request on; a shorter read-ahead then cancels the queued jobs past it.
@@ -332,10 +370,11 @@ impl ClipStore {
             info!(service = NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, "read-ahead audio dropped, the document is gone");
             return;
         }
-        let stored = outcome.and_then(|audio| self.encoder.encode(&audio)).and_then(|bytes| self.cache.put(key, &bytes).map(|()| bytes.len()));
+        let stored =
+            outcome.and_then(|audio| self.encoder.encode(&audio)).and_then(|bytes| self.cache.put_if_absent(key, &bytes).map(|stored| (bytes.len(), stored)));
         match stored {
-            Ok(bytes) => {
-                info!(service = NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, voice_id = %key.voice_id, bytes, "read-ahead audio cached")
+            Ok((bytes, stored)) => {
+                info!(service = NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, voice_id = %key.voice_id, bytes, stored, "read-ahead audio cached")
             }
             Err(error) => warn!(service = NAME, doc_id = %key.document_id, sentence_id = key.sentence_id.0, error = %error, "read-ahead audio failed"),
         }
@@ -431,6 +470,7 @@ mod tests {
         engine: Arc<GatedEngine>,
         cache: Arc<MemoryCache>,
         reader: Arc<ListedReader>,
+        worker: Arc<SpeechWorker>,
         read_ahead: ReadAhead,
     }
 
@@ -441,9 +481,15 @@ mod tests {
         let reader = Arc::new(ListedReader::default());
         let worker = Arc::new(SpeechWorker::start(engine.clone()).unwrap());
         let settings = ReadAheadSettings { read_ahead_minutes, keep_minutes_per_document: 60 };
-        let deps = ReadAheadDeps { worker, reader: reader.clone(), cache: cache.clone(), retention: cache.clone(), encoder: Arc::new(CountingEncoder) };
+        let deps = ReadAheadDeps {
+            worker: worker.clone(),
+            reader: reader.clone(),
+            cache: cache.clone(),
+            retention: cache.clone(),
+            encoder: Arc::new(CountingEncoder),
+        };
         let read_ahead = ReadAhead::new(deps, settings).unwrap();
-        Setup { engine, cache, reader, read_ahead }
+        Setup { engine, cache, reader, worker, read_ahead }
     }
 
     fn follow(setup: &Setup, document: &Document, sentence: u32, rate: f32) -> ReadAheadOutcome {
@@ -562,7 +608,7 @@ mod tests {
         setup.engine.release();
     }
 
-    /// C13: a stop withdraws the queued jobs of that document only; the clip being made is still cached.
+    /// A stop withdraws the queued jobs of that document only; the clip being made is still cached.
     #[test]
     fn stopping_a_document_withdraws_its_queued_jobs_and_the_next_request_plans_again() {
         let book = document(400);
@@ -582,6 +628,28 @@ mod tests {
         assert_eq!((again.cached, again.queued), (1, 59));
     }
 
+    /// While a helper makes the audio, nothing is planned (the window is still kept); resuming plans again.
+    #[test]
+    fn a_paused_document_plans_nothing_until_resumed() {
+        let book = document(400);
+        let setup = setup(&book.blocks[1].sentences[0].text, 1);
+        follow(&setup, &book, 0, 1.0);
+        setup.engine.wait_until_blocked();
+
+        assert_eq!(setup.read_ahead.pause_for_helper(&book.id), 59, "queued jobs are withdrawn, the running one finishes");
+        let paused = follow(&setup, &book, 5, 1.0);
+
+        assert!(paused.paused);
+        assert_eq!(paused.queued, 0);
+        assert_eq!(setup.cache.retained().len(), 2, "the cache window still follows the listener");
+        assert!(setup.read_ahead.resume(&book.id));
+        assert!(!setup.read_ahead.resume(&book.id));
+        let resumed = follow(&setup, &book, 5, 1.0);
+        assert!(!resumed.paused);
+        assert_eq!(resumed.queued, 60);
+        setup.engine.release();
+    }
+
     #[test]
     fn stopping_everything_withdraws_every_voice() {
         let book = document(400);
@@ -597,7 +665,7 @@ mod tests {
         assert_eq!(spoken_ids(&setup.engine), [1]);
     }
 
-    /// C14: minutes change at runtime within 1..=60 and the cache window; the next request uses them.
+    /// Minutes change at runtime within 1..=60 and the cache window; the next request uses them.
     #[test]
     fn read_ahead_minutes_change_at_runtime() {
         let book = document(400);
@@ -619,7 +687,7 @@ mod tests {
         setup.engine.release();
     }
 
-    /// C28: a clip made for a document that was removed meanwhile is not stored.
+    /// A clip made for a document that was removed meanwhile is not stored.
     #[test]
     fn a_removed_document_gets_no_new_clips() {
         let book = document(200);
@@ -631,12 +699,8 @@ mod tests {
         setup.read_ahead.stop(&book.id);
         setup.engine.release();
 
-        let started = Instant::now();
-        while setup.engine.spoken().is_empty() {
-            assert!(started.elapsed() < WAIT_LIMIT, "the running job never finished");
-            std::thread::yield_now();
-        }
-        std::thread::sleep(Duration::from_millis(50));
+        setup.worker.wait_until_idle();
+        assert_eq!(setup.engine.spoken().len(), 1, "the running job finished");
         assert_eq!(setup.cache.puts(), 0);
     }
 

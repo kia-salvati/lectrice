@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard};
 
+use crate::sync::lock;
 use lectrice_domain::{
     AppResult, Document, DocumentBytes, DocumentId, DocumentMeta, DocumentReader, DocumentSummary, DocumentWriter, ListOptions, Page, ReadingPosition,
     Timestamp,
@@ -30,7 +31,7 @@ impl<L> CachedLibrary<L> {
 
     /// Only whole `Arc`s are pushed and removed under the lock, so a poisoned lock still holds a valid list.
     fn lock(&self) -> MutexGuard<'_, CacheState> {
-        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+        lock(&self.state)
     }
 
     fn cached(&self, id: &DocumentId) -> (Option<Arc<Document>>, u64) {

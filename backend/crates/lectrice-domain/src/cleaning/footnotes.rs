@@ -39,9 +39,11 @@ pub fn take_footnotes(page: &mut Page, profile: &Profile) -> Vec<Footnote> {
     for &index in zone[..=top_start].iter().rev() {
         let line = &mut page.lines[index];
         line.role = LineRole::Footnote;
-        match start_number(line) {
-            Some(number) => footnotes.push(Footnote { page: page.index, number, lines: vec![line.clone()] }),
-            None => footnotes.last_mut().expect("the top line starts a footnote").lines.push(line.clone()),
+        match (start_number(line), footnotes.last_mut()) {
+            (Some(number), _) => footnotes.push(Footnote { page: page.index, number, lines: vec![line.clone()] }),
+            (None, Some(footnote)) => footnote.lines.push(line.clone()),
+            // The zone's top line starts a footnote, so a continuation always has one to join.
+            (None, None) => {}
         }
     }
     footnotes

@@ -6,6 +6,8 @@ const LANGUAGE: &str = "en";
 /// Abbreviations that sentencex may split after; a sentence ending in one of them is joined to the next.
 /// Compared case-insensitively against the sentence's last word.
 const EXTRA_ABBREVIATIONS: [&str; 14] = ["e.g.", "i.e.", "dr.", "fig.", "figs.", "al.", "eq.", "eqs.", "u.s.", "u.k.", "vs.", "cf.", "approx.", "ch."];
+/// Footnote marks as the cleaner shows them.
+const SUPERSCRIPT_DIGITS: [char; 10] = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
 
 /// English sentence splitting with sentencex plus the cases technical books need.
 #[derive(Debug, Default, Clone, Copy)]
@@ -16,7 +18,11 @@ impl SentenceSplitter for SentencexSplitter {
         let raw = sentencex::get_sentence_boundaries(LANGUAGE, text).into_iter().map(|boundary| boundary.start_byte..boundary.end_byte);
         let mut sentences: Vec<Range<usize>> = Vec::new();
         for range in raw {
-            let Some(range) = trim(text, range) else { continue };
+            let Some(mut range) = trim(text, range) else { continue };
+            if let Some(previous) = sentences.last_mut() {
+                let Some(rest) = give_back_footnote_mark(text, previous, range) else { continue };
+                range = rest;
+            }
             match sentences.last_mut() {
                 Some(previous) if should_join(text, previous, &range) => previous.end = range.end,
                 _ => sentences.push(range),
@@ -31,6 +37,18 @@ fn trim(text: &str, range: Range<usize>) -> Option<Range<usize>> {
     let start = range.start + (slice.len() - slice.trim_start().len());
     let end = range.start + slice.trim_end().len();
     (start < end).then_some(start..end)
+}
+
+/// A footnote mark after a sentence's full stop (`below.¹ Next`) belongs to that sentence, not the next one.
+/// Returns what is left of `next`, or `None` when the mark was all of it.
+fn give_back_footnote_mark(text: &str, previous: &mut Range<usize>, next: Range<usize>) -> Option<Range<usize>> {
+    let slice = &text[next.clone()];
+    let mark_len = slice.len() - slice.trim_start_matches(SUPERSCRIPT_DIGITS).len();
+    if mark_len == 0 {
+        return Some(next);
+    }
+    previous.end = next.start + mark_len;
+    trim(text, previous.end..next.end)
 }
 
 fn should_join(text: &str, previous: &Range<usize>, next: &Range<usize>) -> bool {
@@ -75,6 +93,13 @@ mod tests {
         assert_eq!(sentences("Pi is 3.14 roughly. Next."), ["Pi is 3.14 roughly.", "Next."]);
         assert_eq!(sentences("Version 1.29 shipped. Then 2.0 came."), ["Version 1.29 shipped.", "Then 2.0 came."]);
         assert_eq!(sentences("He said “Stop.” Then he left."), ["He said “Stop.”", "Then he left."]);
+    }
+
+    #[test]
+    fn a_footnote_mark_stays_with_the_sentence_it_follows() {
+        assert_eq!(sentences("The note is below. ¹ Then a new one."), ["The note is below. ¹", "Then a new one."]);
+        assert_eq!(sentences("Read on.² Next."), ["Read on.²", "Next."]);
+        assert_eq!(sentences("Only this. ³"), ["Only this. ³"]);
     }
 
     #[test]
