@@ -27,6 +27,7 @@
   grid-template-columns: auto 1fr;
   gap: .2rem .65rem;
   align-items: start;
+  align-content: start;
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 12px;
