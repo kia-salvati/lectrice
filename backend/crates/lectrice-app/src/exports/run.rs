@@ -45,6 +45,7 @@ pub(crate) struct ExportRunner {
     settings: ExportSettings,
 }
 
+#[derive(Debug)]
 pub(crate) struct FinishedFile {
     pub file: ExportedFile,
     /// The file's listening length.
