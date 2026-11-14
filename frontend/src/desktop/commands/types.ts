@@ -9,8 +9,9 @@ import type { DesktopErrorName } from '../../types/errors';
  * the registry names.
  */
 
+/** A bundle id from the shell's manifest. */
+export type ModelBundleId = string;
 /** `int8` is the retired official Smaller model: the shell lists it only while it is installed or partly downloaded. */
-export type ModelBundleId = 'kokoro-en-v1_0-fast' | 'kokoro-en-v1_0-fp32' | 'kokoro-en-v1_0-small' | 'kokoro-en-v1_0-int8';
 export type ModelVariant = 'fast' | 'fp32' | 'small' | 'int8';
 
 /** An unfinished export made with a bundle's engine. */
@@ -21,6 +22,8 @@ export interface ModelBundle {
   variant: ModelVariant;
   /** From the manifest: "Fast", "Full quality", "Small". */
   displayName: string;
+  /** The download's file name, e.g. "….tar.bz2"; its folder has the same name without the suffix. */
+  archiveName: string;
   downloadBytes: number;
   installedBytes: number;
   installed: boolean;

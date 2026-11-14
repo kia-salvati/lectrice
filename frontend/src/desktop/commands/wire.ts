@@ -14,6 +14,7 @@ interface BundleDto {
   id: ModelBundleId;
   variant: ModelVariant;
   name: string;
+  archiveName: string;
   downloadBytes: number;
   installedBytes: number;
   installed: boolean;
@@ -84,6 +85,7 @@ export const toModelStatus = (dto: ModelStatusDto): ModelStatus => ({
     id: bundle.id,
     variant: bundle.variant,
     displayName: bundle.name,
+    archiveName: bundle.archiveName,
     downloadBytes: bundle.downloadBytes,
     installedBytes: bundle.installedBytes,
     installed: bundle.installed,

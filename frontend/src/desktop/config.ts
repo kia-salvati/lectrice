@@ -1,4 +1,4 @@
-import type { LinkId, ModelImportKind, ModelVariant } from './commands/types';
+import type { LinkId, ModelVariant } from './commands/types';
 
 /** English voices in every bundle. */
 export const VOICE_COUNT = 28;
@@ -9,42 +9,14 @@ export const SAMPLE_LINE = 'This is how I sound when I read your books aloud.';
 /** The bundle the first-run screen recommends. */
 export const RECOMMENDED_VARIANT: ModelVariant = 'fast';
 
+/** The official int8 model is no longer offered: listed only while installed or partly downloaded. */
+export const RETIRED_VARIANT: ModelVariant = 'int8';
+
 export const VARIANT_NOTE: Record<ModelVariant, string> = {
   fast: 'Sounds like Full quality and reads faster. Recommended.',
   fp32: 'The original model. The biggest download.',
   small: 'Sounds like Full quality, in a smaller file.',
   int8: 'No longer offered: slower and a little less natural. Fast is better.',
-};
-
-/** The archives and unpacked folders an import accepts, named in the wrong-file and wrong-folder messages. The retired int8 is still accepted but not named. */
-const OFFERED_FOLDER_NAMES = ['kokoro-lectrice-q8-multi-lang-v1_0', 'kokoro-multi-lang-v1_0', 'kokoro-lectrice-w8-multi-lang-v1_0'];
-const listed = (names: readonly string[]): string => `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
-
-interface ImportText {
-  checking: string;
-  /** The archive is unpacked; the folder's files are copied. */
-  unpacking: string;
-  notAModel: string;
-  unreadable: string;
-  pickAnother: string;
-}
-
-/** What an import's progress line, its failures and its retry button say. The shell reports both kinds as `source: 'import'`. */
-export const IMPORT_TEXT: Record<ModelImportKind, ImportText> = {
-  archive: {
-    checking: 'Checking the file…',
-    unpacking: 'Unpacking…',
-    notAModel: `This file isn't a Lectrice voice model. Pick ${listed(OFFERED_FOLDER_NAMES.map((name) => `${name}.tar.bz2`))}.`,
-    unreadable: "This file couldn't be opened.",
-    pickAnother: 'Pick another file…',
-  },
-  folder: {
-    checking: 'Checking the folder…',
-    unpacking: 'Copying the voice files…',
-    notAModel: `This folder isn't a Lectrice voice model. Pick the unpacked ${listed(OFFERED_FOLDER_NAMES)} folder.`,
-    unreadable: "This folder couldn't be opened.",
-    pickAnother: 'Pick another folder…',
-  },
 };
 
 export const FFMPEG_INSTALL_COMMANDS: readonly { label: string; command: string }[] = [

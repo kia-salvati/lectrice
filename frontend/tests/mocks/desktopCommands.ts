@@ -10,9 +10,9 @@ const GB = 1_000 * MB;
 
 /** The offered bundles of the desktop manifest, sizes rounded to the manifest's. */
 const BUNDLES: readonly Omit<ModelBundle, 'installed' | 'active' | 'usedByExports'>[] = [
-  { id: 'kokoro-en-v1_0-fast', variant: 'fast', displayName: 'Fast', downloadBytes: 140 * MB, installedBytes: 169 * MB },
-  { id: 'kokoro-en-v1_0-fp32', variant: 'fp32', displayName: 'Full quality', downloadBytes: 350 * MB, installedBytes: 384 * MB },
-  { id: 'kokoro-en-v1_0-small', variant: 'small', displayName: 'Small', downloadBytes: 140 * MB, installedBytes: 169 * MB },
+  { id: 'kokoro-en-v1_0-fast', variant: 'fast', displayName: 'Fast', archiveName: 'kokoro-lectrice-q8-multi-lang-v1_0.tar.bz2', downloadBytes: 140 * MB, installedBytes: 169 * MB },
+  { id: 'kokoro-en-v1_0-fp32', variant: 'fp32', displayName: 'Full quality', archiveName: 'kokoro-multi-lang-v1_0.tar.bz2', downloadBytes: 350 * MB, installedBytes: 384 * MB },
+  { id: 'kokoro-en-v1_0-small', variant: 'small', displayName: 'Small', archiveName: 'kokoro-lectrice-w8-multi-lang-v1_0.tar.bz2', downloadBytes: 140 * MB, installedBytes: 169 * MB },
 ];
 const IMPORTED_BUNDLE: ModelBundleId = 'kokoro-en-v1_0-fast';
 

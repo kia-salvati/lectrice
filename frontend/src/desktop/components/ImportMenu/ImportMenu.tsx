@@ -9,13 +9,12 @@ interface ImportMenuProps {
   label: string;
   /** A download or import is under way: the button is disabled and its title says why. */
   disabled: boolean;
+  /** "Model file (.tar.bz2)…", from the archives the shell offers. */
+  fileLabel: string;
   onImport: (kind: ModelImportKind) => void;
 }
 
-const ITEMS: readonly { kind: ModelImportKind; label: string }[] = [
-  { kind: 'archive', label: 'Model file (.tar.bz2)…' },
-  { kind: 'folder', label: 'Unpacked model folder…' },
-];
+const FOLDER_LABEL = 'Unpacked model folder…';
 
 const BUSY_TITLE = 'Wait for the download to finish, or cancel it.';
 const MENU_GAP_PX = 4;
@@ -47,7 +46,8 @@ const nextIndex = (items: readonly HTMLElement[], key: string): number | null =>
  * item; ↑/↓ move; Escape closes and returns to the button; Tab or a click elsewhere closes. The menu is fixed so a
  * dialog's clipping never cuts it off.
  */
-export const ImportMenu = ({ label, disabled, onImport }: ImportMenuProps) => {
+export const ImportMenu = ({ label, disabled, fileLabel, onImport }: ImportMenuProps) => {
+  const items: readonly { kind: ModelImportKind; label: string }[] = [{ kind: 'archive', label: fileLabel }, { kind: 'folder', label: FOLDER_LABEL }];
   const [open, setOpen] = useState(false);
   const [place, setPlace] = useState<MenuPlace | null>(null);
   const wrapRef = useRef<HTMLSpanElement>(null);
@@ -127,7 +127,7 @@ export const ImportMenu = ({ label, disabled, onImport }: ImportMenuProps) => {
       </button>
       {open && (
         <div ref={menuRef} className={styles.menu} role="menu" aria-labelledby={buttonId} style={place ?? undefined} onKeyDown={onMenuKeyDown}>
-          {ITEMS.map((item) => (
+          {items.map((item) => (
             <button key={item.kind} type="button" role="menuitem" tabIndex={-1} className={styles.item} onClick={() => pick(item.kind)}>{item.label}</button>
           ))}
         </div>

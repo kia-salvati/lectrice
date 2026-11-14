@@ -2,13 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMockDesktopCommands } from './mocks/desktopCommands.ts';
 import { hasDesktopErrorName } from '../src/desktop/commands/errors.ts';
-import type { ModelStatus, ModelTransfer, PairedPhone } from '../src/desktop/commands/types.ts';
+import type { ModelBundle, ModelStatus, ModelTransfer, PairedPhone } from '../src/desktop/commands/types.ts';
 import { toDesktopError, toExportAvailability, toModelStatus } from '../src/desktop/commands/wire.ts';
 import type { ModelStatusDto } from '../src/desktop/commands/wire.ts';
 import { desktopExportPhase } from '../src/desktop/utils/exportPhase.ts';
 import { afterRevealed, afterRevealFailed, savedPathOfEntry, saveStateOfEntry } from '../src/desktop/utils/exportSaves.ts';
 import { newlyEnded, toastKindOf } from '../src/desktop/utils/exportToasts.ts';
 import { folderNameOf, formatApproxTimeLeft, formatDuration, formatMb, formatProgressMb, formatRetryIn, formatSpace, m4bSeconds, percentOf, versionLine } from '../src/desktop/utils/format.ts';
+import { importFileLabel, importText } from '../src/desktop/utils/importText.ts';
 import { installNeedsBytes, installPhase, smallerThatFits } from '../src/desktop/utils/modelSetup.ts';
 import { chipText, codeAriaLabel, coolDownMinutes, countdownPercent, formatCountdown, groupCode, lastSeenText, makingAudioText, otherNetworkText, parsePort, phoneMetaText, tryingText, versionToastText, wrongCodesText } from '../src/desktop/utils/phoneHelper.ts';
 import { voiceStatusText } from '../src/desktop/utils/voiceStatus.ts';
@@ -101,7 +102,7 @@ test('the mock shell fails an import, a save and a reveal the way the real shell
 });
 
 const bundleDto = (patch: Partial<ModelStatusDto['bundles'][number]> = {}): ModelStatusDto['bundles'][number] => ({
-  id: FP32, variant: 'fp32', name: 'Full quality', downloadBytes: 350 * MB, installedBytes: 384 * MB, installed: false, active: false, usedByExports: [], ...patch,
+  id: FP32, variant: 'fp32', name: 'Full quality', archiveName: 'model-full.tar.bz2', downloadBytes: 350 * MB, installedBytes: 384 * MB, installed: false, active: false, usedByExports: [], ...patch,
 });
 const statusDto = (download: ModelStatusDto['download'], patch: Partial<ModelStatusDto> = {}): ModelStatusDto => ({
   bundles: [bundleDto()], engine: { state: 'missing' }, download, freeBytes: 23_400 * MB, setupDismissed: false, ...patch,
@@ -110,7 +111,7 @@ const progressDto = { bundleId: FP32, bytesDone: 142 * MB, bytesTotal: 350 * MB 
 
 test("the shell's model status maps onto the screens' states", () => {
   const mapped = toModelStatus(statusDto({ state: 'idle' }, { setupDismissed: true }));
-  assert.deepEqual(mapped.bundles[0], { id: FP32, variant: 'fp32', displayName: 'Full quality', downloadBytes: 350 * MB, installedBytes: 384 * MB, installed: false, active: false, usedByExports: [] });
+  assert.deepEqual(mapped.bundles[0], { id: FP32, variant: 'fp32', displayName: 'Full quality', archiveName: 'model-full.tar.bz2', downloadBytes: 350 * MB, installedBytes: 384 * MB, installed: false, active: false, usedByExports: [] });
   assert.equal(mapped.setupDismissed, true);
   assert.equal(mapped.transfer.kind, 'none');
 
@@ -276,4 +277,15 @@ test('the Phone tab names the other network, checks the port and says which side
   assert.equal(parsePort(''), null);
   assert.equal(versionToastText({ update: 'computer', phoneName: 'Galaxy S10+' }).title, 'Update Lectrice on this computer');
   assert.equal(versionToastText({ update: 'phone', phoneName: 'Galaxy S10+' }).body, 'Galaxy S10+ has an older Lectrice. Update it to use this computer.');
+});
+
+test('the import messages name the archives and folders the shell offers, never the retired one', () => {
+  const bundle = (variant: ModelBundle['variant'], archiveName: string): ModelBundle => ({ id: variant, variant, displayName: variant, archiveName, downloadBytes: MB, installedBytes: MB, installed: false, active: false, usedByExports: [] });
+  const bundles = [bundle('fast', 'model-a.tar.bz2'), bundle('fp32', 'model-b.tar.bz2'), bundle('small', 'model-c.tar.bz2'), bundle('int8', 'model-old.tar.bz2')];
+  assert.equal(importText('archive', bundles).notAModel, "This file isn't a Lectrice voice model. Pick model-a.tar.bz2, model-b.tar.bz2 or model-c.tar.bz2.");
+  assert.equal(importText('folder', bundles).notAModel, "This folder isn't a Lectrice voice model. Pick the unpacked model-a, model-b or model-c folder.");
+  assert.equal(importText('folder', bundles.slice(0, 1)).notAModel, "This folder isn't a Lectrice voice model. Pick the unpacked model-a folder.");
+  assert.equal(importFileLabel(bundles), 'Model file (.tar.bz2)…');
+  assert.equal(importFileLabel([bundle('fast', 'model-a.zip')]), 'Model file (.zip)…');
+  assert.equal(importFileLabel([]), 'Model file…');
 });

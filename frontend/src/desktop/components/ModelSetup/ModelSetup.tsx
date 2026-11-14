@@ -1,11 +1,12 @@
 import { LibraryHeader } from '../../../components/LibraryHeader/LibraryHeader';
 import controls from '../../../styles/controls.module.css';
 import type { LinkId, ModelBundle, ModelBundleId, ModelImportKind, ModelStatus, ModelTransfer, TransferErrorName, TransferSource } from '../../commands/types';
-import { IMPORT_TEXT, RECOMMENDED_VARIANT, VARIANT_NOTE, VOICE_COUNT } from '../../config';
+import { RECOMMENDED_VARIANT, VARIANT_NOTE, VOICE_COUNT } from '../../config';
 import desktop from '../../styles/controls.module.css';
 import { formatApproxTimeLeft, formatMb, formatProgressMb, formatRetryIn, formatSpace, formatSpeed, percentOf } from '../../utils/format';
 import { INSTALL_SPARE_BYTES, bundleById, installNeedsBytes, installPhase, isTransferBusy, smallerThatFits } from '../../utils/modelSetup';
 import type { InstallPhase } from '../../utils/modelSetup';
+import { importFileLabel, importText } from '../../utils/importText';
 import { ImportMenu } from '../ImportMenu/ImportMenu';
 import { NoticeBox } from '../NoticeBox/NoticeBox';
 import { ProgressBar } from '../ProgressBar/ProgressBar';
@@ -62,7 +63,7 @@ const RadioCard = ({ bundle, checked, onSelect }: { bundle: ModelBundle; checked
   </label>
 );
 
-const ImportControl = ({ status, onImport }: Pick<ModelSetupProps, 'status' | 'onImport'>) => <ImportMenu label="Import…" disabled={isTransferBusy(status)} onImport={onImport} />;
+const ImportControl = ({ status, onImport }: Pick<ModelSetupProps, 'status' | 'onImport'>) => <ImportMenu label="Import…" disabled={isTransferBusy(status)} fileLabel={importFileLabel(status.bundles)} onImport={onImport} />;
 
 const CancelButton = ({ onCancel }: { onCancel: () => void }) => <button type="button" className={desktop.textButton} onClick={onCancel}>Cancel</button>;
 
@@ -126,13 +127,13 @@ const NoSpaceBox = ({ status, bundle, smaller }: { status: ModelStatus; bundle: 
 const failedParts = (props: ModelSetupProps, transfer: FailedTransfer): SetupParts => {
   const bundle = bundleById(props.status, transfer.bundleId);
   const smaller = smallerThatFits(props.status, bundle);
-  const importText = IMPORT_TEXT[props.importKind];
+  const copy = importText(props.importKind, props.status.bundles);
   const importAgain = () => props.onImport(props.importKind);
   const tryAgain = <button type="button" className={primary} onClick={bundle === null ? importAgain : () => props.onDownload(bundle.id)}>Try again</button>;
-  const pickAnother = <button type="button" className={primary} onClick={importAgain}>{importText.pickAnother}</button>;
+  const pickAnother = <button type="button" className={primary} onClick={importAgain}>{copy.pickAnother}</button>;
   const collapsed = bundle && <Collapsed bundle={bundle} />;
   const downloadFailed: SetupParts = { heading: DOWNLOADING_HEADING, main: <>{collapsed}<NoticeBox kind="error"><p>The download failed. Try again in a moment.</p></NoticeBox></>, actions: tryAgain };
-  const unreadable: SetupParts = { main: <NoticeBox kind="error"><p>{importText.unreadable}</p></NoticeBox>, actions: pickAnother };
+  const unreadable: SetupParts = { main: <NoticeBox kind="error"><p>{copy.unreadable}</p></NoticeBox>, actions: pickAnother };
   const noSpace = (heading?: string): SetupParts => ({
     heading,
     main: <>{collapsed}<NoSpaceBox status={props.status} bundle={bundle} smaller={smaller} /></>,
@@ -148,7 +149,7 @@ const failedParts = (props: ModelSetupProps, transfer: FailedTransfer): SetupPar
     },
     import: {
       ModelChecksumMismatch: {
-        main: <NoticeBox kind="error"><p>{importText.notAModel}</p></NoticeBox>,
+        main: <NoticeBox kind="error"><p>{copy.notAModel}</p></NoticeBox>,
         actions: <>{pickAnother}<button type="button" className={desktop.textButton} onClick={() => props.onOpenLink('modelDownloads')}>Where do I get it?</button></>,
       },
       FileUnreadable: unreadable,
@@ -210,7 +211,7 @@ const transferParts = (props: ModelSetupProps, transfer: RunningTransfer): Setup
       };
     case 'verifying': {
       const bundle = bundleById(props.status, transfer.bundleId);
-      const text = transfer.source === 'import' ? IMPORT_TEXT[props.importKind][transfer.stage] : transfer.stage === 'unpacking' ? 'Unpacking…' : 'Checking the download…';
+      const text = transfer.source === 'import' ? importText(props.importKind, props.status.bundles)[transfer.stage] : transfer.stage === 'unpacking' ? 'Unpacking…' : 'Checking the download…';
       return {
         heading: transfer.source === 'download' ? DOWNLOADING_HEADING : undefined,
         main: (
