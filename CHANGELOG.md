@@ -13,10 +13,16 @@ Android and desktop apps pull by tag. While in beta (0.x), a change to a core tr
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-14
+
 ### Core
 
 #### Added
 - `KokoroSpeechEngine::voice_catalog()`: the voices without loading a model (for a voice list before the engine is ready).
+- `KokoroSpeechEngine::VOICE_COUNT`: how many voices every bundle offers, known before a model is loaded.
+- A finished export records its listening length (`AudioExport.duration_seconds`, `durationSeconds` on the wire;
+  records saved by older versions load without it).
+- `lectrice_api::error::cause_chain` is public, so a shell's own commands log the same fields as the web server.
 - Prepare jobs (C21): `SpeechServices.prepare` (`PrepareJobs`: `start`, `stop`, `cancel`, `status`) makes a range of a book
   into the sentence cache at export priority, one sentence at a time, skipping cached ones, and pins the range.
 - `AudioRetention::pin` / `unpin` (default: no pins): pinned clips are neither counted in nor deleted by
@@ -74,6 +80,7 @@ Android and desktop apps pull by tag. While in beta (0.x), a change to a core tr
 - `SpeakSentence` and the read-ahead store clips with `put_if_absent`; when another producer stored the sentence
   first, its clip is the one returned.
 - The test profile builds `lectrice-app` optimised (the simulator's thousand runs).
+- The polled export reads (`get` / `list`) log at debug level instead of one info line per poll.
 - `AudioExporter` gains `attach_map` (default: adds nothing). `FfmpegExporter` implements it for M4B; a shell that wraps
   an exporter must forward it (the desktop's `SwappableExporter`) or its files carry no map.
 - `ExportRecord` gains `sentences` and `marked_parts` (serde defaults; a job resumed from parts made before this
@@ -120,7 +127,7 @@ Android and desktop apps pull by tag. While in beta (0.x), a change to a core tr
 - ffmpeg errors keep only the last line of its output (earlier lines can echo the metadata file's chapter titles).
 
 #### Security
-- `mp4_map::read_audiobook` treats the file as untrusted (security review S13): box sizes are checked without overflow
+- `mp4_map::read_audiobook` treats the file as untrusted: box sizes are checked without overflow
   (a 64-bit size could wrap the offset), at most 200 000 top-level boxes are walked, `moov` is capped at 64 MB and
   the map at 8 MB before anything is allocated, only the 16-byte type of a foreign `uuid` box is read, the `mvhd`
   length can't overflow, and the title tag is cut to 1 KB without control characters.
@@ -128,7 +135,7 @@ Android and desktop apps pull by tag. While in beta (0.x), a change to a core tr
   is 50–300 %, its sample rate and length are sane, it has at most `MAX_MAP_SENTENCES` (200 000) sentences, each id
   once, 8-hex-digit hashes, and start times that never go back or past the end. `match_audiobook` applies it too, so
   a timeline never has `end_ms < start_ms` or a zero speed.
-- **Web server (`lectrice-api`), security review S2:** every request to the loopback server is checked before its
+- **Web server (`lectrice-api`):** every request to the loopback server is checked before its
   route (`guard::LocalAccess`, `app::build_local_app`). `Host` must be `localhost`, `127.0.0.1` or `[::1]` with the
   server's port (or the configured page's own loopback host, for a dev server that proxies `/api`), so a page that
   reaches the server through DNS rebinding is refused. `Origin`, when sent, must be `server.allowed_origin` or the
@@ -137,11 +144,11 @@ Android and desktop apps pull by tag. While in beta (0.x), a change to a core tr
   (1009, HTTP 403). **Scripts that change data with `curl` now need `-H 'Origin: http://localhost:5173'`**; reads
   (`curl localhost:7878/api/health`) work as before. `build_app` stays unguarded for shells that route requests in
   process (the desktop bridge checks its own host).
-- **PDF import limits (`lectrice-infra`), security review S7:** `PdfLimits` (default 20 000 pages, 20 million
+- **PDF import limits (`lectrice-infra`):** `PdfLimits` (default 20 000 pages, 20 million
   characters, 5 minutes; `PdfiumTextSource::with_limits`, `read_runs_within`). A PDF past a limit fails with the new
   `PdfTooComplex` (1010, HTTP 422) instead of holding the import thread or the memory. The time limit is checked
   between pages and every 4 096 characters; a single PDFium call that never returns can't be interrupted in process.
-- **`lectrice-link`, security review pass 3:**
+- **`lectrice-link`:**
   - Sample rates outside 8 000–48 000 Hz are refused in `Welcome`, `Ready` and `Clip` (every clip bound is
     `seconds × rate`: a paired computer that named 4 GHz could make the phone reserve gigabytes), and `decode_clip`
     never sizes its output beyond the longest clip the protocol allows.
@@ -172,7 +179,22 @@ Android and desktop apps pull by tag. While in beta (0.x), a change to a core tr
   for ever), and `Bye(engine_switch)` was answered with no wait at all (a busy loop). A session counts as stable
   after twice `Timing::dead_after` (30 s).
 - The web server makes its data and cache folders the user's only at start (`0700` on Unix, also for folders an
-  older version made; security review S11).
+  older version made).
+
+### Web app
+- Desktop build: the voice model choice offers **Fast** (recommended), Full quality and Small; the settings dialog
+  gains a **Phone** tab for the computer helper (on/off, pairing code, paired phones, forget) and the keyboard
+  shortcuts in About.
+- The whole core error registry is mirrored once (`src/config/errorRegistry.ts`), checked against the core by
+  `tests/errors.test.ts` (`LECTRICE_ERROR_RS`); an unknown error keeps its message.
+- Startup, crash, refused-command and voice-sample failures are shown instead of a blank or silent screen; "Show more"
+  and the voice list offer a retry; export polling survives a failed look and shows the measured audiobook length.
+- Play waits for the voice list and fetches the current sentence first; an unreadable file never stalls an import.
+- Accessibility: one live region announces toasts and imports, settings tabs are one tab stop with arrow keys, one
+  Escape closes only the dialog, focus returns after a rename, reader shortcuts stay quiet under a modal dialog, and
+  field, menu and switch edges have 3:1 contrast.
+- Percents and times left are written as in the Android app ("34 %", "35 h 6 min left"); scrollbars are hidden in
+  the web build too; the mock API is left out of http builds.
 
 ## [0.3.0] - 2026-10-25
 
