@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 use crate::ids::{DocumentId, SentenceId, VoiceId};
@@ -27,17 +29,31 @@ pub enum VoiceGender {
 }
 
 /// Speech is always made at 1x; the player applies the listener's speed.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SpeechRequest {
     pub text: String,
     pub voice_id: VoiceId,
 }
 
 /// Mono PCM samples in -1.0..=1.0.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Clone, PartialEq, Default)]
 pub struct Audio {
     pub samples: Vec<f32>,
     pub sample_rate: u32,
+}
+
+// Neither the text nor the samples reach a log: `Debug` shows lengths only.
+
+impl fmt::Debug for SpeechRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SpeechRequest").field("text_chars", &self.text.chars().count()).field("voice_id", &self.voice_id).finish()
+    }
+}
+
+impl fmt::Debug for Audio {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Audio").field("samples", &self.samples.len()).field("sample_rate", &self.sample_rate).finish()
+    }
 }
 
 /// One cached sentence clip. The cleaner version is part of the key because re-cleaning renumbers sentences.

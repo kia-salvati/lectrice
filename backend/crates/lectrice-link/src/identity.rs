@@ -82,11 +82,18 @@ impl fmt::Display for PeerId {
 }
 
 /// A paired device: public data only.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PeerRecord {
     pub peer_id: PeerId,
     pub name: String,
     pub static_public: [u8; KEY_BYTES],
+}
+
+/// The device name is the owner's (often their own name), so it stays out of logs.
+impl fmt::Debug for PeerRecord {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.debug_struct("PeerRecord").field("peer_id", &self.peer_id).field("name_chars", &self.name.chars().count()).finish_non_exhaustive()
+    }
 }
 
 impl PeerRecord {
