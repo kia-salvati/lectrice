@@ -1,5 +1,4 @@
 .dialog {
-  --backdrop: rgba(0, 0, 0, .35);
   width: min(26rem, calc(100% - 2rem));
   max-height: calc(100% - 2rem);
   padding: 1.25rem;
@@ -14,10 +13,7 @@
   overflow: hidden;
 }
 .dialog[open] { display: flex; }
-.dialog::backdrop { background: var(--backdrop); }
-@media (prefers-color-scheme: dark) {
-  .dialog { --backdrop: rgba(0, 0, 0, .55); }
-}
+.dialog::backdrop { background: var(--modal-backdrop); }
 .wide { width: min(44rem, calc(100% - 2rem)); max-height: min(34rem, calc(100% - 4rem)); }
 .head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex: none; }
 .title { margin: 0; font-size: 1.25rem; font-weight: 600; }

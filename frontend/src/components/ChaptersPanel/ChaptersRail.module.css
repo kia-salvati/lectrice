@@ -10,7 +10,7 @@
   border-right: 1px solid var(--line);
   background: var(--bg);
   font-size: .8125rem;
-  z-index: 5;
+  z-index: var(--z-rail);
 }
 .head { display: flex; align-items: center; gap: .15rem; padding: .5rem .4rem .5rem .75rem; border-bottom: 1px solid var(--line); flex: none; }
 .bookTitle { font-size: .875rem; margin: 0; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -24,7 +24,7 @@
   position: fixed;
   left: 0;
   top: 1rem;
-  z-index: 5;
+  z-index: var(--z-rail);
   display: inline-flex;
   align-items: center;
   gap: .4rem;

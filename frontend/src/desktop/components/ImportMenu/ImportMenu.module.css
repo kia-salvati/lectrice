@@ -2,7 +2,7 @@
 .chevron { display: inline-grid; margin-left: .25rem; transform: rotate(90deg); }
 .menu {
   position: fixed;
-  z-index: 40;
+  z-index: var(--z-menu);
   display: grid;
   min-width: 15rem;
   padding: .35rem;

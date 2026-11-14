@@ -9,5 +9,5 @@
 .title { margin: 0; font-size: 1.25rem; }
 .text { margin: 0; }
 .actions { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; }
-.banners { position: sticky; top: 0; z-index: 11; }
+.banners { position: sticky; top: 0; z-index: var(--z-banner); }
 .besideRail { padding-left: var(--rail-width); }

@@ -12,7 +12,7 @@
   gap: .5rem;
   font-size: .875rem;
   line-height: 1.5;
-  z-index: 20;
+  z-index: var(--z-overlay);
   animation: slideIn .15s ease-out;
 }
 .toast p { margin: 0; }

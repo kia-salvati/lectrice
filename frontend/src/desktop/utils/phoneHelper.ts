@@ -10,7 +10,7 @@ const DAYS_SHOWN_AS_COUNT = 7;
 const THIN_SPACE = ' ';
 const CODE_GROUP_LENGTH = 3;
 /** The third wrong code closes the pairing window. */
-const WRONG_CODES_ALLOWED = 3;
+export const WRONG_CODES_ALLOWED = 3;
 
 export const PORT_MIN = 1024;
 export const PORT_MAX = 65535;
