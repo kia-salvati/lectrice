@@ -1,35 +1,53 @@
-# Lectrice: session handoff (updated 2026-11-13)
+# Lectrice: session handoff (updated 2026-11-14)
 
 Read this first, then `CLAUDE.md` (the full decision log and rules). The sections below
-"Current state" are the 2026-10-25 snapshot and kept for history.
+"Repos" are older snapshots kept for history.
 
-## Current state (2026-11-13)
-- **Android app built** (`lectrice-android`, branch `feature/app-m2`, not committed yet): M2–M4
-  (reader, player, models Fast / Full quality / Small with their own engine ids, export, storage,
-  prepare-first) per `lectrice-android/docs/progress/M2*.md`, `M3.md`, `M4.md`.
-- **New features (user 2026-11-13, build as recommended):**
-  - **23 · Play from an audiobook (M4B)**: spec `docs/android-logic/23-audiobook-source.md`,
-    design option B; built in the Android app (`lectrice-android/docs/progress/F23-*.md`).
-  - **24 · Desktop helps the phone** (pairing, the desktop makes the audio, 30 min read-ahead):
-    spec `docs/android-logic/24-desktop-helper.md`. H0 (spikes, `docs/progress/H0.md`), H1 (core
-    crate `lectrice-link`, worktree `../lectrice-core-android`, branch `feature/core-android`) and
-    H3 (desktop, `lectrice-desktop/docs/progress/H0-H3.md`) built; H2 (core wiring) and H4
-    (Android) next. The desktop Phone tab UI is committed in `frontend/` (main).
-- **Desktop v0.2** (`lectrice-desktop`, branch `feature/v0.2-models`, uncommitted): the three
-  models (Fast recommended); the frontend part is on `main`. Model release
-  `model-kokoro-lectrice-fast-v1` is published.
-- **Security pass 1 done** (2026-11-13, Fable's job per CLAUDE.md): 0 critical, 1 high, 4 medium,
-  10 low. The report stays **local** in `docs/security/` (gitignored) until the fixes (pass 2)
-  land. Every new feature gets a security review before it's called done.
-- **Next core release is v0.4.0**, tagged once the core worktree (link crate, C35–C52) is merged.
+## Current state (2026-11-14): released
+- **Released as GitHub pre-releases (2026-11-14), after the final check, the fixes and the verification review:**
+  - **Core v0.4.0** (main repo, tag `v0.4.0`): audiobook map, Prepare jobs, the computer helper and the new crate
+    `lectrice-link`, security fixes, cleaner v5. `CHANGELOG.md` `[0.4.0] - 2026-11-14`. Web app `0.4.0`.
+  - **Desktop v0.2.0** (tag `v0.2.0`): three models (Fast recommended), the phone helper. Assets: `.rpm`, `.deb`,
+    **AppImage** (works again), Windows NSIS `.exe`, FFmpeg 8.0.3 source + `.asc` + LGPL build scripts, `SHA256SUMS`.
+    Pins the core by `tag = "v0.4.0"` (incl. `lectrice-link`); `Cargo.lock` has git sources (built without the
+    path override). Staged files: `lectrice-desktop/target/release-v0.2.0/`.
+  - **Android v0.1.0** (first release, tag `v0.1.0`): signed release APK `Lectrice-0.1.0.apk` (key on this laptop,
+    `CN=Lectrice`) + `SHA256SUMS`. Pins the core by `tag = "v0.4.0"`. `versionCode=1`: raise it for the next APK.
+- **Book titles are out of the new core commits** (user: "remove going forward"): the book tests use the keys
+  `book-a` … `book-e` (A = the calibre e-book, B = the O'Reilly-style book, C = the all-Courier book, D = the Google
+  Docs export, E = the XeTeX book). The gitignored `backend/test-data/books/expected.json` uses the same keys and
+  `book-?.jsonl` links to the old fixture files. Older public mentions (`backend/README.md`, `toc.rs` unit tests,
+  `cleaning_invented.rs`, some cleaner comments, docs, CLAUDE.md) are a later clean-up.
+- Fixed in this pass: Android `:spike` compiles again; the Listen view uses the 2 × 2 tool grid at 200 % font on
+  every width; an export the core pauses when the engine is rebuilt (pairing a computer, switching the helper) now
+  continues at once (`core/work/EngineRebuild.kt` + test) instead of showing "Paused by Android". The clips of the
+  unfinished 10-minute part are still made again after such a pause (by design: exports stream into parts, not into
+  the cache). **This fix was not re-tested on the S10+** (the phone was locked with a password); JVM tests only.
+
+## Pending
+1. **User: the router-off test** of the helper (Wi-Fi without internet).
+2. **User: Windows checks** of desktop v0.2.0: the helper's network detection and DPAPI key storage have never run
+   on real Windows; a phone on another model than the desktop gets "Busy" there (D11); no "public network" hint.
+3. **User: NPU results from the S26** (personal build, local only).
+4. Re-test on the S10+: pair a computer while an export runs; the export should keep going.
+5. Leftovers from `docs/review/2026-11-14-verification.md` §4 (local): N3 device-transfer rules, N4 model-load race,
+   N5 lock-screen Listen view after restore, N6 footnote as "previous" line, N7 "References" chapter, N8 web voice
+   list failure, N9 export poll trace line, N10 remaining review references (Android, desktop `Cargo.toml:21`),
+   N13 version hint. Also the old book-title mentions above.
+6. Local dev overrides: `lectrice-desktop/.cargo/config.toml` and `lectrice-android/.cargo/config.toml` still point
+   at `../lectrice-core-android` (now merged into `main`); point them at `../lectrice/backend/crates` for new work.
 
 ## Repos
 | Repo | Local | State |
 |---|---|---|
-| **lectrice** (core + web app) | `~/Desktop/learning/lectrice` → github.com/kia-salvati/lectrice | `main` + tags `v0.1.0`, `v0.2.0`, **`v0.3.0`** and `model-kokoro-lectrice-small-v1` pushed. Local branch `feature/desktop-support` = `main`; all pushed. **Kept local on purpose:** `research/2026-10-25-qnn-license-review.md` (redact §6.1a before ever committing) and `research/2026-10-25-android-npu-test.md`; old option screenshots `design/screens/android-[1-4]-*` |
-| **lectrice-desktop** (Tauri 2) | `../lectrice-desktop` → github.com/kia-salvati/lectrice-desktop | `main` + tag **`v0.1.0`** pushed (pins core `v0.3.0`). Clean |
-| **lectrice-android** | `../lectrice-android` → github.com/kia-salvati/lectrice-android | `main` pushed (spike, `lectrice-ffi`, bundled models, `cores=` option, automation, S5/S7/variants results). **To do: move the core pin `tag = "v0.2.0"` → `v0.3.0`** (it already uses v0.3.0 APIs through the path override). **Kept local on purpose (NPU, licensing):** `npu-test/`, its edits in `settings.gradle.kts`, `gradle/libs.versions.toml`, `gradle/verification-*`, `docs/progress/NPU-prep.md`, `docs/results/S26U-npu-run1.json` |
+| **lectrice** (core + web app) | `~/Desktop/learning/lectrice` → github.com/kia-salvati/lectrice | `main` + tags up to **`v0.4.0`**, `model-kokoro-lectrice-small-v1`, `model-kokoro-lectrice-fast-v1` pushed. `feature/core-android` (worktree `../lectrice-core-android`) and `feature/final-fixes` merged into `main`. **Kept local on purpose:** `docs/review/`, `docs/security/` (gitignored), `research/2026-10-25-qnn-license-review.md`, `research/2026-10-25-android-npu-test.md`, old screenshots `design/screens/android-[1-4]-*` |
+| **lectrice-desktop** (Tauri 2) | `../lectrice-desktop` → github.com/kia-salvati/lectrice-desktop | `main` + tags `v0.1.0`, **`v0.2.0`** pushed (pins core `v0.4.0`) |
+| **lectrice-android** | `../lectrice-android` → github.com/kia-salvati/lectrice-android | `main` + tag **`v0.1.0`** pushed (pins core `v0.4.0`). **Kept local on purpose (NPU):** the folders and files in `.git/info/exclude` and the NPU hunks in 20 tracked files (docs, Gradle files, `settings.gradle.kts`, `rust/lectrice-ffi/{Cargo.toml,src/composition.rs,src/lib.rs}`): **never `git add -A` / `commit -a` there**; stage by name |
 | sherpa2 worktree | `../lectrice-sherpa2` | Spike only; sherpa 2.0 rejected; never push |
+
+## Earlier snapshot (2026-11-13)
+- Android M2–M4, features 23 (audiobook source) and 24 (desktop helper), desktop v0.2 models and security pass 1
+  were built then; all of it is in the releases above.
 
 D9 (import flash) and D11 (still screen until the file dialog has gone) are **committed** in core
 `v0.3.0` (`frontend/`), and the desktop v0.1.0 installers include them.
