@@ -29,7 +29,7 @@
 
 .select {
   padding: .3rem .4rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-line);
   border-radius: 6px;
   background: var(--bg);
   max-width: 100%;

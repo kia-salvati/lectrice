@@ -9,7 +9,7 @@
   flex: none;
   position: relative;
   border-radius: 999px;
-  background: var(--line);
+  background: var(--control-line);
   cursor: pointer;
   transition: background .15s;
 }
@@ -39,7 +39,7 @@
 .value { display: flex; align-items: center; gap: .4rem; min-width: 0; min-height: 2rem; flex-wrap: wrap; }
 .also { grid-column: 2; }
 .mono { font-family: var(--mono); }
-.field { padding: .3rem .5rem; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); min-width: 0; }
+.field { padding: .3rem .5rem; border: 1px solid var(--control-line); border-radius: 6px; background: var(--bg); min-width: 0; }
 .statusLine { display: inline-flex; align-items: center; gap: .4rem; }
 .statusLine svg { flex: none; }
 .command { display: flex; gap: .5rem; align-items: center; min-width: 0; }

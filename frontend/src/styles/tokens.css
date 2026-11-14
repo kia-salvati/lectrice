@@ -1,5 +1,6 @@
 :root {
   --bg: #ffffff; --bg2: #f3f3ef; --fg: #1c1f24; --fg2: #5b636d; --line: #d3d3cd;
+  --control-line: #8a8a84;   /* the edge of a field, menu or switch: 3:1 on the page */
   --accent: #1d5fae; --on-accent: #ffffff;
   --hl: #ffe58f; --hl-fg: #1c1f24;
   --err-bg: #fbe7e5; --err-fg: #8b1a12;
@@ -15,6 +16,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #121417; --bg2: #1c1f24; --fg: #e8e6e1; --fg2: #a8adb5; --line: #363a41;
+    --control-line: #6e737c;
     --accent: #8ab8ff; --on-accent: #0b1a33;
     --hl: #4d4214; --hl-fg: #fff6d8;
     --err-bg: #44181a; --err-fg: #f4b1ad;
