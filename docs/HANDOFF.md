@@ -121,7 +121,7 @@ LECTRICE_MAIN_DIR=../lectrice scripts/build-release.sh    # rpm, deb (AppImage s
 LECTRICE_MAIN_DIR=../lectrice scripts/build-windows.sh    # NSIS installer (Fedora mingw32-nsis stubs)
 # phones (wireless adb, paired): adb mdns services; spike/run-phone.sh <serial> <large.pdf> <medium.pdf> <threads>
 ```
-Phones: S10+ `adb-R58M23PXZYM-…` (192.168.70.129), S26 Ultra `adb-R5GL7354WDB-…` (192.168.70.154).
+Phones: S10+ and S26 Ultra over wireless adb (`adb devices -l`; serials and IPs are in the local memory notes, not in git).
 Wireless debugging switches itself off sometimes; the user re-enables it (S26: Auto Blocker off).
 
 ## Rules that are easy to break

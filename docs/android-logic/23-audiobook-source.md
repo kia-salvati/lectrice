@@ -172,6 +172,24 @@ New registry names (C39): `AudiobookNotLectrice` 3101 (only logged: foreign file
 Ids, counts, mode, matched percent, durations, file size; never titles of foreign files' chapters, never the map's
 hashes, never sentence text. The lock-screen title rule (sentence text on the lock screen, file 09) is unchanged.
 
+### 3.9 Security (review 2026-11-13, S13)
+
+An audiobook file is untrusted input, also when Lectrice's name is on it.
+
+- **Reading (core):** every box size is checked against the file's length without overflow; `moov` ≤ 64 MB, the map
+  ≤ 8 MB and ≤ 200 000 sentences, ≤ 255 chapters, the title ≤ 1 KB. A map whose values can't be true (speed outside
+  50–300 %, no length, an id twice, start times that go back or past the end) is ignored: the file is then foreign.
+- **Playing (Android):** only an AAC track is decoded; a sentence's slice is at most 10 minutes and 20 s of decoding.
+- **"Open with" / "Share":** the library asks first ("Link *name*?"). On yes the file is **copied** into app storage
+  (≤ 2 GB, leaving 200 MB free) and the copy is what gets matched and played; the sender's URI is never read again and
+  no permission on it is kept. Only `content:` URIs of other apps are taken. A file picked in the app's own picker
+  keeps its read permission instead (copied only when the provider can't give one).
+- **Matching is not proof:** the 32-bit text hash can be forged. A match only turns on follow-along; it must never
+  unlock anything else.
+- **Privacy of exported files (open):** the map holds the document id (the SHA-256 of the user's PDF) and one hash per
+  sentence. Whoever gets a shared M4B can tell which PDF it was made from if they have that PDF. A random id per
+  export would stop that but also stop the automatic "which book is this" on import; not decided.
+
 ## 4. States (player sheet "Audio" row and pill)
 
 | State | Pill | Sheet "Audio" row |
