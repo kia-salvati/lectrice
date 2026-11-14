@@ -41,7 +41,7 @@ export const DesktopSettings = ({ initialTab, status, setup, phone, info, licens
           importKind={setup.importKind}
         />
       )}
-      phoneTab={<PhoneTabState phone={phone} onOpenLink={onOpenLink} />}
+      phoneTab={<PhoneTabState phone={phone} />}
       aboutTab={info && <AboutTab info={info} licenses={licenses} onOpenLink={onOpenLink} />}
     />
   );

@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { CheckIcon, WaitIcon } from '../../../components/icons/icons';
 import controls from '../../../styles/controls.module.css';
-import type { LinkId, PairedPhone, PhoneHelperStatus } from '../../commands/types';
+import type { PairedPhone, PhoneHelperStatus } from '../../commands/types';
 import { PAIRED_CARD_CLOSES_MS } from '../../config';
 import type { PhoneHelperActions } from '../../hooks/usePhoneHelper';
 import desktop from '../../styles/controls.module.css';
@@ -19,24 +19,15 @@ import styles from './PhoneTab.module.css';
 interface PhoneTabProps {
   status: PhoneHelperStatus;
   actions: PhoneHelperActions;
-  onOpenLink: (linkId: LinkId) => void;
 }
 
 /** Whether this computer can be reached, and what to do when it can't. */
-const ListeningStatus = ({ status, onOpenLink }: Pick<PhoneTabProps, 'status' | 'onOpenLink'>) => {
+const ListeningStatus = ({ status }: Pick<PhoneTabProps, 'status'>) => {
   const { notice, listening } = status;
   if (listening === 'failed' || notice?.kind === 'portInUse') {
     return <p className={desktop.errorText}>Port {notice?.kind === 'portInUse' ? notice.port : status.port} is in use. Choose another port under Advanced.</p>;
   }
   if (notice?.kind === 'noNetwork' || status.network.kind === 'none') return <p>This computer isn't on a home network right now.</p>;
-  if (notice?.kind === 'windowsPublicNetwork') {
-    return (
-      <NoticeBox kind="warning">
-        <p>Windows treats this Wi-Fi as a public network, so your phone can't reach this computer. Set it to Private in Settings → Network &amp; internet → Wi-Fi → (your network).</p>
-        <div><button type="button" className={controls.button} onClick={() => onOpenLink('windowsNetworkSettings')}>Open network settings</button></div>
-      </NoticeBox>
-    );
-  }
   if (notice?.kind === 'linuxFirewall') {
     return (
       <NoticeBox kind="info">
@@ -52,7 +43,7 @@ const ListeningStatus = ({ status, onOpenLink }: Pick<PhoneTabProps, 'status' | 
   return null;
 };
 
-const ComputerSection = ({ status, actions, onOpenLink }: PhoneTabProps) => {
+const ComputerSection = ({ status, actions }: PhoneTabProps) => {
   const headingId = useId();
   const { network } = status;
   const [address, ...otherAddresses] = status.addresses;
@@ -75,13 +66,13 @@ const ComputerSection = ({ status, actions, onOpenLink }: PhoneTabProps) => {
           <p>{otherNetworkText(network.name)}</p>
           <div><button type="button" className={controls.button} onClick={actions.allowThisNetwork}>Use on this network too</button></div>
         </NoticeBox>
-      ) : <ListeningStatus status={status} onOpenLink={onOpenLink} />}
+      ) : <ListeningStatus status={status} />}
     </section>
   );
 };
 
 /** P1-A: the settings dialog's Phone tab; the pairing card opens in the button's place, under the list of phones. */
-export const PhoneTab = ({ status, actions, onOpenLink }: PhoneTabProps) => {
+export const PhoneTab = ({ status, actions }: PhoneTabProps) => {
   const switchId = useId();
   const cardRef = useRef<HTMLDivElement>(null);
   const [phoneToForget, setPhoneToForget] = useState<PairedPhone | null>(null);
@@ -116,7 +107,7 @@ export const PhoneTab = ({ status, actions, onOpenLink }: PhoneTabProps) => {
       {status.notice?.kind === 'windowsFirstListen' && (
         <NoticeBox kind="info"><p>Windows will ask whether Lectrice may use your network. Choose <b>Private networks</b>.</p></NoticeBox>
       )}
-      {status.enabled && <ComputerSection status={status} actions={actions} onOpenLink={onOpenLink} />}
+      {status.enabled && <ComputerSection status={status} actions={actions} />}
       <PhonesSection status={status} newPeerId={pairedPeerId} onForget={setPhoneToForget} />
       {pairing.kind !== 'none' && cardOpen && (
         <div ref={cardRef}><PairingCard pairing={pairing} computerName={status.computerName} onStart={actions.pairStart} onCancel={actions.pairCancel} /></div>

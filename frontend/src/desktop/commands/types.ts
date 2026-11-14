@@ -90,7 +90,7 @@ export type ExportAvailability = { available: true } | { available: false; reaso
 export type SaveAsResult = { outcome: 'saved'; path: string } | { outcome: 'cancelled' };
 
 /** The fixed list `open_link` accepts; never a free-form URL. */
-export type LinkId = 'releases' | 'source' | 'modelDownloads' | 'thirdPartyLicenses' | 'windowsNetworkSettings';
+export type LinkId = 'releases' | 'source' | 'modelDownloads' | 'thirdPartyLicenses';
 
 export type LicenseTextId = 'lectrice' | 'kokoro' | 'sherpaOnnx' | 'espeakNg' | 'onnxruntime' | 'pdfium' | 'ffmpeg' | 'tauri' | 'react';
 
@@ -111,7 +111,6 @@ export type PhoneHelperListening = 'off' | 'starting' | 'ready' | 'failed';
 /** Why a phone may not reach this computer; null when nothing is known to be wrong. */
 export type PhoneHelperNotice =
   | { kind: 'windowsFirstListen' }
-  | { kind: 'windowsPublicNetwork' }
   | { kind: 'linuxFirewall'; commands: readonly string[] }
   | { kind: 'noNetwork' }
   | { kind: 'portInUse'; port: number };
