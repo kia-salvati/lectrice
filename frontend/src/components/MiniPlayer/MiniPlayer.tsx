@@ -57,7 +57,8 @@ export const MiniPlayer = ({ playerState, statusParts, canGoBack, canGoForward, 
   useEffect(() => {
     if (!isPopoverOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      // An Escape a modal dialog over the reader took closes only that dialog.
+      if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog:modal')) return;
       onPopoverOpenChange(false);
       moreButtonRef.current?.focus();
     };

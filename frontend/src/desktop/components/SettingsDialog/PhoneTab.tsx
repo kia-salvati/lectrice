@@ -28,19 +28,33 @@ const Switch = ({ id, checked, onChange }: SwitchProps) => (
 /** This computer's name: a text with "Rename", or the input (Enter saves, Escape or leaving the field cancels). */
 const ComputerName = ({ name, onRename }: { name: string; onRename: (name: string) => void }) => {
   const [draft, setDraft] = useState<string | null>(null);
+  const renameRef = useRef<HTMLButtonElement>(null);
+  /** The field closed with the keyboard's focus still in it: the focus goes back to "Rename" instead of getting lost. */
+  const focusRename = useRef(false);
+  const editing = draft !== null;
+  useEffect(() => {
+    if (editing || !focusRename.current) return;
+    focusRename.current = false;
+    renameRef.current?.focus();
+  }, [editing]);
+
+  const close = () => {
+    focusRename.current = true;
+    setDraft(null);
+  };
   if (draft === null) {
-    return <><span>{name}</span><button type="button" className={desktop.textButton} onClick={() => setDraft(name)}>Rename</button></>;
+    return <><span>{name}</span><button type="button" ref={renameRef} className={desktop.textButton} onClick={() => setDraft(name)}>Rename</button></>;
   }
   const handleKey = (event: React.KeyboardEvent) => {
     if (event.key === 'Escape') {
       // Escape would also close the settings dialog.
       event.preventDefault();
       event.stopPropagation();
-      setDraft(null);
+      close();
     } else if (event.key === 'Enter') {
       const trimmed = draft.trim();
       if (trimmed !== '' && trimmed !== name) onRename(trimmed);
-      setDraft(null);
+      close();
     }
   };
   return (
@@ -53,7 +67,11 @@ const ComputerName = ({ name, onRename }: { name: string; onRename: (name: strin
       autoFocus
       onChange={(event) => setDraft(event.target.value)}
       onKeyDown={handleKey}
-      onBlur={() => setDraft(null)}
+      onBlur={(event) => {
+        // Left by clicking or tabbing to another control: the focus stays where the user put it.
+        if (event.relatedTarget === null) close();
+        else setDraft(null);
+      }}
     />
   );
 };
