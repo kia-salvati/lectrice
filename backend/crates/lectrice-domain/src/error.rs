@@ -53,6 +53,8 @@ impl<'de> Deserialize<'de> for ErrorName {
     }
 }
 
+// One entry per line, `Name => (code, status, operational, "description"),`: the Android and web mirrors of these names
+// parse this block in their tests, so keep the layout (comment lines in between are fine).
 error_registry! {
     RequestInvalid          => (1000, 400, true,  "This request isn't valid."),
     UploadMissingFile       => (1001, 400, true,  "No file was uploaded."),
@@ -186,6 +188,22 @@ mod tests {
     /// the six helper names 5001–5006, and `RequestForbidden`
     /// and `PdfTooComplex`.
     const SPEC_ERROR_COUNT: usize = 37;
+
+    /// The mirrors in the other apps read the registry from this file's text, one entry per line.
+    #[test]
+    fn the_registry_block_keeps_one_entry_per_line() {
+        let entry = regex::Regex::new(r#"^\s+([A-Za-z]+)\s+=> \((\d+), (\d{3}), (true|false),\s+"[^"]*"\),$"#).unwrap();
+        let source = include_str!("error.rs");
+        let block = source.split("\nerror_registry! {\n").nth(1).and_then(|rest| rest.split("\n}\n").next()).unwrap();
+        let parsed: Vec<(String, u32)> = block
+            .lines()
+            .filter(|line| !line.trim_start().starts_with("//"))
+            .map(|line| entry.captures(line).unwrap_or_else(|| panic!("not one entry: {line:?}")))
+            .map(|captures| (captures[1].to_string(), captures[2].parse().unwrap()))
+            .collect();
+        let registry: Vec<(String, u32)> = ErrorName::ALL.iter().map(|name| (name.as_str().to_string(), name.spec().code)).collect();
+        assert_eq!(parsed, registry);
+    }
 
     #[test]
     fn every_name_has_a_unique_code() {
