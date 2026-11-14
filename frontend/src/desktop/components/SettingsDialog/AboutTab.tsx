@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import controls from '../../../styles/controls.module.css';
 import type { AppInfo, DesktopOs, Licenses, LinkId } from '../../commands/types';
-import { LINK_LABEL } from '../../config';
+import { LINK_LABEL, SETTINGS_SHORTCUT_KEY } from '../../config';
 import { useCopyFeedback } from '../../hooks/useCopyFeedback';
 import desktop from '../../styles/controls.module.css';
 import { versionLine } from '../../utils/format';
@@ -18,6 +18,14 @@ const FFMPEG_CREDIT: Record<DesktopOs, string> = {
   windows: 'Audiobook files: FFmpeg (LGPL-2.1), included. Its source code and our build script are attached to each release.',
 };
 const LINKS: readonly (keyof typeof LINK_LABEL)[] = ['releases', 'source'];
+
+const SHORTCUTS: readonly { keys: readonly string[]; does: string }[] = [
+  { keys: ['Space'], does: 'Play or pause' },
+  { keys: ['←', '→'], does: 'Previous or next sentence' },
+  { keys: ['C'], does: 'Chapters' },
+  { keys: [`Ctrl+${SETTINGS_SHORTCUT_KEY}`], does: 'Settings' },
+  { keys: ['Esc'], does: 'Close a panel or dialog' },
+];
 
 const noop = () => {};
 
@@ -46,6 +54,17 @@ export const AboutTab = ({ info, licenses, onOpenLink }: AboutTabProps) => {
       </div>
       <div className={styles.links}>
         {LINKS.map((link) => <LinkButton key={link} onClick={() => onOpenLink(link)}>{LINK_LABEL[link]}</LinkButton>)}
+      </div>
+      <div>
+        <h3 className={styles.keysHeading}>Keyboard</h3>
+        <dl className={styles.keys}>
+          {SHORTCUTS.map((shortcut) => (
+            <div key={shortcut.does} className={styles.keyRow}>
+              <dt className={styles.keyNames}>{shortcut.keys.map((key) => <kbd key={key}>{key}</kbd>)}</dt>
+              <dd>{shortcut.does}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
       <div className={styles.credits}>
         <p>Voice: Kokoro 82M by hexgrad (Apache-2.0), run with sherpa-onnx by k2-fsa (Apache-2.0).</p>
