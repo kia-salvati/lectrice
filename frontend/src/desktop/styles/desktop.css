@@ -1,3 +1,0 @@
-/* Desktop build only: scrolling works everywhere, but no scrollbar is drawn (the Android rule, applied here too). */
-* { scrollbar-width: none; }
-*::-webkit-scrollbar { display: none; }
