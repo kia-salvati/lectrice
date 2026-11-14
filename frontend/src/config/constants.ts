@@ -27,6 +27,8 @@ export const EXPORT_FORMAT_LABEL: Record<ExportFormat, string> = { mp3: 'MP3', m
 export const EXPORT_FORMAT_EXTENSION: Record<ExportFormat, string> = { mp3: 'mp3', m4b: 'm4b' };
 
 export const EXPORT_POLL_INTERVAL_MS = 1000;
+/** The longest wait between two looks at an export after its polls failed. */
+export const EXPORT_POLL_MAX_MS = 30_000;
 
 /** The chapters rail needs this much width beside the text column; below it the bottom sheet is used. */
 export const WIDE_SCREEN_QUERY = '(min-width: 1200px)';

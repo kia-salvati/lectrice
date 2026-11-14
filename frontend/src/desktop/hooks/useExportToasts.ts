@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AudioExport, ExportStatus } from '../../types/api';
 import type { DesktopCommands } from '../commands/types';
-import { isInProgress, newlyEnded } from '../utils/exportToasts';
+import { isInProgress } from '../../utils/exportStatus';
+import { pollDelay } from '../../utils/poll';
+import { newlyEnded } from '../utils/exportToasts';
 
 /** How often every book's exports are looked at while one is in progress. Nothing is polled otherwise. */
 const POLL_INTERVAL_MS = 5000;
+const POLL_MAX_MS = 60_000;
 
 export interface ExportToasts {
   /** The oldest export that ended and wasn't dismissed yet, as it was when it ended. */
@@ -23,16 +26,21 @@ export const useExportToasts = (commands: DesktopCommands): ExportToasts => {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     let live = true;
+    let failures = 0;
     const look = () => {
       commands.exportList().then((jobs) => {
         if (!live) return;
+        failures = 0;
         const fresh = newlyEnded(known.current, jobs);
         known.current = new Map(jobs.map((job) => [job.id, job.status]));
         if (fresh.length > 0) setEnded((current) => [...current, ...fresh.filter((job) => !current.some((shown) => shown.id === job.id))]);
         if (jobs.some(isInProgress)) timer = setTimeout(look, POLL_INTERVAL_MS);
       }).catch((cause: unknown) => {
-        // The engine is being swapped, for example; the next wake looks again.
-        console.error('Export list failed', cause);
+        // The engine is being swapped, for example: look again later, so an export that ends meanwhile still gets its toast.
+        if (!live) return;
+        console.warn('Export list failed; trying again', cause);
+        failures += 1;
+        timer = setTimeout(look, pollDelay(failures, POLL_INTERVAL_MS, POLL_MAX_MS));
       });
     };
     look();

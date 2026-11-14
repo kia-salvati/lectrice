@@ -1,5 +1,6 @@
 import controls from '../../styles/controls.module.css';
 import type { DocumentId, DocumentSummary } from '../../types/document';
+import { formatCount } from '../../utils/numbers';
 import { percentRead } from '../../utils/progress';
 import { formatRelativeTime } from '../../utils/time';
 import styles from './RecentDocumentList.module.css';
@@ -28,7 +29,7 @@ export const RecentDocumentList = ({ documents, now, hrefFor, hasMore, isLoading
             <a className={styles.row} href={hrefFor(summary.id)}>
               <span className={styles.main}>
                 <span className={styles.title}>{summary.title.trim() || summary.sourceFileName}</span>
-                <span className={styles.meta}>{summary.pageCount.toLocaleString('en')} pages · opened {formatRelativeTime(summary.lastOpenedAt, now)}</span>
+                <span className={styles.meta}>{formatCount(summary.pageCount)} pages · opened {formatRelativeTime(summary.lastOpenedAt, now)}</span>
               </span>
               <span className={styles.side}>
                 <span className={styles.action}>{action}</span>

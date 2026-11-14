@@ -45,6 +45,8 @@ export interface AudioExport {
   partsTotal: number;
   estimatedSecondsLeft: number | null;
   fileBytes: number | null;
+  /** Set when done: the file's listening length. Missing from servers and records older than core 0.4. */
+  durationSeconds?: number | null;
   location: ExportLocation | null;
   waitingForEngine: boolean;
 }

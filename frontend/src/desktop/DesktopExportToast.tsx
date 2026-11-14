@@ -1,7 +1,7 @@
 import type { AudioExport } from '../types/api';
 import { ExportToast } from './components/ExportToast/ExportToast';
 import type { ExportSaves } from './hooks/useExportSaves';
-import { formatDuration, m4bSeconds } from './utils/format';
+import { exportSeconds, formatDuration } from './utils/format';
 
 interface DesktopExportToastProps {
   job: AudioExport;
@@ -19,7 +19,8 @@ export const DesktopExportToast = ({ job, saves, railOpen, onDismiss, onOpenBook
     const reasonText = job.pausedBy === 'storageFull' ? `${job.title}: the disk is full.` : `${job.title}: the export couldn't continue.`;
     return <ExportToast kind="stopped" reasonText={reasonText} onOpenBook={onOpenBook} {...base} />;
   }
-  const durationText = job.fileBytes === null ? '' : formatDuration(m4bSeconds(job.fileBytes));
+  const seconds = exportSeconds(job);
+  const durationText = seconds === null ? '' : formatDuration(seconds);
   const onSaveAs = () => saves.saveAs(job.id);
   const onReveal = () => saves.reveal(job.id);
   const save = saves.saveStateOf(job.id);

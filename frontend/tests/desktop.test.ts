@@ -8,7 +8,7 @@ import type { ModelStatusDto } from '../src/desktop/commands/wire.ts';
 import { desktopExportPhase } from '../src/desktop/utils/exportPhase.ts';
 import { afterRevealed, afterRevealFailed, savedPathOfEntry, saveStateOfEntry } from '../src/desktop/utils/exportSaves.ts';
 import { newlyEnded, toastKindOf } from '../src/desktop/utils/exportToasts.ts';
-import { folderNameOf, formatApproxTimeLeft, formatDuration, formatMb, formatProgressMb, formatRetryIn, formatSpace, m4bSeconds, percentOf, versionLine } from '../src/desktop/utils/format.ts';
+import { exportSeconds, folderNameOf, formatApproxTimeLeft, formatDuration, formatMb, formatProgressMb, formatRetryIn, formatSpace, m4bSeconds, percentOf, versionLine } from '../src/desktop/utils/format.ts';
 import { importFileLabel, importText } from '../src/desktop/utils/importText.ts';
 import { installNeedsBytes, installPhase, smallerThatFits } from '../src/desktop/utils/modelSetup.ts';
 import { chipText, codeAriaLabel, coolDownMinutes, countdownPercent, formatCountdown, groupCode, lastSeenText, makingAudioText, otherNetworkText, parsePort, phoneMetaText, tryingText, versionToastText, wrongCodesText } from '../src/desktop/utils/phoneHelper.ts';
@@ -288,4 +288,11 @@ test('the import messages name the archives and folders the shell offers, never 
   assert.equal(importFileLabel(bundles), 'Model file (.tar.bz2)…');
   assert.equal(importFileLabel([bundle('fast', 'model-a.zip')]), 'Model file (.zip)…');
   assert.equal(importFileLabel([]), 'Model file…');
+});
+
+test("an audiobook's length is the one the core measured, else worked out from its size", () => {
+  assert.equal(exportSeconds({ durationSeconds: 1140, fileBytes: 10_560_000 }), 1140);
+  assert.equal(exportSeconds({ durationSeconds: null, fileBytes: 9_600_000 }), 1200);
+  assert.equal(exportSeconds({ fileBytes: 9_600_000 }), 1200);
+  assert.equal(exportSeconds({ durationSeconds: null, fileBytes: null }), null);
 });

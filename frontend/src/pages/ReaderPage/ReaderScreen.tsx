@@ -19,6 +19,7 @@ import controls from '../../styles/controls.module.css';
 import type { OpenedDocument } from '../../types/document';
 import { exportPhase } from '../../utils/exportPhase';
 import { safeFileName } from '../../utils/fileName';
+import { formatCount } from '../../utils/numbers';
 import { buildPageLabelLookup, formatPageMarker, formatPdfPage, planPageMarkers, printedLabel } from '../../utils/pages';
 import { secondsBetween } from '../../utils/playbackOrder';
 import { playerState, playerStatusParts } from '../../utils/playerStatus';
@@ -109,8 +110,8 @@ export const ReaderScreen = ({ document, voices, engine, onBack, shell }: Reader
   const statusParts = state === 'engineFailed' && voiceStatus !== null
     ? [{ text: voiceStatus, shrinks: true }]
     : playerStatusParts(state, { pageText: formatPageMarker(currentLabel), lastPageText: lastLabel, chapter: chapter === null ? null : chapterLabel(chapter.title) }, playback.speed);
-  const positionText = `Sentence ${(playback.position + 1).toLocaleString('en')} of ${playback.playableCount.toLocaleString('en')}, page ${currentLabel}`;
-  const locationText = `Page ${currentLabel} · ${playback.currentPageIndex === null ? '' : formatPdfPage(playback.currentPageIndex)} of ${document.pageCount.toLocaleString('en')}`;
+  const positionText = `Sentence ${formatCount(playback.position + 1)} of ${formatCount(playback.playableCount)}, page ${currentLabel}`;
+  const locationText = `Page ${currentLabel} · ${playback.currentPageIndex === null ? '' : formatPdfPage(playback.currentPageIndex)} of ${formatCount(document.pageCount)}`;
 
   const job = exportState.job;
   const fileFormat = job?.format ?? exportState.format;

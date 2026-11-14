@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { hasErrorName, isAbortError, toAppError } from '../api/errors';
 import type { AppError } from '../api/errors';
-import { EXPORT_FORMATS, EXPORT_POLL_INTERVAL_MS } from '../config/constants';
-import type { AudioExport, ExportFormat, ExportStatus } from '../types/api';
+import { EXPORT_FORMATS, EXPORT_POLL_INTERVAL_MS, EXPORT_POLL_MAX_MS } from '../config/constants';
+import type { AudioExport, ExportFormat } from '../types/api';
 import type { DocumentId } from '../types/document';
-
-const IN_PROGRESS: Record<ExportStatus, boolean> = { queued: true, running: true, paused: false, done: false, failed: false, cancelled: false };
+import { isInProgress } from '../utils/exportStatus';
+import { pollDelay } from '../utils/poll';
 
 export interface AudioExportState {
   /** The latest known job, or null before the first export in this session. */
@@ -29,6 +29,7 @@ export const useAudioExport = (documentId: DocumentId, onEngineUnavailable: () =
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
   const [format, setFormat] = useState<ExportFormat>(EXPORT_FORMATS[0]);
+  const [pollFailures, setPollFailures] = useState(0);
 
   const engineUnavailableRef = useRef(onEngineUnavailable);
   useEffect(() => {
@@ -66,19 +67,28 @@ export const useAudioExport = (documentId: DocumentId, onEngineUnavailable: () =
   }, [documentId, format, fail]);
 
   const jobId = job?.id ?? null;
-  const inProgress = job !== null && IN_PROGRESS[job.status];
+  const inProgress = job !== null && isInProgress(job);
 
+  // A failed poll is tried again later rather than shown: the export itself goes on in the backend.
   useEffect(() => {
     if (jobId === null || !inProgress) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      api.getExport(jobId, controller.signal).then(setJob).catch(fail);
-    }, EXPORT_POLL_INTERVAL_MS);
+      api.getExport(jobId, controller.signal).then((next) => {
+        setPollFailures(0);
+        setJob(next);
+      }).catch((cause: unknown) => {
+        if (isAbortError(cause)) return;
+        if (hasErrorName(cause, 'SpeechEngineUnavailable')) engineUnavailableRef.current();
+        else console.warn('Export poll failed; trying again', cause);
+        setPollFailures((count) => count + 1);
+      });
+    }, pollDelay(pollFailures, EXPORT_POLL_INTERVAL_MS, EXPORT_POLL_MAX_MS));
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [jobId, inProgress, job, fail]);
+  }, [jobId, inProgress, job, pollFailures]);
 
   const cancel = useCallback(() => {
     if (jobId === null) return;
