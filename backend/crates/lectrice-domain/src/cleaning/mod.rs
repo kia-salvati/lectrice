@@ -17,6 +17,7 @@ mod page;
 mod page_labels;
 mod page_roles;
 mod profile;
+mod references;
 mod speech_filters;
 mod tables;
 mod toc;
@@ -37,6 +38,7 @@ use page::{Page, PageRole};
 use page_labels::{page_labels, resolve_labels};
 use page_roles::classify_pages;
 use profile::Profile;
+use references::silence_reference_lists;
 use tables::mark_table_rows;
 
 use crate::cleaned::CleanedDocument;
@@ -45,7 +47,7 @@ use crate::pdf::{PdfContent, TextRun};
 use crate::ports::DocumentCleaner;
 
 /// Raise this whenever a rule changes what a cleaned document looks like.
-pub const CLEANER_VERSION: u32 = 4;
+pub const CLEANER_VERSION: u32 = 5;
 
 /// The survey's v1 pipeline (rules 1–20).
 #[derive(Debug, Default, Clone, Copy)]
@@ -79,7 +81,8 @@ pub fn clean_content(content: &PdfContent) -> CleanedDocument {
 
     let contents: Vec<PageContent> =
         pages.iter().zip(footnotes).filter(|(page, _)| !page.role.is_dropped()).map(|(page, footnotes)| page_content(page, footnotes, &profile)).collect();
-    let blocks = Assembler::new(&profile, &vocabulary, &content.outline).assemble(contents);
+    let mut blocks = Assembler::new(&profile, &vocabulary, &content.outline).assemble(contents);
+    silence_reference_lists(&mut blocks);
 
     CleanedDocument {
         title: content.title.clone(),

@@ -675,3 +675,42 @@ fn chrome_chapter_heading_at_the_top_of_a_page_is_kept_and_no_label_is_inferred(
         assert_eq!(label(&document, page), None);
     }
 }
+
+/// A wrapped `<h1>` chapter title with its first `<h2>` section right under it, then a numbered reference list
+/// under a `References` heading (no outline, as a plain HTML print has none).
+fn chrome_book_with_references() -> Book {
+    let mut book = Book::new();
+    let mut chapter = book.page(&CHROME, None);
+    chapter.at(CHROME_H1_BASELINE).pieces(CHROME.left, &[(CHROME_BOLD, CHROME_H1_SIZE, "Chapter 1: The Pebble Ledger of the")]);
+    chapter.pieces(CHROME.left, &[(CHROME_BOLD, CHROME_H1_SIZE, "Harbour, part one")]);
+    chapter.pieces(CHROME.left, &[(CHROME_BOLD, CHROME_H2_SIZE, "1.1 Evening notes")]).at(CHROME.top - 3.0 * CHROME.pitch);
+    chapter.lines(&["The night baker sorted seven paper boats while the rain kept falling on the quay."]);
+    chapter.heading(CHROME_BOLD, CHROME_H2_SIZE, "1.2 Morning notes");
+    chapter.lines(&["A patient weaver measured the long brass ruler until the lamps were lit."]);
+
+    let mut references = book.page(&CHROME, None);
+    references.at(CHROME_H1_BASELINE).pieces(CHROME.left, &[(CHROME_BOLD, CHROME_H1_SIZE, "References")]).at(CHROME.top);
+    for entry in ["[1] Ada Inventa. A Made-Up Ledger. Nowhere Press, 1951.", "[2] Bo Fictio. Paper Boats at Night. Tide Books, 1952."] {
+        references.lines(&[entry]);
+    }
+    book
+}
+
+#[test]
+fn a_wrapped_chapter_title_is_not_joined_with_the_section_heading_under_it() {
+    let document = chrome_book_with_references().clean();
+    assert_eq!(
+        kinds_on(&document, 0, BlockKind::Heading),
+        ["Chapter 1: The Pebble Ledger of the Harbour, part one", "1.1 Evening notes", "1.2 Morning notes"]
+    );
+}
+
+#[test]
+fn a_numbered_reference_list_is_shown_but_not_spoken() {
+    let document = chrome_book_with_references().clean();
+    let section = blocks_on(&document, 1);
+    assert_eq!((section[0].kind, shown(section[0]).as_str()), (BlockKind::Heading, "References"));
+    assert!(has_text(&document, "[2] Bo Fictio"));
+    assert!(section.iter().all(|block| is_silent(block)));
+    assert!(!is_silent(block(&document, "The night baker sorted")));
+}

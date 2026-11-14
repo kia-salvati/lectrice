@@ -4,7 +4,11 @@
 use super::block_text::BlockText;
 use super::code::code_lines;
 use super::footnotes::Footnote;
-use super::headings::{RawHeading, name_headings};
+use std::sync::LazyLock;
+
+use regex::Regex;
+
+use super::headings::{RawHeading, core_words, name_headings};
 use super::hyphenation::{LineJoin, Vocabulary};
 use super::line_kinds::{Column, LineKind, ends_sentence, list_glyph_length, starts_lowercase};
 use super::lines::Line;
@@ -33,6 +37,8 @@ const LIST_HANG_RATIO: f32 = 0.3;
 /// A line ending a sentence this far (in sizes) before the column's right edge ends its paragraph.
 const SHORT_LINE_RATIO: f32 = 2.5;
 const SAME_SIZE_TOLERANCE_RATIO: f32 = 0.05;
+/// A heading line that starts with a section number (`1.1 Evening notes`) starts the next heading.
+static SECTION_NUMBER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d+(\.\d+)+\.?\s").expect("valid regex"));
 const SUPERSCRIPT_DIGITS: [char; 10] = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
 const CODE_LINE_SEPARATOR: &str = "\n";
 const PROSE_LINE_SEPARATOR: &str = " ";
@@ -132,7 +138,9 @@ impl<'a> Assembler<'a> {
         let first = &open.lines[0];
         match (open.kind, next.kind) {
             (LineKind::Code, LineKind::Code) | (LineKind::TableRow, LineKind::TableRow) => next.line.page <= previous.line.page + 1,
-            (LineKind::Heading, LineKind::Heading) => open.lines.len() < MAX_HEADING_STACK_LINES && self.stacks_under(previous, next),
+            (LineKind::Heading, LineKind::Heading) => {
+                open.lines.len() < MAX_HEADING_STACK_LINES && self.stacks_under(previous, next) && same_title(open, previous, next)
+            }
             (LineKind::Caption, LineKind::Body | LineKind::NoteBox) => self.continues_caption(previous, next),
             (LineKind::ListItem, LineKind::Body) => self.continues_list_item(open, previous, next),
             (LineKind::Note, LineKind::Body) => self.continues_prose(previous, next) && (next.indent - first.indent).abs() <= next.line.size * INDENT_RATIO,
@@ -306,6 +314,17 @@ fn layout_spans(lines: &[Line], texts: Vec<String>) -> Vec<TextSpan> {
 fn table_rows(lines: &[Line]) -> Vec<String> {
     let columns = table_columns(lines);
     lines.iter().map(|line| row_text(line, &columns)).collect()
+}
+
+/// A wrapped title goes on in its own size; a numbering label (`CHAPTER 1`, `PART I`) may sit over a title of another
+/// size. A heading of another size under a named title, or one that starts with a section number, is the next heading.
+fn same_title(open: &OpenBlock, previous: &PlacedLine, next: &PlacedLine) -> bool {
+    if SECTION_NUMBER.is_match(&next.line.text) {
+        return false;
+    }
+    let same_size = (previous.line.size - next.line.size).abs() <= next.line.size * SAME_SIZE_TOLERANCE_RATIO;
+    let label_only = open.lines.iter().all(|placed| core_words(&placed.line.text).is_empty());
+    same_size || label_only
 }
 
 /// The width of the line's first word, from the average char width of its first piece.

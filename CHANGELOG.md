@@ -97,6 +97,13 @@ pulls by tag. While in beta (0.x), a change to a core trait, public type or save
   (`2 Blossom` on PDF page 2, e.g. HTML printed to PDF by Chrome): the numbers were taken for printed page numbers.
   Page numbers are now inferred only from header/footer lines whose shape repeats across pages. Cleaner version 4, so
   saved books are cleaned again.
+- A reference list inside a body page was read aloud and became an audiobook chapter. A `References`,
+  `Bibliography` or `Works cited` heading whose section opens with numbered entries (`[1] …`, `1. …`) is now shown
+  but not spoken, up to the next heading of the same or a higher level, and an export puts a chapter mark only before
+  a sentence with something to say. A wrapped chapter title is no longer joined with the section heading under it
+  (heading lines join only in the same size, after a numbering label such as `CHAPTER 1`, and never before a line that
+  starts with a section number such as `1.1`). A footnote mark after a full stop stays with that sentence instead of
+  opening the next one. Cleaner version 5, so saved books are cleaned again.
 
 #### Security
 - `mp4_map::read_audiobook` treats the file as untrusted (security review S13): box sizes are checked without overflow
