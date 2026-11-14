@@ -115,7 +115,7 @@ export type PhoneHelperNotice =
   | { kind: 'noNetwork' }
   | { kind: 'portInUse'; port: number };
 
-/** The helper listens only on networks the user allowed (security review S5). */
+/** The helper listens only on networks the user allowed. */
 export type PhoneHelperNetwork = { kind: 'allowed'; name: string | null } | { kind: 'other'; name: string | null } | { kind: 'none' };
 
 export interface PairedPhone {
@@ -127,7 +127,7 @@ export interface PairedPhone {
   lastSeenAt: string | null;
 }
 
-/** A wrong code never brings a new code by itself (security review S4). */
+/** A wrong code never brings a new code by itself. */
 export type PhonePairing =
   | { kind: 'none' }
   | { kind: 'showing'; code: string; expiresAt: number; totalSeconds: number; wrongCodes: number; trying: readonly string[] }

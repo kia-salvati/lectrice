@@ -1,4 +1,4 @@
-//! Broken bookmark trees must not crash the import (review H1: a recursive walk overflowed the stack).
+//! Broken bookmark trees must not crash the import: a recursive walk overflowed the stack.
 
 mod pdf_support;
 

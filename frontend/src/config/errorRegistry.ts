@@ -1,4 +1,4 @@
-/** The core's error registry (`lectrice-domain/src/error.rs`): name → code. `tests/errorRegistry.test.ts` checks it against the Rust file. */
+/** The core's error registry (`lectrice-domain/src/error.rs`): name → code. `tests/errors.test.ts` checks it against the Rust file. */
 export const ERROR_CODES = {
   RequestInvalid: 1000,
   UploadMissingFile: 1001,
