@@ -71,6 +71,8 @@ impl KokoroSpeechEngine {
     /// lexicons, plus our own text handling. Raise the last number when this adapter changes what the model hears.
     pub const REVISION: &'static str = "sherpa-onnx-1.13.8/kokoro-1";
     pub const SAMPLE_RATE: u32 = KOKORO_SAMPLE_RATE;
+    /// How many voices every bundle offers, known before a model is loaded.
+    pub const VOICE_COUNT: usize = voices::count();
 
     /// Fails with `SpeechEngineUnavailable` instead of creating sherpa-onnx with a bad config, which would exit the process.
     pub fn load(settings: &KokoroSettings) -> AppResult<Self> {

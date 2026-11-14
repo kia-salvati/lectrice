@@ -52,7 +52,7 @@ pub(super) fn speaker_id(id: &VoiceId) -> Option<i32> {
     i32::try_from(index).ok()
 }
 
-pub(super) fn count() -> usize {
+pub(super) const fn count() -> usize {
     ENGLISH_VOICES.len()
 }
 
