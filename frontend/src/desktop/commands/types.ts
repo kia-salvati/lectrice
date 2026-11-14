@@ -22,8 +22,11 @@ export interface ModelBundle {
   variant: ModelVariant;
   /** From the manifest: "Fast", "Full quality", "Small". */
   displayName: string;
-  /** The download's file name, e.g. "….tar.bz2"; its folder has the same name without the suffix. */
+  /** The download's file name, e.g. "….tar.bz2". */
   archiveName: string;
+  /** The folder an unpacked bundle has. */
+  folderName: string;
+  voiceCount: number;
   downloadBytes: number;
   installedBytes: number;
   installed: boolean;

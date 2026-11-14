@@ -15,6 +15,8 @@ interface BundleDto {
   variant: ModelVariant;
   name: string;
   archiveName: string;
+  folderName: string;
+  voiceCount: number;
   downloadBytes: number;
   installedBytes: number;
   installed: boolean;
@@ -86,6 +88,8 @@ export const toModelStatus = (dto: ModelStatusDto): ModelStatus => ({
     variant: bundle.variant,
     displayName: bundle.name,
     archiveName: bundle.archiveName,
+    folderName: bundle.folderName,
+    voiceCount: bundle.voiceCount,
     downloadBytes: bundle.downloadBytes,
     installedBytes: bundle.installedBytes,
     installed: bundle.installed,

@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { CheckIcon, WaitIcon } from '../../../components/icons/icons';
 import controls from '../../../styles/controls.module.css';
 import type { ModelBundle, ModelBundleId, ModelImportKind, ModelStatus, ModelTransfer, TransferErrorName } from '../../commands/types';
-import { VARIANT_NOTE, VOICE_COUNT } from '../../config';
+import { VARIANT_NOTE } from '../../config';
 import desktop from '../../styles/controls.module.css';
 import { formatApproxTimeLeft, formatMb, formatProgressMb, formatRetryIn, percentOf } from '../../utils/format';
 import { importFileLabel, importText } from '../../utils/importText';
-import { installNeedsBytes, isTransferBusy } from '../../utils/modelSetup';
+import { installNeedsBytes, isTransferBusy, sharedVoiceCount } from '../../utils/modelSetup';
 import { ImportMenu } from '../ImportMenu/ImportMenu';
 import { ConfirmDialog, ModalDialog } from '../ModalDialog/ModalDialog';
 import { ProgressBar } from '../ProgressBar/ProgressBar';
@@ -135,6 +135,7 @@ export const VoiceModelTab = (props: VoiceModelTabProps) => {
   const active = status.bundles.find((bundle) => bundle.active) ?? null;
   const refused = status.bundles.find((bundle) => bundle.id === props.refusedDelete) ?? null;
   const busy = isTransferBusy(status);
+  const voiceCount = sharedVoiceCount(status.bundles);
 
   const use = (bundle: ModelBundle) => {
     if (props.exportingBookTitle !== null && active !== null) setConfirm({ kind: 'switch', to: bundle, from: active });
@@ -155,7 +156,7 @@ export const VoiceModelTab = (props: VoiceModelTabProps) => {
       <div className={desktop.actions}>
         <ImportMenu label="Import a model…" disabled={busy} fileLabel={importFileLabel(status.bundles)} onImport={props.onImport} />
       </div>
-      <p className={desktop.muted}>All models have the same {VOICE_COUNT} English voices.</p>
+      {voiceCount !== null && <p className={desktop.muted}>All models have the same {voiceCount} English voices.</p>}
 
       {confirm?.kind === 'switch' && (
         <ConfirmDialog title={`Switch to ${confirm.to.displayName}?`} text={`“${props.exportingBookTitle}” is being exported with ${confirm.from.displayName}. It will wait until ${confirm.from.displayName} is in use again.`} cancelLabel="Cancel" confirmLabel="Switch" onCancel={() => setConfirm(null)} onConfirm={confirmed} />

@@ -1,8 +1,5 @@
 import type { LinkId, ModelVariant } from './commands/types';
 
-/** English voices in every bundle. */
-export const VOICE_COUNT = 28;
-
 /** The fixed sentence every voice sample says. */
 export const SAMPLE_LINE = 'This is how I sound when I read your books aloud.';
 

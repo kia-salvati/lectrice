@@ -1,10 +1,10 @@
 import { LibraryHeader } from '../../../components/LibraryHeader/LibraryHeader';
 import controls from '../../../styles/controls.module.css';
 import type { LinkId, ModelBundle, ModelBundleId, ModelImportKind, ModelStatus } from '../../commands/types';
-import { RECOMMENDED_VARIANT, VARIANT_NOTE, VOICE_COUNT } from '../../config';
+import { RECOMMENDED_VARIANT, VARIANT_NOTE } from '../../config';
 import desktop from '../../styles/controls.module.css';
 import { formatMb, formatSpace } from '../../utils/format';
-import { bundleById, installPhase, isTransferBusy } from '../../utils/modelSetup';
+import { bundleById, installPhase, isTransferBusy, sharedVoiceCount } from '../../utils/modelSetup';
 import type { InstallPhase } from '../../utils/modelSetup';
 import { NoticeBox } from '../NoticeBox/NoticeBox';
 import { SampleCard } from '../SampleCard/SampleCard';
@@ -57,6 +57,7 @@ const RadioCard = ({ bundle, checked, onSelect }: { bundle: ModelBundle; checked
 const choosingParts = (props: ModelSetupProps): SetupParts => {
   const { status, selectedBundleId } = props;
   const selected = bundleById(status, selectedBundleId);
+  const voiceCount = sharedVoiceCount(status.bundles);
   const recommended = status.bundles.find((bundle) => bundle.variant === RECOMMENDED_VARIANT) ?? null;
   return {
     heading: 'Choose a voice to get started',
@@ -68,7 +69,7 @@ const choosingParts = (props: ModelSetupProps): SetupParts => {
         </div>
         <div className={styles.stack}>
           {recommended && <p>Not sure? Pick {recommended.displayName}.</p>}
-          <p>All have the same {VOICE_COUNT} English voices. You can switch later in Settings.</p>
+          <p>{voiceCount === null ? '' : `All have the same ${voiceCount} English voices. `}You can switch later in Settings.</p>
           {status.freeBytes !== null && <p className={desktop.muted}>Free space on this drive: {formatSpace(status.freeBytes)}</p>}
         </div>
       </>
