@@ -21,6 +21,8 @@ export interface Library {
   /** When the list was fetched; "opened 2 hours ago" is measured from here. */
   recentLoadedAt: Date;
   isLoadingMore: boolean;
+  /** "Show more" failed; the loaded list stays. Cleared by the next try. */
+  moreError: AppError | null;
   reloadRecent: () => void;
   loadMore: () => void;
   importState: ImportState;
@@ -36,6 +38,7 @@ export const useLibrary = ({ onDocumentReady }: UseLibraryArgs): Library => {
   const [recentError, setRecentError] = useState<AppError | null>(null);
   const [recentLoadedAt, setRecentLoadedAt] = useState(() => new Date());
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState<AppError | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [importState, setImportState] = useState<ImportState>({ phase: 'idle' });
 
@@ -80,11 +83,17 @@ export const useLibrary = ({ onDocumentReady }: UseLibraryArgs): Library => {
   const loadMore = useCallback(() => {
     if (isLoadingMore) return;
     setIsLoadingMore(true);
+    setMoreError(null);
     api.listDocuments({ limit: RECENT_PAGE_SIZE, offset: recent.length }, actionsRef.current?.signal).then((page) => {
       setRecent((current) => [...current, ...page.items]);
       setTotal(page.total);
-    }).catch(failRecent).finally(() => setIsLoadingMore(false));
-  }, [isLoadingMore, recent.length, failRecent]);
+    }).catch((cause: unknown) => {
+      if (isAbortError(cause)) return;
+      const error = toAppError(cause);
+      console.error('More recent documents failed', error);
+      setMoreError(error);
+    }).finally(() => setIsLoadingMore(false));
+  }, [isLoadingMore, recent.length]);
 
   const importingRef = useRef(false);
   const importFile = useCallback(async (file: File) => {
@@ -101,11 +110,11 @@ export const useLibrary = ({ onDocumentReady }: UseLibraryArgs): Library => {
     }
     // Before the first await, so a file handed over from another screen shows "Reading…" in the first frame.
     setImportState({ phase: 'importing', fileName: file.name });
-    if ((await file.slice(0, PDF_MAGIC.length).text()) !== PDF_MAGIC) {
-      fail(new ClientError('FileNotPdf'));
-      return;
-    }
     try {
+      if ((await file.slice(0, PDF_MAGIC.length).text()) !== PDF_MAGIC) {
+        fail(new ClientError('FileNotPdf'));
+        return;
+      }
       const result = await api.importPdf(file, actionsRef.current?.signal);
       importingRef.current = false;
       onDocumentReadyRef.current(result.document.id);
@@ -118,5 +127,5 @@ export const useLibrary = ({ onDocumentReady }: UseLibraryArgs): Library => {
 
   const resetImport = useCallback(() => setImportState({ phase: 'idle' }), []);
 
-  return { recent, total, recentStatus, recentError, recentLoadedAt, isLoadingMore, reloadRecent, loadMore, importState, importFile, resetImport };
+  return { recent, total, recentStatus, recentError, recentLoadedAt, isLoadingMore, moreError, reloadRecent, loadMore, importState, importFile, resetImport };
 };
