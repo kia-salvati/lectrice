@@ -3,9 +3,9 @@ import { hasErrorName } from '../../api/errors';
 import { useDocument } from '../../hooks/useDocument';
 import { useSpeechEngine } from '../../hooks/useSpeechEngine';
 import { useVoices } from '../../hooks/useVoices';
+import centered from '../../styles/centered.module.css';
 import controls from '../../styles/controls.module.css';
 import type { DocumentId } from '../../types/document';
-import styles from './ReaderPage.module.css';
 import type { ReaderShell } from './readerShell';
 import { ReaderScreen } from './ReaderScreen';
 
@@ -29,22 +29,22 @@ export const ReaderPage = ({ documentId, onBack, shell }: ReaderPageProps) => {
 
   const backButton = <button type="button" className={controls.button} onClick={onBack}>Back to library</button>;
 
-  if (load.status === 'loading') return <div className={styles.centered}><p className={styles.text}>Opening document…</p></div>;
+  if (load.status === 'loading') return <div className={centered.centered}><p className={centered.text} role="status">Opening document…</p></div>;
 
   if (load.status === 'failed' || load.document === null) {
     if (hasErrorName(load.error, 'DocumentNotFound')) {
       return (
-        <div className={styles.centered}>
-          <h2 className={styles.title}>Document not found</h2>
-          <p className={styles.text}>It may have been removed from the library.</p>
-          <div className={styles.actions}>{backButton}</div>
+        <div className={centered.centered}>
+          <h1 className={centered.title}>Document not found</h1>
+          <p className={centered.text}>It may have been removed from the library.</p>
+          <div className={centered.actions}>{backButton}</div>
         </div>
       );
     }
     return (
-      <div className={styles.centered}>
-        <p className={styles.text} role="alert">{load.error?.message ?? 'The document could not be opened.'}</p>
-        <div className={styles.actions}>
+      <div className={centered.centered}>
+        <p className={centered.text} role="alert">{load.error?.message ?? 'The document could not be opened.'}</p>
+        <div className={centered.actions}>
           <button type="button" className={`${controls.button} ${controls.primary}`} onClick={load.retry}>Try again</button>
           {backButton}
         </div>

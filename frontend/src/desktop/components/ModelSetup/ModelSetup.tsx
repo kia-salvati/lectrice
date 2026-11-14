@@ -38,6 +38,8 @@ export interface ModelSetupProps {
   /** "Heart · American English" */
   voiceLabel: string;
   sample: SampleState;
+  /** The last try to play the sample failed. */
+  sampleFailed: boolean;
   onToggleSample: () => void;
 }
 
@@ -69,10 +71,10 @@ const CancelButton = ({ onCancel }: { onCancel: () => void }) => <button type="b
 
 const Collapsed = ({ bundle }: { bundle: ModelBundle }) => <p className={styles.name}>{bundle.displayName} · {formatMb(bundle.downloadBytes)}</p>;
 
-/** The progress block of a running download: the collapsed card, the bar and the lines under it. */
-const Progress = ({ bundle, transfer, children }: { bundle: ModelBundle; transfer: ProgressingTransfer | null; children: React.ReactNode }) => (
+/** The progress block of a running download: the collapsed card (when the bundle is known), the bar and the lines under it. */
+const Progress = ({ bundle, transfer, children }: { bundle: ModelBundle | null; transfer: ProgressingTransfer | null; children: React.ReactNode }) => (
   <div className={styles.stack}>
-    <Collapsed bundle={bundle} />
+    {bundle && <Collapsed bundle={bundle} />}
     <ProgressBar percent={transfer && percentOf(transfer.doneBytes, transfer.totalBytes)} valueText={transfer ? formatProgressMb(transfer.doneBytes, transfer.totalBytes) : undefined} label={BAR_LABEL} />
     <div className={styles.lines}>{children}</div>
   </div>
@@ -165,14 +167,14 @@ const transferParts = (props: ModelSetupProps, transfer: RunningTransfer): Setup
   const cancelButton = <CancelButton onCancel={props.onCancel} />;
   switch (transfer.kind) {
     case 'starting':
-      return { heading: DOWNLOADING_HEADING, main: <Progress bundle={bundleById(props.status, transfer.bundleId)!} transfer={null}><p>Starting…</p></Progress>, actions: <>{pauseButton}{cancelButton}</> };
+      return { heading: DOWNLOADING_HEADING, main: <Progress bundle={bundleById(props.status, transfer.bundleId)} transfer={null}><p>Starting…</p></Progress>, actions: <>{pauseButton}{cancelButton}</> };
     case 'downloading': {
       const progressText = `${formatProgressMb(transfer.doneBytes, transfer.totalBytes)} · ${percentOf(transfer.doneBytes, transfer.totalBytes)} %`;
       const speedText = transfer.bytesPerSecond === null ? null : `${formatSpeed(transfer.bytesPerSecond)} · ${formatApproxTimeLeft((transfer.totalBytes - transfer.doneBytes) / transfer.bytesPerSecond)}`;
       return {
         heading: DOWNLOADING_HEADING,
         main: (
-          <Progress bundle={bundleById(props.status, transfer.bundleId)!} transfer={transfer}>
+          <Progress bundle={bundleById(props.status, transfer.bundleId)} transfer={transfer}>
             <p>{progressText}</p>
             {speedText && <p className={desktop.muted}>{speedText}</p>}
             <p className={desktop.muted}>You can open a PDF meanwhile. The download keeps going.</p>
@@ -191,18 +193,18 @@ const transferParts = (props: ModelSetupProps, transfer: RunningTransfer): Setup
       };
     }
     case 'retrying':
-      return { heading: DOWNLOADING_HEADING, main: <Progress bundle={bundleById(props.status, transfer.bundleId)!} transfer={transfer}><p>Part of the download was damaged. Downloading it again…</p></Progress>, actions: <>{pauseButton}{cancelButton}</> };
+      return { heading: DOWNLOADING_HEADING, main: <Progress bundle={bundleById(props.status, transfer.bundleId)} transfer={transfer}><p>Part of the download was damaged. Downloading it again…</p></Progress>, actions: <>{pauseButton}{cancelButton}</> };
     case 'paused':
       return {
         heading: DOWNLOADING_HEADING,
-        main: <Progress bundle={bundleById(props.status, transfer.bundleId)!} transfer={transfer}><p>Paused · {formatProgressMb(transfer.doneBytes, transfer.totalBytes)}</p></Progress>,
+        main: <Progress bundle={bundleById(props.status, transfer.bundleId)} transfer={transfer}><p>Paused · {formatProgressMb(transfer.doneBytes, transfer.totalBytes)}</p></Progress>,
         actions: <><button type="button" className={primary} onClick={() => props.onDownload(transfer.bundleId)}>Resume</button>{cancelButton}</>,
       };
     case 'waitingForNetwork':
       return {
         heading: DOWNLOADING_HEADING,
         main: (
-          <Progress bundle={bundleById(props.status, transfer.bundleId)!} transfer={transfer}>
+          <Progress bundle={bundleById(props.status, transfer.bundleId)} transfer={transfer}>
             <p>No internet connection. The download continues by itself when you're back online.</p>
             <p className={desktop.muted}>Trying again in {formatRetryIn(transfer.retryInSeconds)}</p>
           </Progress>
@@ -230,7 +232,7 @@ const transferParts = (props: ModelSetupProps, transfer: RunningTransfer): Setup
 
 const PHASE_PARTS: Record<InstallPhase, (props: ModelSetupProps) => SetupParts> = {
   choosing: choosingParts,
-  engineLoading: (props) => ({ heading: 'Starting the voice…', main: <SampleCard voiceLabel={props.voiceLabel} state="engineLoading" onToggle={props.onToggleSample} /> }),
+  engineLoading: (props) => ({ heading: 'Starting the voice…', main: <SampleCard voiceLabel={props.voiceLabel} state="engineLoading" failed={false} onToggle={props.onToggleSample} /> }),
   engineFailed: (props) => ({
     heading: DOWNLOADING_HEADING,
     main: <NoticeBox kind="error"><p>The voice couldn't start. Try again, or download it again.</p></NoticeBox>,
@@ -238,7 +240,7 @@ const PHASE_PARTS: Record<InstallPhase, (props: ModelSetupProps) => SetupParts> 
   }),
   ready: (props) => ({
     heading: 'The voice is ready',
-    main: <SampleCard voiceLabel={props.voiceLabel} state={props.sample} onToggle={props.onToggleSample} />,
+    main: <SampleCard voiceLabel={props.voiceLabel} state={props.sample} failed={props.sampleFailed} onToggle={props.onToggleSample} />,
     actions: <><button type="button" className={primary} onClick={props.onOpenPdf}>Open a PDF…</button><button type="button" className={controls.button} onClick={props.onGoToLibrary}>Go to library</button></>,
   }),
 };

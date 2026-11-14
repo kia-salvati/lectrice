@@ -25,7 +25,7 @@ interface LibraryPageProps {
 const hrefFor = (documentId: DocumentId): string => routeHref({ name: 'reader', documentId });
 
 const RecentSection = ({ library }: { library: Library }) => {
-  if (library.recentStatus === 'loading') return <p className={styles.message}>Loading recent documents…</p>;
+  if (library.recentStatus === 'loading') return <p className={styles.message} role="status">Loading recent documents…</p>;
   if (library.recentStatus === 'failed') {
     return <StatusBanner message={library.recentError?.message ?? 'Recent documents could not be loaded.'} actions={<button type="button" className={controls.button} onClick={library.reloadRecent}>Try again</button>} />;
   }

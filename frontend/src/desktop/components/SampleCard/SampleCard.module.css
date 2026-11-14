@@ -10,3 +10,4 @@
 .text { display: grid; gap: .15rem; min-width: 0; }
 .voice { font-weight: 600; }
 .line { font: italic 1.125rem/1.5 var(--serif); margin: 0; }
+.failed { margin: 0; }

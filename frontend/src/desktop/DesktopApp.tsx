@@ -8,6 +8,7 @@ import type { ReaderShell } from '../pages/ReaderPage/readerShell';
 import controls from '../styles/controls.module.css';
 import type { DocumentId } from '../types/document';
 import type { AppInfo, DesktopCommands, Licenses, LinkId, ModelBundleId, ModelStatus } from './commands/types';
+import { CommandErrorToast } from './components/CommandErrorToast/CommandErrorToast';
 import { FirstRunPage } from './components/ModelSetup/ModelSetup';
 import { NoVoiceRow } from './components/NoVoiceRow/NoVoiceRow';
 import { PhoneChip, PhoneMakingLine } from './components/PhoneChip/PhoneChip';
@@ -19,6 +20,7 @@ import { SettingsButton } from './components/SettingsDialog/SettingsButton';
 import { SettingsDialog } from './components/SettingsDialog/SettingsDialog';
 import type { SettingsTab } from './components/SettingsDialog/SettingsDialog';
 import { VoiceModelTab } from './components/SettingsDialog/VoiceModelTab';
+import { StartupState } from './components/StartupState/StartupState';
 import { VoiceStrip } from './components/VoiceStrip/VoiceStrip';
 import { DesktopExportToast } from './DesktopExportToast';
 import { DesktopReaderExport } from './DesktopReaderExport';
@@ -92,7 +94,7 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
   const clearFileToImport = useCallback(() => setFileToImport(null), []);
   const clearOpenAtExport = useCallback(() => setOpenAtExportFor(null), []);
 
-  if (status === null || currentEngine === null) return null;
+  if (status === null || currentEngine === null) return <StartupState failed={setup.loadFailed} onRetry={setup.retryLoad} />;
 
   const activeBundle = status.bundles.find((bundle) => bundle.active) ?? null;
   const goTo = (target: Route) => {
@@ -104,11 +106,12 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
   const openLink = (link: LinkId) => {
     commands.openLink(link).catch(commandErrors.report('open_link', "Couldn't open the link"));
   };
-  const toastJob = toasts.current;
   const making = makingPhones(phone.status);
-  // One card at a time in the corner: the export toast first, then the version toast, then the phone's voice.
-  const versionMismatch = toastJob ? null : phone.status?.versionMismatch ?? null;
-  const phoneVoiceRequest = toastJob || versionMismatch ? null : phone.status?.modelRequest ?? null;
+  // One card at a time in the corner: a refused command first, then the export toast, the version toast and the phone's voice.
+  const errorToast = commandErrors.current;
+  const toastJob = errorToast ? null : toasts.current;
+  const versionMismatch = errorToast || toastJob ? null : phone.status?.versionMismatch ?? null;
+  const phoneVoiceRequest = errorToast || toastJob || versionMismatch ? null : phone.status?.modelRequest ?? null;
 
   const readerShell: ReaderShell = {
     renderExportPanel: (context) => <DesktopReaderExport context={context} status={status} saves={saves} exporter={exporter} onExportActive={wake} />,
@@ -148,6 +151,7 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
           onOpenLink={openLink}
           voiceLabel={sample.voiceLabel}
           sample={sample.state}
+          sampleFailed={sample.failed}
           onToggleSample={sample.toggle}
         />
       );
@@ -212,6 +216,7 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
           aboutTab={info && <AboutTab info={info} licenses={licenses} onOpenLink={openLink} />}
         />
       )}
+      {errorToast && <CommandErrorToast key={errorToast.id} failure={errorToast} railOpen={railShown} onDismiss={() => commandErrors.dismiss(errorToast.id)} />}
       {toastJob && (
         <DesktopExportToast
           key={toastJob.id}
