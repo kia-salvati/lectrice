@@ -14,7 +14,7 @@ import { safeFileName } from '../src/utils/fileName.ts';
 import { serializeFormData } from '../src/utils/multipart.ts';
 import { percentRead } from '../src/utils/progress.ts';
 import { formatVoiceOption, groupVoices } from '../src/utils/voices.ts';
-import { buildTocTree, chapterLabel, childrenText, currentEntryIndex, entryEndSentenceId, entryLength, entryProgress, filterTocTree, flattenTocTree, isChapterNode, isPartNode, nodeView, percentThrough, tocLocation, tocPath } from '../src/utils/toc.ts';
+import { buildTocTree, chapterLabel, formatChapterPercent, childrenText, currentEntryIndex, entryEndSentenceId, entryLength, entryProgress, filterTocTree, flattenTocTree, isChapterNode, isPartNode, nodeView, percentThrough, tocLocation, tocPath } from '../src/utils/toc.ts';
 import type { CleanDocument, TocEntry, TocLevel } from '../src/types/document.ts';
 import type { AudioExport, ExportStatus } from '../src/types/api.ts';
 import type { Voice } from '../src/types/voice.ts';
@@ -31,7 +31,9 @@ const doc: CleanDocument = { id: 'd', title: 't', sourceFileName: 'f.pdf', pageC
 test('time left', () => {
   assert.equal(formatTimeLeft(30), 'under a minute left');
   assert.equal(formatTimeLeft(12 * 60), '12 min left');
-  assert.equal(formatTimeLeft(185 * 60), '3 h 05 min left');
+  assert.equal(formatTimeLeft(185 * 60), '3 h 5 min left');
+  assert.equal(formatTimeLeft(2106 * 60), '35 h 6 min left');
+  assert.equal(formatChapterPercent(38), '38 % of this chapter');
   assert.equal(formatRelativeTime('2026-10-20T10:00:00Z', new Date('2026-10-21T11:00:00Z')), 'yesterday');
 });
 
