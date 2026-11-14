@@ -744,6 +744,7 @@ mod tests {
         helper: Arc<FakeHelper>,
         read_ahead: Arc<ReadAhead>,
         fill: Arc<HelperFill>,
+        worker: Arc<SpeechWorker>,
         speak: SpeakSentence,
     }
 
@@ -774,7 +775,7 @@ mod tests {
         });
         let speak = SpeakSentence::new(SpeakSentenceDeps {
             engine: engine.clone(),
-            worker,
+            worker: worker.clone(),
             reader: library.reader(),
             cache: cache.clone(),
             encoder,
@@ -783,7 +784,7 @@ mod tests {
             helper_wait: HelperWait { grace, cold_grace },
         });
         fill.start().unwrap();
-        Setup { library, engine, cache, helper, read_ahead, fill, speak }
+        Setup { library, engine, cache, helper, read_ahead, fill, worker, speak }
     }
 
     fn connected() -> Setup {
@@ -1070,8 +1071,8 @@ mod tests {
         setup.engine.release();
 
         assert_eq!(bytes, format!("{SAMPLE_RATE}:7").into_bytes());
-        wait_until(|| setup.engine.spoken().len() == 1);
-        std::thread::sleep(Duration::from_millis(20));
+        setup.worker.wait_until_idle();
+        assert_eq!(setup.engine.spoken().len(), 1);
         assert_eq!(setup.cache.get(&key(&document, 50)).unwrap().unwrap(), bytes, "the local clip that finished later was refused");
     }
 

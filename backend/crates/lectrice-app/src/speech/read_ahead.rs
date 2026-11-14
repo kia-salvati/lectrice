@@ -470,6 +470,7 @@ mod tests {
         engine: Arc<GatedEngine>,
         cache: Arc<MemoryCache>,
         reader: Arc<ListedReader>,
+        worker: Arc<SpeechWorker>,
         read_ahead: ReadAhead,
     }
 
@@ -480,9 +481,15 @@ mod tests {
         let reader = Arc::new(ListedReader::default());
         let worker = Arc::new(SpeechWorker::start(engine.clone()).unwrap());
         let settings = ReadAheadSettings { read_ahead_minutes, keep_minutes_per_document: 60 };
-        let deps = ReadAheadDeps { worker, reader: reader.clone(), cache: cache.clone(), retention: cache.clone(), encoder: Arc::new(CountingEncoder) };
+        let deps = ReadAheadDeps {
+            worker: worker.clone(),
+            reader: reader.clone(),
+            cache: cache.clone(),
+            retention: cache.clone(),
+            encoder: Arc::new(CountingEncoder),
+        };
         let read_ahead = ReadAhead::new(deps, settings).unwrap();
-        Setup { engine, cache, reader, read_ahead }
+        Setup { engine, cache, reader, worker, read_ahead }
     }
 
     fn follow(setup: &Setup, document: &Document, sentence: u32, rate: f32) -> ReadAheadOutcome {
@@ -692,12 +699,8 @@ mod tests {
         setup.read_ahead.stop(&book.id);
         setup.engine.release();
 
-        let started = Instant::now();
-        while setup.engine.spoken().is_empty() {
-            assert!(started.elapsed() < WAIT_LIMIT, "the running job never finished");
-            std::thread::yield_now();
-        }
-        std::thread::sleep(Duration::from_millis(50));
+        setup.worker.wait_until_idle();
+        assert_eq!(setup.engine.spoken().len(), 1, "the running job finished");
         assert_eq!(setup.cache.puts(), 0);
     }
 

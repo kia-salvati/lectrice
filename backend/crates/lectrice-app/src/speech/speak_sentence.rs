@@ -291,6 +291,7 @@ mod tests {
         library: Library,
         engine: Arc<GatedEngine>,
         cache: Arc<MemoryCache>,
+        worker: Arc<SpeechWorker>,
         service: SpeakSentence,
     }
 
@@ -315,7 +316,7 @@ mod tests {
         let read_ahead = Arc::new(ReadAhead::new(read_ahead_deps, settings).unwrap());
         let deps = SpeakSentenceDeps {
             engine: engine.clone(),
-            worker,
+            worker: worker.clone(),
             reader: library.reader(),
             cache: cache.clone(),
             encoder,
@@ -323,7 +324,7 @@ mod tests {
             helper: None,
             helper_wait: HelperWait::default(),
         };
-        Setup { library, engine, cache, service: SpeakSentence::new(deps) }
+        Setup { library, engine, cache, worker, service: SpeakSentence::new(deps) }
     }
 
     fn speak(setup: &Setup, document_id: DocumentId, sentence: u32, voice: &str) -> AppResult<SpokenSentence> {
@@ -346,7 +347,7 @@ mod tests {
 
         setup.service.run(&RequestContext::new("test"), SpeakSentenceArgs { plan_ahead: false, ..args(id.clone(), 1, "af_heart") }).unwrap();
 
-        std::thread::sleep(Duration::from_millis(50));
+        setup.worker.wait_until_idle();
         assert_eq!(setup.engine.spoken(), ["One."]);
         assert!(setup.cache.retained().is_empty());
         speak(&setup, id, 1, "af_heart").unwrap();

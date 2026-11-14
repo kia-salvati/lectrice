@@ -38,6 +38,8 @@ const RECENT_TIMINGS: usize = 50;
 const MIN_TIMINGS_FOR_RTF: usize = 10;
 /// A listener who asked for no sentence for this long has paused (longer than almost any sentence plays).
 pub const LISTENER_IDLE_AFTER: Duration = Duration::from_secs(60);
+#[cfg(test)]
+const IDLE_WAIT_LIMIT: Duration = Duration::from_secs(10);
 
 /// Declared lowest first, so the derived order makes `Now` the greatest.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -288,6 +290,21 @@ impl SpeechWorker {
         *lock(&self.shared.last_listener) = Some(Instant::now());
     }
 
+    /// Blocks until nothing is queued, made or delivered: what a job's callback does has happened.
+    #[cfg(test)]
+    pub(crate) fn wait_until_idle(&self) {
+        let started = Instant::now();
+        loop {
+            let queue = self.shared.lock();
+            if queue.jobs.is_empty() && !queue.delivering {
+                return;
+            }
+            drop(queue);
+            assert!(started.elapsed() < IDLE_WAIT_LIMIT, "the speech worker never went idle");
+            std::thread::yield_now();
+        }
+    }
+
     pub fn timings(&self) -> SynthesisTimings {
         let recent = self.shared.recent();
         let mut factors: Vec<f32> = recent.iter().filter(|timing| timing.audio_ms > 0).map(|timing| timing.synth_ms as f32 / timing.audio_ms as f32).collect();
@@ -310,6 +327,8 @@ struct QueueState {
     queues: [BinaryHeap<QueueEntry>; PRIORITIES],
     last_id: u64,
     shutdown: bool,
+    /// A finished job's waiters are being called (outside the lock).
+    delivering: bool,
 }
 
 impl QueueState {
@@ -413,9 +432,14 @@ fn run_loop(shared: &Shared, engine: &dyn SpeechEngine, gate: Option<&dyn Synthe
             shared.record(Timing { audio_ms: (audio_seconds(audio) * MILLIS_PER_SECOND).round() as u64, synth_ms });
         }
 
-        let waiters = shared.lock().jobs.remove(&key).map(|pending| pending.waiters).unwrap_or_default();
+        let waiters = {
+            let mut queue = shared.lock();
+            queue.delivering = true;
+            queue.jobs.remove(&key).map(|pending| pending.waiters).unwrap_or_default()
+        };
         log_outcome(&key, priority, &outcome, synth_ms, waiters.len());
         deliver(&key, outcome, waiters);
+        shared.lock().delivering = false;
     }
 }
 
