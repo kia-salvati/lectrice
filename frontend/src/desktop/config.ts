@@ -13,9 +13,9 @@ export const RECOMMENDED_VARIANT: ModelVariant = 'fast';
 export const RETIRED_VARIANT: ModelVariant = 'int8';
 
 export const VARIANT_NOTE: Record<ModelVariant, string> = {
-  fast: 'Sounds like Full quality and reads faster. Recommended.',
-  fp32: 'The original model. The biggest download.',
-  small: 'Sounds like Full quality, in a smaller file.',
+  fast: 'Our own build of the same voice. Sounds the same as Full quality in our tests, and makes speech fastest.',
+  fp32: 'The original voice model, the same as the Android app. The largest download.',
+  small: "Our own build with smaller weights. Sounds like Full quality, at Full quality's speed.",
   int8: 'No longer offered: slower and a little less natural. Fast is better.',
 };
 

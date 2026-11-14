@@ -1,3 +1,4 @@
+import { formatPercent } from '../../utils/numbers';
 import { formatPageMarker } from '../../utils/pages';
 import type { EntryProgress, TocNode } from '../../utils/toc';
 import { CheckIcon } from '../icons/icons';
@@ -52,7 +53,7 @@ export const TocRow = ({ node, layout, pageLabel, progress, isHere, isPart, perc
         <span className={styles.srOnly}>, page {pageLabel}{PROGRESS_TEXT[progress]}</span>
       </button>
       <span className={styles.meta}>
-        {percent !== null && <span>{percent}%</span>}
+        {percent !== null && <span>{formatPercent(percent)}</span>}
         {progress === 'read' && <CheckIcon />}
         <span>{formatPageMarker(pageLabel)}</span>
       </span>

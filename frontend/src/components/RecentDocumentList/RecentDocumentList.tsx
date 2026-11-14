@@ -1,6 +1,6 @@
 import controls from '../../styles/controls.module.css';
 import type { DocumentId, DocumentSummary } from '../../types/document';
-import { formatCount } from '../../utils/numbers';
+import { formatCount, formatPercent } from '../../utils/numbers';
 import { percentRead } from '../../utils/progress';
 import { formatRelativeTime } from '../../utils/time';
 import styles from './RecentDocumentList.module.css';
@@ -30,7 +30,7 @@ export const RecentDocumentList = ({ documents, now, hrefFor, hasMore, isLoading
     <ul className={styles.list}>
       {documents.map((summary) => {
         const percent = percentRead(summary.lastSentenceId, summary.sentenceCount);
-        const action = percent === null ? 'Start' : `Continue · ${percent}%`;
+        const action = percent === null ? 'Start' : `Continue · ${formatPercent(percent)}`;
         return (
           <li key={summary.id}>
             <a className={styles.row} href={hrefFor(summary.id)}>
