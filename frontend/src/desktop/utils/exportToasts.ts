@@ -1,10 +1,7 @@
 import type { AudioExport, ExportStatus } from '../../types/api';
+import { isStatusInProgress } from '../../utils/exportStatus.ts';
 
 export type ExportToastKind = 'ready' | 'stopped';
-
-const IN_PROGRESS: Record<ExportStatus, boolean> = { queued: true, running: true, paused: false, done: false, failed: false, cancelled: false };
-
-export const isInProgress = (job: AudioExport): boolean => IN_PROGRESS[job.status];
 
 /** A finished export is "ready"; one a full disk or an error stopped is "stopped". Pauses by the user or the app, and cancels, say nothing. */
 export const toastKindOf = (job: AudioExport): ExportToastKind | null => {
@@ -21,6 +18,6 @@ export const newlyEnded = (previous: ReadonlyMap<string, ExportStatus> | null, c
   if (previous === null) return [];
   return current.filter((job) => {
     const before = previous.get(job.id);
-    return toastKindOf(job) !== null && (before === undefined || IN_PROGRESS[before]);
+    return toastKindOf(job) !== null && (before === undefined || isStatusInProgress(before));
   });
 };

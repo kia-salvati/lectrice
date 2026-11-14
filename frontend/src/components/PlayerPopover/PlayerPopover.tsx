@@ -26,6 +26,9 @@ interface PlayerPopoverProps {
   voiceGroups: VoiceGroup[];
   voiceId: string;
   voicesAvailable: boolean;
+  /** The voice list didn't load: a line under the menu offers `onRetryVoices`. */
+  voicesFailed: boolean;
+  onRetryVoices: () => void;
   onVoiceChange: (voiceId: string) => void;
   readSkipped: boolean;
   onReadSkippedChange: (readSkipped: boolean) => void;
@@ -37,8 +40,8 @@ interface PlayerPopoverProps {
   extraActions?: React.ReactNode;
 }
 
-export const PlayerPopover = ({ id, position, playableCount, positionText, chapterSection, locationText, onOpenChapters, timeLeftText, onSeek, speed, onSpeedChange, voiceGroups, voiceId, voicesAvailable, onVoiceChange, readSkipped, onReadSkippedChange, exportPanel, onOpenAnother, noVoiceNotice, extraActions }: PlayerPopoverProps) => (
-  <div id={id} className={styles.popover}>
+export const PlayerPopover = ({ id, position, playableCount, positionText, chapterSection, locationText, onOpenChapters, timeLeftText, onSeek, speed, onSpeedChange, voiceGroups, voiceId, voicesAvailable, voicesFailed, onRetryVoices, onVoiceChange, readSkipped, onReadSkippedChange, exportPanel, onOpenAnother, noVoiceNotice, extraActions }: PlayerPopoverProps) => (
+  <div id={id} className={styles.popover} role="group" aria-label="Player options">
     <div className={styles.position}>
       <div className={styles.row}>
         <ProgressSlider position={position} max={playableCount - 1} valueText={positionText} onSeek={onSeek} />
@@ -53,6 +56,12 @@ export const PlayerPopover = ({ id, position, playableCount, positionText, chapt
     <div className={styles.settings}>
       <SpeedPicker value={speed} onChange={onSpeedChange} />
       {noVoiceNotice ?? <VoicePicker groups={voiceGroups} value={voiceId} available={voicesAvailable} onChange={onVoiceChange} />}
+      {voicesFailed && !noVoiceNotice && (
+        <div className={styles.row}>
+          <span className={styles.error}>Couldn't load the voices.</span>
+          <button type="button" className={controls.button} onClick={onRetryVoices}>Try again</button>
+        </div>
+      )}
       <ReadSkippedSwitch checked={readSkipped} onChange={onReadSkippedChange} />
     </div>
     {exportPanel}
@@ -60,5 +69,6 @@ export const PlayerPopover = ({ id, position, playableCount, positionText, chapt
       <button type="button" className={controls.button} onClick={onOpenAnother}>Open another PDF…</button>
       {extraActions}
     </div>
+    <p className={styles.keys}>Keys: Space play or pause · ← → previous or next sentence · C chapters</p>
   </div>
 );

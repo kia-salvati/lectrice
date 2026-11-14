@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useAfterFileDialog } from '../../hooks/useAfterFileDialog';
 import type { ImportState } from '../../hooks/useLibrary';
+import { useAnnounced } from '../Announcer/useAnnounce';
 import controls from '../../styles/controls.module.css';
 import styles from './DropZone.module.css';
 import { importErrorCopy } from './importErrorCopy';
@@ -13,19 +14,23 @@ interface DropZoneProps {
   onChooseAnother: () => void;
 }
 
+const Importing = ({ fileName }: { fileName: string }) => {
+  const title = `Reading ${fileName}…`;
+  useAnnounced(title);
+  return (
+    <div className={styles.drop}>
+      <h2 className={styles.title}>{title}</h2>
+      <p className={styles.text}>Extracting text and cleaning out headers, page numbers, footnotes and references.</p>
+      <progress className={styles.progress} aria-label="Preparing document" />
+    </div>
+  );
+};
+
 export const DropZone = ({ importState, isDragging, maxUploadMb, onFileChosen, onChooseAnother }: DropZoneProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const afterFileDialog = useAfterFileDialog();
 
-  if (importState.phase === 'importing') {
-    return (
-      <div className={styles.drop} aria-live="polite">
-        <h2 className={styles.title}>Reading {importState.fileName}…</h2>
-        <p className={styles.text}>Extracting text and cleaning out headers, page numbers, footnotes and references.</p>
-        <progress className={styles.progress} aria-label="Preparing document" />
-      </div>
-    );
-  }
+  if (importState.phase === 'importing') return <Importing fileName={importState.fileName} />;
 
   if (importState.phase === 'failed') {
     const copy = importErrorCopy(importState.error);

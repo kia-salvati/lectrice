@@ -12,10 +12,10 @@
   color: var(--fg);
   border: 1px solid var(--line);
   border-radius: 14px 14px 10px 10px;
-  z-index: 9;
+  z-index: var(--z-sheet);
 }
 .sheet[open] { display: flex; }
-.sheet::backdrop { background: rgba(0, 0, 0, .3); }
+.sheet::backdrop { background: var(--sheet-backdrop); }
 .head { display: flex; align-items: center; gap: .5rem; padding: .6rem .6rem .6rem 1rem; border-bottom: 1px solid var(--line); flex: none; }
 .title { font-size: 1rem; margin: 0; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .back {
@@ -47,7 +47,7 @@
 }
 .drill:hover { background: var(--bg); }
 @media (max-width: 720px) {
-  .sheet { width: auto; bottom: 0; max-height: 85dvh; border-radius: 14px 14px 0 0; z-index: 20; }
+  .sheet { width: auto; bottom: 0; max-height: 85dvh; border-radius: 14px 14px 0 0; z-index: var(--z-overlay); }
 }
 @media (max-width: 420px) {
   .drillSize { display: none; }

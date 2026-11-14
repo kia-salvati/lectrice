@@ -83,7 +83,7 @@ convenience (§8), not v1.
 
 **Discovery.** The desktop advertises, only while its helper is on, the DNS-SD service **`_lectrice._tcp`** on its
 listening port (default **47878**, any free port if taken) with TXT records: `v=1` (protocol major), `id=<first 16 hex of
-SHA-256(desktop static public key)>`, `pair=1` while a pairing code is showing (else `0`). The instance name is the
+SHA-256(desktop static public key)>` (no `pair=` record: it would tell an attacker when to guess, security S5). The instance name is the
 computer name the user sees in the Phone tab (editable). The phone browses with **`NsdManager`** (Kotlin) and identifies
 a known computer by `id`, never by name or IP (both change).
 
@@ -99,7 +99,8 @@ a known computer by `id`, never by name or IP (both change).
    desktop UI shows "Paired with *name*", the code card closes.
 
 Limits: the code lives **2 minutes** and allows **3 failed attempts**, then it's replaced (the card says "A wrong code
-was typed. Here is a new one."); at most one pairing at a time; the pairing window opens **only** when the desktop user
+was typed…"); **changed by security S4:** the 3 wrong codes count per window across all addresses and the 3rd
+**closes** the window (no automatic new code: the computer's user clicks "Pair a phone" again; ≤ 10 failures per hour); at most one pairing at a time; the pairing window opens **only** when the desktop user
 clicks "Pair a phone". Re-pairing a known phone replaces its key.
 
 ### 3.3 Sessions: encryption and authentication
@@ -128,7 +129,7 @@ No document id, no title, no PDF, no cleaned document, no position, no chapter n
 
 | Option | Data on the desktop | Bandwidth | Verdict |
 |---|---|---|---|
-| **Sentence items** `{ item_id = sentence id, voice_id, text = sentence.spoken_text() }`, ≤ 30 listening-minutes ahead | only in RAM, only until that clip is sent; never written, never logged | text ≈ 18 B per second of audio → **~32 KB per 30 min**, negligible | **v1** |
+| **Sentence items** `{ item_id = the app's own counter (H2: never the sentence id), voice_id, text = sentence.spoken_text() }`, ≤ 30 listening-minutes ahead | only in RAM, only until that clip is sent; never written, never logged | text ≈ 18 B per second of audio → **~32 KB per 30 min**, negligible | **v1** |
 | The whole document (JSON, or the PDF) once, then sentence ids | the book stored on the desktop (a second copy of copyrighted text at rest; must match cleaner versions) | 1–5 MB once | no: more data at rest for no gain, since the phone already plans |
 
 - The text is the exact `spoken_text()` that `SpeakSentence` would give the local engine (cues "Code example." / "Table."
@@ -136,7 +137,7 @@ No document id, no title, no PDF, no cleaned document, no position, no chapter n
 - The desktop **doesn't cache** phone clips on disk and doesn't add anything to its library. Its logs carry only counts,
   item ids, durations, engine id and errors (README §4.6 applies on both sides).
 - The phone's `AudioKey` (document id, cleaner version, engine id, voice, sentence id) never leaves the phone; the
-  desktop sees only `item_id` (a sentence number, meaningless without the book).
+  desktop sees only `item_id` (the app's own counter, meaningless without the book; H2).
 
 ### 3.5 The wire protocol (v1, C40)
 
@@ -161,6 +162,21 @@ Messages after the handshake (phone = P, desktop = D):
 - Limits enforced by the decoder on both sides: frame ≤ 65 535 B, message ≤ 2 MB after reassembly, 32 items per batch,
   4 KB of text per item, clip ≤ 120 s of audio and ≤ `max(10 s, chars ÷ 6)` seconds (a sanity bound against a broken or
   hostile peer), sample rate equal to the `Ready` value.
+- **More limits (security review pass 3, core `CHANGELOG.md`; built in `lectrice-link`):**
+  - sample rates outside **8 000–48 000 Hz** are refused in `Welcome`, `Ready` and `Clip`; `decode_clip` never sizes its
+    output past the longest clip the protocol allows;
+  - per phone the computer keeps at most **256 waiting items** (`MAX_QUEUED_ITEMS_PER_PHONE`), makes no more clips while
+    **8 MB** of them wait unread (`CLIP_BACKLOG_BYTES`, answered `HelperBusy` 5006), and ends a session with **16 MB**
+    unwritten (`MAX_OUTBOX_BYTES`); the item budget (240 per minute) answers `HelperBusy` too;
+  - at most **4 handshakes under way per address** (`MAX_HALF_OPEN_PER_ADDRESS`, 16 in all); the per-address back-off
+    list holds ≤ 1 024 entries, forgets old failures and stops sessions only (a forgotten phone can pair again at once);
+  - pairing: the phone is saved **before** it is told it is paired, and only while its window is still open (two right
+    codes in one window save one phone); one attempt per address at a time; late wrong codes still count per hour;
+  - the phone ends a session on unasked `Ready` / `Refused` answers and keeps at most 8 unread `Load` events; it pings
+    after every frame too, so a long stream of clips never looks like a silent phone;
+  - ids, versions, revisions, voice ids and error names with control or direction characters are refused;
+  - reconnects (`LinkSpeechHelper`): a session counts as stable only after 30 s (2 × `dead_after`); shorter ones keep
+    the 1-2-5-10-30-60 s schedule; the first `Bye(engine_switch)` in a row is answered at once.
 
 ### 3.6 The 30-minute read-ahead and the fallback (no gap)
 
@@ -192,8 +208,15 @@ Messages after the handshake (phone = P, desktop = D):
 
 1. `SpeakSentence` misses the cache (after a jump, a voice change, the very first play).
 2. It asks `HelperFill` to send that sentence **urgent** (front of the desktop's queue; if it's already queued there, it's
-   moved up) and waits up to **`HELPER_NOW_GRACE_MS = 1500`** (UNVERIFIED: tuned in H0 from the desktop's first-sentence
-   time; target p95 < 1.2 s for a 10-word sentence on the laptop CPU).
+   moved up; an item already sent urgent is not sent again, since the computer would make it twice) and waits up to
+   **`HELPER_NOW_GRACE` = 1.5 s** (H0: the laptop's p95 for a 10-word sentence is 1.09 s), counted **from the moment the
+   link is ready**. While the phone's engine is still unloaded (C46) the wait is **`HELPER_COLD_GRACE` = 3 s**: the local
+   path would pay the model load (2.2 s on the S10+) first, and a cold computer answered in 1.95–2.06 s (H4). (H5)
+   - **First connection:** for **`HELPER_CONNECT_WAIT` = 1.5 s** after the helper starts, a miss waits for the link while
+     it is still Connecting, and the local read-ahead stays paused (H4 saw play pressed ~100 ms before the link was ready,
+     which loaded the engine). A reconnect never waits. A computer that isn't there costs the first sentence ≤ 1.5 s.
+   - When the link becomes ready while the player waits, the listener's own sentence is the **first item, urgent**, ahead
+     of the 30-minute fill.
 3. If the clip arrives in time → play it. Otherwise (or the link is Lost) → load the local engine if needed and submit a
    local `Now` job (today's path). Whichever finishes first is cached; the second result is dropped (same key; the cache
    write is atomic, first writer wins, C45).
@@ -337,7 +360,7 @@ Rules so the two features fit:
 |---|---|---|
 | Not paired | Settings row "Computer helper · Off" | Phone tab, helper switch, "Pair a phone" |
 | Pairing | code entry sheet; "Checking…" | code card with 2-min countdown |
-| Wrong code | "That code didn't work. Check the code on your computer." (3rd: "Get a new code on your computer.") | "A wrong code was typed. Here is a new one." |
+| Wrong code | "That code didn't work. Check the code on your computer." (3rd, or no code showing: "No code is showing on Kia's laptop. On the computer, click Pair a phone to get a new code.") | "Someone typed a wrong code 3 times. Click Pair a phone to try again." (S4) |
 | Searching / Connecting | nothing in the pill; sheet line "Looking for Kia's laptop…" | — |
 | Connected, filling | pill `computer` mark; sheet "Making audio on Kia's laptop · 12 min ready" | Phone tab: "Galaxy S10+ · making audio" + a small status chip in the app header (desktop spec §6) |
 | Connected, full | sheet "… · 30 min ready" | "Galaxy S10+ · connected" |
@@ -426,18 +449,33 @@ target SDK 37, turning the helper on will show Android's "Nearby devices" permis
 
 ## 9. Done when
 
-- [ ] Pairing works by mDNS and by typed address; a wrong code 3× gives a new code; an unpaired phone is refused.
+- [x] Pairing works by mDNS and by typed address; a wrong code 3× ~~gives a new code~~ closes the window (S4); an unpaired
+      phone is refused. (H4; H5: found in < 5 s and paired again. Typed address: tested in the core/desktop end-to-end
+      tests, not on the phone.)
 - [ ] With the helper Connected, 30 min at 1× and at 2× on the **S10+** play with no "Catching up…", the phone's engine
-      stays unloaded (log), and the buffered part reaches 30 listening-minutes.
+      stays unloaded (log), and the buffered part reaches 30 listening-minutes. (H5, **1× only**: 32 min with the screen
+      off and Doze forced, every sentence from the cache, 0 local syntheses; H4: 28 min ready after 7.5 min. The model
+      loaded by an earlier Lost now goes 5 min after the computer is back. **2× not run yet.**)
 - [ ] Turning the router off mid-book: no audible gap; Lost within 15 s; S10+ (red) starts local work at once; after the
-      router is back, Connected within 10 s and local work stops.
-- [ ] Desktop quit / lid closed / helper switched off: same, with the `Bye` reason in the phone log.
-- [ ] A jump while Connected plays the first sentence in ≤ 1.5 s (desktop) or falls back locally; no clip plays twice
-      or out of order.
-- [ ] A desktop with a different model or older revision is refused with the right text on both sides.
-- [ ] `tcpdump` on the laptop shows no plaintext after the prologue; logs on both sides contain no sentence text.
-- [ ] Battery: 30 min at 1× on the S10+ with the helper uses ≤ 20 % of the battery the same 30 min use without it.
-- [ ] Doze forced during a fill (screen off, playing): transfers continue.
+      router is back, Connected within 10 s and local work stops. (**The user tests this**: steps in
+      `lectrice-android/docs/progress/H5.md`. Stand-ins on the S10+: computer frozen → Lost in 10.6 s, killed → Lost at
+      once, local takeover, no gap (H4); back after 60–83 s → Connected 1.4 s / 6.7 s later (H5, 10 s re-browse).)
+- [ ] Desktop quit / lid closed / helper switched off: same, with the `Bye` reason in the phone log. (H4 on the S10+:
+      quit with its `Bye`, kill and freeze; helper off is in the desktop's tests. **Open:** the desktop never sends `Bye(sleeping)` (no suspend hook),
+      so a closed lid is noticed as silence: Lost after ≤ 15 s, like H4's frozen computer; no gap either way.)
+- [x] A jump while Connected plays the first sentence in ≤ 1.5 s (desktop) or falls back locally; no clip plays twice
+      or out of order. (H5: play at app start while connecting 0.88 s, voice change 1.22 s, both from the computer, the
+      phone's engine never loaded; the simulator checks order and no double clips.)
+- [x] A desktop with a different model or older revision is refused with the right text on both sides. (H4; H5: "needs
+      the Fast voice (140 MB)" on the phone, Fix → Retry → Connected.)
+- [x] `tcpdump` on the laptop shows no plaintext after the prologue; logs on both sides contain no sentence text. (H5:
+      no root for `tcpdump`, so a recording relay between phone and computer: 161 MB in 13 sessions, only the
+      `lectrice-link/1 session|pair` prologues are readable, 0 book text (positive control works); both logs: 0 book
+      phrases. Sockets: the app's only socket is the link; the laptop talks to the phone only on the link port and adb.)
+- [x] Battery: 30 min at 1× on the S10+ with the helper uses ≤ 20 % of the battery the same 30 min use without it. (H5,
+      screen off, batterystats estimate for the app with the charger simulated off: helper 1.53 mAh/min over 32.6 min,
+      phone alone 16.2 mAh/min over 10.4 min → **9 %**. H4, screen on, measured: 21 %.)
+- [x] Doze forced during a fill (screen off, playing): transfers continue. (H5: 32 min in deep IDLE, no Lost, no miss.)
 - [ ] Every link-drop test of §13 passes in CI.
 
 ## 10. Design screens
@@ -479,7 +517,7 @@ Not mockups; what each screen must do and say. Copy marked *new, Opus*; it goes 
 
 ### 11.3 Pairing (H2–H6)
 
-- H2 "Pair with a computer": a live list of found computers (name + "Ready to pair" when `pair=1`); an empty state with a
+- H2 "Pair with a computer": a live list of found computers (name only; the TXT record has no pairing flag since S5); an empty state with a
   spinner "Looking on this Wi-Fi…" and after 10 s the help text (same Wi-Fi, not a guest network, Lectrice open, "Pair a
   phone" clicked) and the link **"Enter the address instead"** (H4). Not on Wi-Fi → "Connect to Wi-Fi to pair."
 - H3 code entry: 6 separate digit boxes, numeric keyboard, paste-friendly, auto-submit on the 6th digit; subtitle "Type the
@@ -509,6 +547,30 @@ Not mockups; what each screen must do and say. Copy marked *new, Opus*; it goes 
 
 **Effort (agent work, Opus):** H0 2–3 d · H1 6–8 d · H2 4–5 d · H3 4–5 d · H4 6–8 d · H5 2–3 d + the design pass
 (brief + Fable options + build) ~3 d → **about 5–6 weeks** in total.
+
+### 12.1 As built: deviations from this file (H2–H5)
+
+- **`item_id`** is `HelperFill`'s own counter, never the sentence id (§3.4/§3.5): a late clip after a voice change or a
+  jump can never land under another key. **`Busy`** keeps filling (the phone's buffer covers it). (H2)
+- **Pairing:** no `pair=` TXT record (S5); the 3rd wrong code closes the window and the computer's user clicks "Pair a
+  phone" again, ≤ 10 failures per hour (S4). The phone's text after wrong codes is the generic "No code is showing on …"
+  (§4). (H1/H4)
+- **First sentence of a session** (§3.7): connect wait, grace from link-ready, cold grace, listener's sentence first. (H5)
+- **The phone's model after a Lost** (§3.6 preload): playback holds the engine, so its 5-minute idle unload never comes
+  while listening; the hub drops the deferred model once the computer has been back for 5 minutes. (H5)
+- **Desktop:** the phone's engine is loaded when its session opens (before `Ready`; the desktop's own engine is lent and
+  always loaded), and a helper engine is not idled out while a phone is connected (H5).
+- **Re-discovery (Android):** NSD doesn't report again a computer that vanished without a goodbye, so while Lost the
+  phone browses again every **10 s**; a fresh sighting of the computer's `id` triggers `retry_now`. (H4)
+- **Prepare on the computer** (§3.13): the computer holds one Prepare range at a time, so the phone sends one book's
+  range at a time (a book that reached Ready stays Ready); a range the computer stopped short of its end (`HelperBusy`) is
+  sent again after 30 s, not on the next tick; the link is re-decided when "Prepare runs on the computer" flips. (H4)
+- **Needs attention, model missing:** the phone names its own model and its download size ("needs the Fast voice
+  (140 MB)"): it opened the link with that model, so it is the one the computer lacks (`HelperState.neededModel`, H5).
+  "Update the older one" stays generic (the core doesn't say which side is older). (H4/H5)
+- **"Last seen"** is stamped when a session ends and when the computer stops making audio, and shown relative at draw
+  time. The ⋯ menu is a Compose `Popup`; the code boxes clear on every error; H5 (paired success) shows the live
+  switch. (H4)
 
 ## 13. Tests
 

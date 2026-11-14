@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { CheckIcon, WaitIcon } from '../../../components/icons/icons';
 import controls from '../../../styles/controls.module.css';
 import type { ModelBundle, ModelBundleId, ModelImportKind, ModelStatus, ModelTransfer, TransferErrorName } from '../../commands/types';
-import { IMPORT_TEXT, VARIANT_NOTE, VOICE_COUNT } from '../../config';
+import { VARIANT_NOTE } from '../../config';
 import desktop from '../../styles/controls.module.css';
 import { formatApproxTimeLeft, formatMb, formatProgressMb, formatRetryIn, percentOf } from '../../utils/format';
-import { installNeedsBytes, isTransferBusy } from '../../utils/modelSetup';
+import { importFileLabel, importText } from '../../utils/importText';
+import { installNeedsBytes, isTransferBusy, sharedVoiceCount } from '../../utils/modelSetup';
 import { ImportMenu } from '../ImportMenu/ImportMenu';
 import { ConfirmDialog, ModalDialog } from '../ModalDialog/ModalDialog';
 import { ProgressBar } from '../ProgressBar/ProgressBar';
@@ -42,7 +43,7 @@ const CancelButton = ({ onCancel }: Pick<VoiceModelTabProps, 'onCancel'>) => <bu
 type ImportProps = Pick<VoiceModelTabProps, 'onImport' | 'importKind'>;
 
 const TransferState = ({ transfer, bundle, status, onDownload, onPause, onCancel, onImport, importKind }: { transfer: RunningTransfer; bundle: ModelBundle; status: ModelStatus } & Pick<VoiceModelTabProps, 'onDownload' | 'onPause' | 'onCancel'> & ImportProps) => {
-  const importText = IMPORT_TEXT[importKind];
+  const copy = importText(importKind, status.bundles);
   const bar = (progress: ProgressingTransfer | null) => (
     <span className={styles.bar}><ProgressBar percent={progress && percentOf(progress.doneBytes, progress.totalBytes)} valueText={progress ? formatProgressMb(progress.doneBytes, progress.totalBytes) : undefined} label={BAR_LABEL} size="small" /></span>
   );
@@ -50,7 +51,7 @@ const TransferState = ({ transfer, bundle, status, onDownload, onPause, onCancel
   const progress = (line: string, progressing: ProgressingTransfer | null) => <div className={styles.progress}><span>{line}</span>{bar(progressing)}</div>;
   const pauseCancel = <div className={desktop.actions}><button type="button" className={controls.button} onClick={onPause}>Pause</button><CancelButton onCancel={onCancel} /></div>;
   const tryAgain = <div className={desktop.actions}><button type="button" className={controls.button} onClick={() => onDownload(bundle.id)}>Try again</button><CancelButton onCancel={onCancel} /></div>;
-  const pickAnother = <div className={desktop.actions}><button type="button" className={controls.button} onClick={() => onImport(importKind)}>{importText.pickAnother}</button></div>;
+  const pickAnother = <div className={desktop.actions}><button type="button" className={controls.button} onClick={() => onImport(importKind)}>{copy.pickAnother}</button></div>;
 
   switch (transfer.kind) {
     case 'starting':
@@ -66,13 +67,13 @@ const TransferState = ({ transfer, bundle, status, onDownload, onPause, onCancel
     case 'waitingForNetwork':
       return <>{progress(`No internet connection. Trying again in ${formatRetryIn(transfer.retryInSeconds)}`, transfer)}<div className={desktop.actions}><button type="button" className={controls.button} onClick={() => onDownload(bundle.id)}>Try now</button><CancelButton onCancel={onCancel} /></div></>;
     case 'verifying':
-      return progress(transfer.source === 'import' ? importText[transfer.stage] : transfer.stage === 'unpacking' ? 'Unpacking…' : 'Checking the download…', null);
+      return progress(transfer.source === 'import' ? copy[transfer.stage] : transfer.stage === 'unpacking' ? 'Unpacking…' : 'Checking the download…', null);
     case 'failed': {
       const noSpace = `Not enough space. ${bundle.displayName} needs ${formatMb(installNeedsBytes(bundle))} free on this drive; there's ${formatMb(status.freeBytes ?? 0)} free now.`;
       const LINE: Record<TransferErrorName, string> = {
-        ModelChecksumMismatch: transfer.source === 'import' ? importText.notAModel : 'The download was damaged twice, so Lectrice stopped.',
+        ModelChecksumMismatch: transfer.source === 'import' ? copy.notAModel : 'The download was damaged twice, so Lectrice stopped.',
         ModelDownloadFailed: 'The download failed. Try again in a moment.',
-        FileUnreadable: importText.unreadable,
+        FileUnreadable: copy.unreadable,
         StorageFull: noSpace,
       };
       return <><span className={desktop.errorText}>{LINE[transfer.error]}</span>{transfer.source === 'import' && transfer.error !== 'StorageFull' ? pickAnother : tryAgain}</>;
@@ -118,11 +119,12 @@ const ModelCard = (props: { bundle: ModelBundle; onUse: () => void; onAskDelete:
 };
 
 /** An import that hasn't matched a bundle yet has no card to live in; it shows under them. */
-const UnmatchedImport = ({ transfer, importKind }: { transfer: ModelTransfer } & Pick<VoiceModelTabProps, 'importKind'>) => {
-  if (transfer.kind === 'none' || transfer.bundleId !== null || transfer.source !== 'import') return null;
-  const importText = IMPORT_TEXT[importKind];
-  if (transfer.kind === 'verifying') return <div className={styles.progress}><span>{importText[transfer.stage]}</span><span className={styles.bar}><ProgressBar percent={null} label="Voice import" size="small" /></span></div>;
-  if (transfer.kind === 'failed') return <span className={desktop.errorText}>{transfer.error === 'ModelChecksumMismatch' ? importText.notAModel : importText.unreadable}</span>;
+const UnmatchedImport = ({ status, importKind }: { status: ModelStatus } & Pick<VoiceModelTabProps, 'importKind'>) => {
+  const { transfer } = status;
+  if ((transfer.kind !== 'verifying' && transfer.kind !== 'failed') || transfer.bundleId !== null || transfer.source !== 'import') return null;
+  const copy = importText(importKind, status.bundles);
+  if (transfer.kind === 'verifying') return <div className={styles.progress}><span>{copy[transfer.stage]}</span><span className={styles.bar}><ProgressBar percent={null} label="Voice import" size="small" /></span></div>;
+  if (transfer.kind === 'failed') return <span className={desktop.errorText}>{transfer.error === 'ModelChecksumMismatch' ? copy.notAModel : copy.unreadable}</span>;
   return null;
 };
 
@@ -133,6 +135,7 @@ export const VoiceModelTab = (props: VoiceModelTabProps) => {
   const active = status.bundles.find((bundle) => bundle.active) ?? null;
   const refused = status.bundles.find((bundle) => bundle.id === props.refusedDelete) ?? null;
   const busy = isTransferBusy(status);
+  const voiceCount = sharedVoiceCount(status.bundles);
 
   const use = (bundle: ModelBundle) => {
     if (props.exportingBookTitle !== null && active !== null) setConfirm({ kind: 'switch', to: bundle, from: active });
@@ -149,11 +152,11 @@ export const VoiceModelTab = (props: VoiceModelTabProps) => {
       {status.bundles.map((bundle) => (
         <ModelCard key={bundle.id} bundle={bundle} status={status} onUse={() => use(bundle)} onAskDelete={() => setConfirm({ kind: 'delete', bundle })} onDownload={props.onDownload} onPause={props.onPause} onCancel={props.onCancel} onImport={props.onImport} importKind={props.importKind} />
       ))}
-      <UnmatchedImport transfer={status.transfer} importKind={props.importKind} />
+      <UnmatchedImport status={status} importKind={props.importKind} />
       <div className={desktop.actions}>
-        <ImportMenu label="Import a model…" disabled={busy} onImport={props.onImport} />
+        <ImportMenu label="Import a model…" disabled={busy} fileLabel={importFileLabel(status.bundles)} onImport={props.onImport} />
       </div>
-      <p className={desktop.muted}>All models have the same {VOICE_COUNT} English voices.</p>
+      {voiceCount !== null && <p className={desktop.muted}>All models have the same {voiceCount} English voices.</p>}
 
       {confirm?.kind === 'switch' && (
         <ConfirmDialog title={`Switch to ${confirm.to.displayName}?`} text={`“${props.exportingBookTitle}” is being exported with ${confirm.from.displayName}. It will wait until ${confirm.from.displayName} is in use again.`} cancelLabel="Cancel" confirmLabel="Switch" onCancel={() => setConfirm(null)} onConfirm={confirmed} />

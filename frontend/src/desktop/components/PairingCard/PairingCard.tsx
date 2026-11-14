@@ -4,7 +4,7 @@ import type { PhonePairing } from '../../commands/types';
 import { PAIRING_TICK_MS, RELATIVE_TIME_TICK_MS } from '../../config';
 import { useNow } from '../../hooks/useNow';
 import desktop from '../../styles/controls.module.css';
-import { codeAriaLabel, coolDownMinutes, countdownPercent, formatCountdown, groupCode, tryingText, wrongCodesText } from '../../utils/phoneHelper';
+import { codeAriaLabel, coolDownMinutes, countdownPercent, formatCountdown, groupCode, tryingText, WRONG_CODES_ALLOWED, wrongCodesText } from '../../utils/phoneHelper';
 import { DoneIcon, WarningIcon } from '../icons';
 import styles from './PairingCard.module.css';
 
@@ -67,7 +67,7 @@ const Body = ({ pairing, computerName, onStart, onCancel }: PairingCardProps): R
     case 'tooManyWrongCodes':
       return (
         <>
-          <p className={`${styles.line} ${desktop.errorText}`}><WarningIcon /><span>Someone typed a wrong code 3 times, so pairing stopped.</span></p>
+          <p className={`${styles.line} ${desktop.errorText}`}><WarningIcon /><span>{`Someone typed a wrong code ${WRONG_CODES_ALLOWED} times, so pairing stopped.`}</span></p>
           {pairing.lastFrom !== null && <p className={desktop.meta}>Last try from {pairing.lastFrom}.</p>}
           <div className={desktop.actions}>
             <button type="button" className={`${controls.button} ${controls.primary}`} onClick={onStart}>Pair a phone</button>

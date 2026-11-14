@@ -2,12 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChapterLine } from '../../components/ChapterLine/ChapterLine';
 import { ChaptersRail, ChaptersRailHandle } from '../../components/ChaptersPanel/ChaptersRail';
 import { ChaptersSheet } from '../../components/ChaptersPanel/ChaptersSheet';
-import { ExportPanel } from '../../components/ExportPanel/ExportPanel';
 import { MiniPlayer } from '../../components/MiniPlayer/MiniPlayer';
 import { PlayerPopover } from '../../components/PlayerPopover/PlayerPopover';
 import { ReadingView } from '../../components/ReadingView/ReadingView';
 import { StatusBanner } from '../../components/StatusBanner/StatusBanner';
-import { EXPORT_FORMAT_EXTENSION, FALLBACK_VOICE_ID, SECONDS_PER_CHAR } from '../../config/constants';
+import { SECONDS_PER_CHAR } from '../../config/constants';
 import { useAudioExport } from '../../hooks/useAudioExport';
 import { useChaptersPanel } from '../../hooks/useChaptersPanel';
 import { useFollowScroll } from '../../hooks/useFollowScroll';
@@ -17,17 +16,16 @@ import type { SpeechEngine } from '../../hooks/useSpeechEngine';
 import type { Voices } from '../../hooks/useVoices';
 import controls from '../../styles/controls.module.css';
 import type { OpenedDocument } from '../../types/document';
-import { exportPhase } from '../../utils/exportPhase';
-import { safeFileName } from '../../utils/fileName';
-import { buildPageLabelLookup, formatPageMarker, formatPdfPage, planPageMarkers, printedLabel } from '../../utils/pages';
-import { secondsBetween } from '../../utils/playbackOrder';
-import { playerState, playerStatusParts } from '../../utils/playerStatus';
+import { buildPageLabelLookup, planPageMarkers, printedLabel } from '../../utils/pages';
+import { playerState } from '../../utils/playerStatus';
 import { sentenceIdEnd } from '../../utils/sentences';
 import { formatTimeLeft } from '../../utils/time';
-import { buildTocTree, chapterLabel, entryEndSentenceId, formatChapterPercent, percentThrough, tocLocation } from '../../utils/toc';
+import { buildTocTree, tocLocation } from '../../utils/toc';
 import { groupVoices } from '../../utils/voices';
+import { ReaderExport } from './ReaderExport';
 import styles from './ReaderPage.module.css';
 import type { ReaderShell } from './readerShell';
+import { chapterLine, locationText, positionText, statusParts } from './readerText';
 
 interface ReaderScreenProps { document: OpenedDocument; voices: Voices; engine: SpeechEngine; onBack: () => void; shell?: ReaderShell; }
 
@@ -43,8 +41,9 @@ const ENGINE_BANNER: Record<SpeechEngine['state'], string | null> = {
 
 /** A loaded document: wires playback, export and follow-scroll to the components. */
 export const ReaderScreen = ({ document, voices, engine, onBack, shell }: ReaderScreenProps) => {
-  const voiceId = voices.selectedVoiceId ?? FALLBACK_VOICE_ID;
-  const voiceNameOf = (id: string): string => voices.voices.find((voice) => voice.id === id)?.name ?? id;
+  const voiceId = voices.selectedVoiceId;
+  const voiceNameOf = (id: string | null): string => (id === null ? '' : voices.voices.find((voice) => voice.id === id)?.name ?? id);
+  const canStartExport = engine.state === 'ready' && voiceId !== null;
 
   const playback = usePlayback({ document, voiceId, canPlay: engine.state === 'ready', onEngineUnavailable: engine.markUnavailable });
   const exportState = useAudioExport(document.id, engine.markUnavailable);
@@ -102,81 +101,50 @@ export const ReaderScreen = ({ document, voices, engine, onBack, shell }: Reader
   const lastLabel = printedLabel(pageLabels, document.pageCount);
   const pageLabelOf = (pageIndex: number) => printedLabel(pageLabels, pageIndex);
   const state = playerState(engine.state, playback.status);
-  const chapter = location === null ? null : document.toc[location.chapterIndex];
-  const section = location === null || location.sectionIndex === null ? null : document.toc[location.sectionIndex];
   const voiceStatus = shell?.voiceStatus ?? null;
-  const statusParts = state === 'engineFailed' && voiceStatus !== null
-    ? [{ text: voiceStatus, shrinks: true }]
-    : playerStatusParts(state, { pageText: formatPageMarker(currentLabel), lastPageText: lastLabel, chapter: chapter === null ? null : chapterLabel(chapter.title) }, playback.speed);
-  const positionText = `Sentence ${(playback.position + 1).toLocaleString('en')} of ${playback.playableCount.toLocaleString('en')}, page ${currentLabel}`;
-  const locationText = `Page ${currentLabel} · ${playback.currentPageIndex === null ? '' : formatPdfPage(playback.currentPageIndex)} of ${document.pageCount.toLocaleString('en')}`;
-
-  const job = exportState.job;
-  const fileFormat = job?.format ?? exportState.format;
-  const fileVoiceName = voiceNameOf(job?.voiceId ?? voiceId);
-  const downloadName = safeFileName(`${document.title} (${fileVoiceName}).${EXPORT_FORMAT_EXTENSION[fileFormat]}`);
   const engineMessage = voiceStatus === null ? ENGINE_BANNER[engine.state] : null;
-  const startExport = () => exportState.start(voiceId, playback.readSkipped);
+  const pillStatus = statusParts({ state, voiceStatus, pageLabel: currentLabel, lastPageLabel: lastLabel, chapterTitle: location === null ? null : document.toc[location.chapterIndex].title, speed: playback.speed });
 
-  const exportPanel = shell ? (
-    <div ref={shellExportRef}>
-      {shell.renderExportPanel({
-        exportState,
-        voiceName: voiceNameOf(voiceId),
-        readSkipped: playback.readSkipped,
-        fileVoiceName,
-        canStart: engine.state === 'ready',
-        onStart: startExport,
-        bookSeconds: playback.order.charsFrom[0] * SECONDS_PER_CHAR,
-      })}
-    </div>
-  ) : (
-    <ExportPanel
-      phase={exportPhase(job, exportState.isStarting)}
-      format={exportState.format}
-      onFormatChange={exportState.setFormat}
-      fileFormat={fileFormat}
-      fileVoiceName={fileVoiceName}
-      sentencesDone={job?.sentencesDone ?? 0}
-      sentencesTotal={job?.sentencesTotal ?? 0}
-      timeLeftText={job?.estimatedSecondsLeft == null ? null : formatTimeLeft(job.estimatedSecondsLeft)}
+  const exportPanel = (
+    <ReaderExport
+      documentTitle={document.title}
+      exportState={exportState}
       voiceName={voiceNameOf(voiceId)}
+      fileVoiceName={voiceNameOf(exportState.job?.voiceId ?? voiceId)}
       readSkipped={playback.readSkipped}
-      fileUrl={exportState.fileUrl}
-      downloadName={downloadName}
-      errorMessage={exportState.error?.message ?? null}
-      canStart={engine.state === 'ready'}
-      onStart={startExport}
-      onCancel={exportState.cancel}
+      canStart={canStartExport}
+      onStart={() => {
+        if (voiceId !== null) exportState.start(voiceId, playback.readSkipped);
+      }}
+      bookSeconds={playback.order.charsFrom[0] * SECONDS_PER_CHAR}
+      shell={shell}
+      shellPanelRef={shellExportRef}
     />
   );
 
   // `location` is non-null only for a sentence inside the toc, so the sentence id is non-null with it.
-  const chapterLine = (chapterIndex: number, sentenceId: number) => {
-    const chapterTitle = document.toc[chapterIndex].title;
-    const pathText = section === null ? chapterTitle : `${chapterTitle} › ${section.title}`;
-    const percentText = formatChapterPercent(percentThrough(document.toc, chapterIndex, sentenceId, sentenceCount));
-    const secondsLeftInChapter = secondsBetween(playback.order, sentenceId, entryEndSentenceId(document.toc, chapterIndex), playback.speed, SECONDS_PER_CHAR);
-    return <ChapterLine pathText={pathText} progressText={`${percentText} · ${formatTimeLeft(secondsLeftInChapter)} in it`} onOpen={openChaptersFromPopover} />;
-  };
-  const chapterSection = location === null || playback.currentSentenceId === null ? null : chapterLine(location.chapterIndex, playback.currentSentenceId);
+  const chapterSection = location === null || playback.currentSentenceId === null
+    ? null
+    : <ChapterLine {...chapterLine({ toc: document.toc, location, sentenceId: playback.currentSentenceId, sentenceCount, order: playback.order, speed: playback.speed })} onOpen={openChaptersFromPopover} />;
 
   const popover = (
     <PlayerPopover
       id={POPOVER_ID}
       position={playback.position}
       playableCount={playback.playableCount}
-      positionText={positionText}
+      positionText={positionText(playback.position, playback.playableCount, currentLabel)}
       chapterSection={chapterSection}
-      locationText={locationText}
+      locationText={locationText(currentLabel, playback.currentPageIndex, document.pageCount)}
       onOpenChapters={openChaptersFromPopover}
       timeLeftText={formatTimeLeft(playback.secondsLeft)}
       onSeek={seek}
       speed={playback.speed}
       onSpeedChange={playback.setSpeed}
       voiceGroups={voiceGroups}
-      voiceId={voiceId}
+      voiceId={voiceId ?? ''}
       voicesAvailable={voices.status === 'ready'}
+      voicesFailed={voices.status === 'failed'}
+      onRetryVoices={voices.retry}
       onVoiceChange={voices.selectVoice}
       readSkipped={playback.readSkipped}
       onReadSkippedChange={playback.setReadSkipped}
@@ -222,7 +190,7 @@ export const ReaderScreen = ({ document, voices, engine, onBack, shell }: Reader
       </div>
       <MiniPlayer
         playerState={state}
-        statusParts={statusParts}
+        statusParts={pillStatus}
         canGoBack={playback.position > 0}
         canGoForward={playback.position < playback.playableCount - 1}
         showBackToCurrent={!follow.isFollowing}

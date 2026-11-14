@@ -25,12 +25,12 @@ interface LibraryPageProps {
 const hrefFor = (documentId: DocumentId): string => routeHref({ name: 'reader', documentId });
 
 const RecentSection = ({ library }: { library: Library }) => {
-  if (library.recentStatus === 'loading') return <p className={styles.message}>Loading recent documents…</p>;
+  if (library.recentStatus === 'loading') return <p className={styles.message} role="status">Loading recent documents…</p>;
   if (library.recentStatus === 'failed') {
     return <StatusBanner message={library.recentError?.message ?? 'Recent documents could not be loaded.'} actions={<button type="button" className={controls.button} onClick={library.reloadRecent}>Try again</button>} />;
   }
   if (library.recent.length === 0) return <p className={styles.message}>No documents yet. Open a PDF to start.</p>;
-  return <RecentDocumentList documents={library.recent} now={library.recentLoadedAt} hrefFor={hrefFor} hasMore={library.recent.length < library.total} isLoadingMore={library.isLoadingMore} onShowMore={library.loadMore} />;
+  return <RecentDocumentList documents={library.recent} now={library.recentLoadedAt} hrefFor={hrefFor} hasMore={library.recent.length < library.total} isLoadingMore={library.isLoadingMore} moreErrorText={library.moreError?.message ?? null} onShowMore={library.loadMore} />;
 };
 
 export const LibraryPage = ({ onOpenDocument, headerActions, notice, fileToImport = null, onFileTaken }: LibraryPageProps) => {

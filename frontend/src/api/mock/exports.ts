@@ -1,7 +1,7 @@
 import type { AudioExport, ExportFormat, StartExportRequest } from '../../types/api';
 import type { CleanDocument } from '../../types/document';
 import { buildPlaybackOrder } from '../../utils/playbackOrder';
-import { ApiError } from '../errors';
+import { mockError } from './mockError';
 import { documents } from './library';
 import { isScenarioActive } from './scenario';
 import { makeMockWav } from './wav';
@@ -21,7 +21,7 @@ let fileUrl: string | null = null;
 /** Same rule as playback, from its single owner. */
 const countExportSentences = (document: CleanDocument, readSkipped: boolean): number => buildPlaybackOrder(document, readSkipped).sentenceIds.length;
 
-const notFound = () => new ApiError('ExportNotFound', 3001, 'Export not found.', 404);
+const notFound = () => mockError('ExportNotFound', 'Export not found.', 404);
 
 /** Module state: kept across reader visits until the page reloads, like the server keeps its jobs. */
 
@@ -40,9 +40,9 @@ const snapshot = (job: MockJob): AudioExport => {
 
 export const startMockExport = (documentId: string, request: StartExportRequest): AudioExport => {
   const document = documents.get(documentId);
-  if (!document) throw new ApiError('DocumentNotFound', 1101, 'Document not found.', 404);
-  if (isScenarioActive('exporterMissing')) throw new ApiError('ExporterUnavailable', 3004, "Audio export isn't available (ffmpeg is missing).", 503);
-  if (!SUPPORTED_FORMATS.includes(request.format)) throw new ApiError('ExportFormatUnsupported', 3003, "That audio format isn't supported.", 400);
+  if (!document) throw mockError('DocumentNotFound', 'Document not found.', 404);
+  if (isScenarioActive('exporterMissing')) throw mockError('ExporterUnavailable', "Audio export isn't available (ffmpeg is missing).", 503);
+  if (!SUPPORTED_FORMATS.includes(request.format)) throw mockError('ExportFormatUnsupported', "That audio format isn't supported.", 400);
   // Like the server: one active job per document + voice + format; starting it again returns that job.
   const active = [...jobs.values()].map(snapshot).find((info) => info.documentId === documentId && info.voiceId === request.voiceId && info.format === request.format && (info.status === 'queued' || info.status === 'running'));
   if (active) return active;

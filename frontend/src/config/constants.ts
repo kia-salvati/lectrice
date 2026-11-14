@@ -15,9 +15,6 @@ export const PREFETCH_AHEAD = 2;
 /** Measured Kokoro rate at 1× (spec §4: ≈ 18 characters per second). Used only for "time left". */
 export const SECONDS_PER_CHAR = 1 / 18;
 
-/** Used until GET /api/voices answers, or if it fails. The server's defaultVoiceId wins once known. */
-export const FALLBACK_VOICE_ID = 'af_heart';
-
 export const POSITION_SAVE_DELAY_MS = 1500;
 
 export const RECENT_PAGE_SIZE = 20;
@@ -30,6 +27,8 @@ export const EXPORT_FORMAT_LABEL: Record<ExportFormat, string> = { mp3: 'MP3', m
 export const EXPORT_FORMAT_EXTENSION: Record<ExportFormat, string> = { mp3: 'mp3', m4b: 'm4b' };
 
 export const EXPORT_POLL_INTERVAL_MS = 1000;
+/** The longest wait between two looks at an export after its polls failed. */
+export const EXPORT_POLL_MAX_MS = 30_000;
 
 /** The chapters rail needs this much width beside the text column; below it the bottom sheet is used. */
 export const WIDE_SCREEN_QUERY = '(min-width: 1200px)';

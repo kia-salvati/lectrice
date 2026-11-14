@@ -7,8 +7,8 @@ import type { ExportAvailabilityState } from './hooks/useExportAvailability';
 import type { ExportSaves } from './hooks/useExportSaves';
 import { desktopExportPhase } from './utils/exportPhase';
 import type { ExportSaveState } from './utils/exportPhase';
-import { isInProgress } from './utils/exportToasts';
-import { formatApproxTimeLeft, formatDuration, m4bSeconds } from './utils/format';
+import { isInProgress } from '../utils/exportStatus';
+import { exportSeconds, formatApproxTimeLeft, formatDuration } from './utils/format';
 
 interface DesktopReaderExportProps {
   context: ExportPanelContext;
@@ -43,7 +43,7 @@ export const DesktopReaderExport = ({ context, status, saves, exporter, onExport
   const activeBundle = status.bundles.find((bundle) => bundle.active);
   const modelName = (phase === 'waitingForModel' ? jobBundle : activeBundle)?.displayName ?? '';
   const fileBytes = job?.fileBytes ?? null;
-  const durationText = formatDuration(fileBytes === null ? context.bookSeconds : m4bSeconds(fileBytes));
+  const durationText = formatDuration((job === null ? null : exportSeconds(job)) ?? context.bookSeconds);
 
   return (
     <DesktopExportPanel

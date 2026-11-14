@@ -107,6 +107,12 @@ Follow `rules/` (copied from the user's shared rules on 2026-10-06):
 - **Security (user 2026-11-13):** finding and fixing security issues in the desktop and Android
   apps (current code and the new features) is **Fable's job** (an exception to "Fable only writes
   design code"). Every new feature gets a Fable security review before it's called done.
+- **Final check (user 2026-11-13), after all features are done:** two Fable agents. (1) Test every
+  part of the desktop and Android apps: function, performance, security, and anything else it
+  thinks needs checking. (2) Review design/UI/UX, clean architecture and clean code. Both report
+  what needs fixing, then the fixes are made, then **one more review checks the fixes** (user
+  2026-11-14). **After that: push and tag the new versions**
+  (core, desktop, Android) with GitHub releases (user 2026-11-13).
 
 ## Agents
 The user wants work dispatched to agents and orchestrated: **Opus for everything except design

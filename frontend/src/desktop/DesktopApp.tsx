@@ -7,23 +7,20 @@ import { ReaderPage } from '../pages/ReaderPage/ReaderPage';
 import type { ReaderShell } from '../pages/ReaderPage/readerShell';
 import controls from '../styles/controls.module.css';
 import type { DocumentId } from '../types/document';
-import type { AppInfo, DesktopCommands, Licenses, LinkId, ModelBundleId, ModelStatus } from './commands/types';
+import type { AppInfo, DesktopCommands, Licenses, LinkId, ModelStatus } from './commands/types';
 import { FirstRunPage } from './components/ModelSetup/ModelSetup';
 import { NoVoiceRow } from './components/NoVoiceRow/NoVoiceRow';
 import { PhoneChip, PhoneMakingLine } from './components/PhoneChip/PhoneChip';
-import { PhoneVersionToast } from './components/PhoneVersionToast/PhoneVersionToast';
-import { PhoneVoiceCard } from './components/PhoneVoiceCard/PhoneVoiceCard';
-import { AboutTab } from './components/SettingsDialog/AboutTab';
-import { PhoneTab } from './components/SettingsDialog/PhoneTab';
 import { SettingsButton } from './components/SettingsDialog/SettingsButton';
-import { SettingsDialog } from './components/SettingsDialog/SettingsDialog';
 import type { SettingsTab } from './components/SettingsDialog/SettingsDialog';
-import { VoiceModelTab } from './components/SettingsDialog/VoiceModelTab';
+import { StartupState } from './components/StartupState/StartupState';
 import { VoiceStrip } from './components/VoiceStrip/VoiceStrip';
-import { DesktopExportToast } from './DesktopExportToast';
+import { DesktopCornerCard } from './DesktopCornerCard';
 import { DesktopReaderExport } from './DesktopReaderExport';
+import { DesktopSettings } from './DesktopSettings';
 import { useExportAvailability } from './hooks/useExportAvailability';
 import { useExportSaves } from './hooks/useExportSaves';
+import { useCommandErrors } from './hooks/useCommandErrors';
 import { useExportToasts } from './hooks/useExportToasts';
 import { useModelSetup } from './hooks/useModelSetup';
 import { usePhoneHelper } from './hooks/usePhoneHelper';
@@ -41,21 +38,20 @@ const engineKey = (status: ModelStatus): string => `${status.engine}:${status.bu
 /** The desktop app: the web app's library and reader, with the voice-model setup, settings, desktop export and toasts. */
 export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
   const { route, navigate } = useHashRoute();
-  const setup = useModelSetup(commands);
+  const commandErrors = useCommandErrors();
+  const setup = useModelSetup(commands, commandErrors.report);
   const { status } = setup;
   const sample = useVoiceSample(status?.engine === 'ready');
   const saves = useExportSaves(commands);
   const toasts = useExportToasts(commands);
   const exporter = useExportAvailability(commands);
-  const phone = usePhoneHelper(commands);
+  const phone = usePhoneHelper(commands, commandErrors.report);
   const [setupOpen, setSetupOpen] = useState<boolean | null>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [licenses, setLicenses] = useState<Licenses | null>(null);
   const [fileToImport, setFileToImport] = useState<File | null>(null);
   const [railShown, setRailShown] = useState(false);
-  /** The voice whose download was started from the phone's card: the card stays closed for it. */
-  const [phoneVoiceStarted, setPhoneVoiceStarted] = useState<ModelBundleId | null>(null);
   /** The book whose reader should open with the popover on its export section. */
   const [openAtExportFor, setOpenAtExportFor] = useState<DocumentId | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,7 +86,7 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
   const clearFileToImport = useCallback(() => setFileToImport(null), []);
   const clearOpenAtExport = useCallback(() => setOpenAtExportFor(null), []);
 
-  if (status === null || currentEngine === null) return null;
+  if (status === null || currentEngine === null) return <StartupState failed={setup.loadFailed} onRetry={setup.retryLoad} />;
 
   const activeBundle = status.bundles.find((bundle) => bundle.active) ?? null;
   const goTo = (target: Route) => {
@@ -100,13 +96,9 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
   const goToLibrary = () => goTo({ name: 'library' });
   const openSetup = () => setSetupOpen(true);
   const openLink = (link: LinkId) => {
-    commands.openLink(link).catch((cause: unknown) => console.error('Open link failed', cause));
+    commands.openLink(link).catch(commandErrors.report('open_link', "Couldn't open the link"));
   };
-  const toastJob = toasts.current;
   const making = makingPhones(phone.status);
-  // One card at a time in the corner: the export toast first, then the version toast, then the phone's voice.
-  const versionMismatch = toastJob ? null : phone.status?.versionMismatch ?? null;
-  const phoneVoiceRequest = toastJob || versionMismatch ? null : phone.status?.modelRequest ?? null;
 
   const readerShell: ReaderShell = {
     renderExportPanel: (context) => <DesktopReaderExport context={context} status={status} saves={saves} exporter={exporter} onExportActive={wake} />,
@@ -146,6 +138,7 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
           onOpenLink={openLink}
           voiceLabel={sample.voiceLabel}
           sample={sample.state}
+          sampleFailed={sample.failed}
           onToggleSample={sample.toggle}
         />
       );
@@ -187,54 +180,19 @@ export const DesktopApp = ({ commands }: { commands: DesktopCommands }) => {
           });
         }}
       />
-      {settingsTab !== null && (
-        <SettingsDialog
-          initialTab={settingsTab}
-          onClose={() => setSettingsTab(null)}
-          modelTab={(
-            <VoiceModelTab
-              status={status}
-              exportingBookTitle={activeBundle?.usedByExports[0]?.title ?? null}
-              refusedDelete={setup.refusedDelete}
-              onDismissRefusedDelete={setup.dismissRefusedDelete}
-              onDownload={setup.download}
-              onPause={setup.pause}
-              onCancel={setup.cancel}
-              onActivate={setup.activate}
-              onDelete={setup.deleteBundle}
-              onImport={setup.importModel}
-              importKind={setup.importKind}
-            />
-          )}
-          phoneTab={phone.status && <PhoneTab status={phone.status} actions={phone.actions} onOpenLink={openLink} />}
-          aboutTab={info && <AboutTab info={info} licenses={licenses} onOpenLink={openLink} />}
-        />
-      )}
-      {toastJob && (
-        <DesktopExportToast
-          key={toastJob.id}
-          job={toastJob}
-          saves={saves}
-          railOpen={railShown}
-          onDismiss={() => toasts.dismiss(toastJob.id)}
-          onOpenBook={() => {
-            toasts.dismiss(toastJob.id);
-            setOpenAtExportFor(toastJob.documentId);
-            goTo({ name: 'reader', documentId: toastJob.documentId });
-          }}
-        />
-      )}
-      {versionMismatch && <PhoneVersionToast mismatch={versionMismatch} railOpen={railShown} onDismiss={phone.actions.dismissVersionMismatch} />}
-      {phoneVoiceRequest && phoneVoiceRequest.bundleId !== phoneVoiceStarted && (
-        <PhoneVoiceCard
-          request={phoneVoiceRequest}
-          onDownload={() => {
-            setup.download(phoneVoiceRequest.bundleId);
-            setPhoneVoiceStarted(phoneVoiceRequest.bundleId);
-          }}
-          onNotNow={phone.actions.dismissModelRequest}
-        />
-      )}
+      {settingsTab !== null && <DesktopSettings initialTab={settingsTab} status={status} setup={setup} phone={phone} info={info} licenses={licenses} onOpenLink={openLink} onClose={() => setSettingsTab(null)} />}
+      <DesktopCornerCard
+        commandErrors={commandErrors}
+        toasts={toasts}
+        saves={saves}
+        phone={phone}
+        railOpen={railShown}
+        onOpenBook={(documentId) => {
+          setOpenAtExportFor(documentId);
+          goTo({ name: 'reader', documentId });
+        }}
+        onDownloadVoice={setup.download}
+      />
     </>
   );
 };

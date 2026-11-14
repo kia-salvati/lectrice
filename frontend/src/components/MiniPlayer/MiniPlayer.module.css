@@ -12,7 +12,7 @@
   border-radius: 999px;
   font-size: .85rem;
   max-width: calc(100% - 2rem);
-  z-index: 10;
+  z-index: var(--z-pill);
 }
 .pill .pillButton { width: 36px; height: 36px; }
 .pill .pillPlay { width: 44px; height: 44px; }

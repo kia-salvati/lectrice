@@ -1,3 +1,4 @@
+import type { AudioExport } from '../../types/api';
 import type { AppInfo, DesktopOs } from '../commands/types';
 
 const OS_LABEL: Record<DesktopOs, string> = { linux: 'Linux', windows: 'Windows' };
@@ -39,13 +40,14 @@ export const formatApproxTimeLeft = (seconds: number): string => (seconds < SECO
 /** The core writes M4B audio at 64 kbit/s (lectrice-infra `export/ffmpeg.rs`), so the size gives the length closely. */
 const M4B_BYTES_PER_SECOND = 64_000 / 8;
 
-/** The length of a finished audiobook file, from its size. */
+/** The length of a finished audiobook file, from its size: only for exports that don't say their length. */
 export const m4bSeconds = (fileBytes: number): number => fileBytes / M4B_BYTES_PER_SECOND;
+
+/** A finished export's listening length: the one the core measured, else worked out from the size; null before then. */
+export const exportSeconds = (job: Pick<AudioExport, 'durationSeconds' | 'fileBytes'>): number | null => job.durationSeconds ?? (job.fileBytes === null ? null : m4bSeconds(job.fileBytes));
 
 /** "30 s", "2 min": the offline retry countdown. */
 export const formatRetryIn = (seconds: number): string => (seconds >= SECONDS_PER_MINUTE ? `${Math.ceil(seconds / SECONDS_PER_MINUTE)} min` : `${Math.ceil(seconds)} s`);
-
-export const formatCount = (value: number): string => value.toLocaleString('en');
 
 /** The last folder of a path, on either separator: "Music" for "~/Music/Book.m4b" and "C:\Users\Sam\Music\Book.m4b". */
 export const folderNameOf = (path: string): string => {

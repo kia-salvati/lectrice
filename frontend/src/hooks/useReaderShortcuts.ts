@@ -5,7 +5,8 @@ export interface ReaderShortcuts { onTogglePlay: () => void; onNext: () => void;
 
 /**
  * Space = play/pause, → / ← = next / previous sentence, C = the chapters panel. Ignored inside form fields, with
- * modifier keys, and inside anything marked `data-own-keys` (the chapters panels drive their own keys).
+ * modifier keys, inside anything marked `data-own-keys` (the chapters panels drive their own keys), and while a
+ * modal dialog (settings, a question) covers the reader.
  */
 export const useReaderShortcuts = (shortcuts: ReaderShortcuts): void => {
   const shortcutsRef = useRef(shortcuts);
@@ -17,7 +18,7 @@ export const useReaderShortcuts = (shortcuts: ReaderShortcuts): void => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.altKey || event.metaKey) return;
       const target = event.target instanceof Element ? event.target : null;
-      if (target?.matches('input, select, textarea') || startedInside(event, '[data-own-keys]')) return;
+      if (target?.matches('input, select, textarea') || startedInside(event, '[data-own-keys]') || document.querySelector('dialog:modal')) return;
       if (event.key === 'c' || event.key === 'C') {
         event.preventDefault();
         shortcutsRef.current.onToggleChapters();

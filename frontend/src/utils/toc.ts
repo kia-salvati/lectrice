@@ -1,4 +1,5 @@
 import type { TocEntry } from '../types/document';
+import { formatPercent } from './numbers.ts';
 
 /** One entry of the flat `toc` placed in its tree. `index` is its position in the flat list; `parentIndex` null at the top. */
 export interface TocNode { entry: TocEntry; index: number; parentIndex: number | null; children: TocNode[]; }
@@ -20,8 +21,8 @@ export const chapterLabel = (title: string): ChapterLabel => {
 
 const isChapterLike = (title: string): boolean => chapterLabel(title).number !== null;
 
-/** "38% of this chapter" */
-export const formatChapterPercent = (percent: number): string => `${percent}% of this chapter`;
+/** "38 % of this chapter" */
+export const formatChapterPercent = (percent: number): string => `${formatPercent(percent)} of this chapter`;
 
 /** Flat list → forest, nesting each entry under the nearest earlier entry with a smaller level. */
 export const buildTocTree = (toc: readonly TocEntry[]): TocNode[] => {

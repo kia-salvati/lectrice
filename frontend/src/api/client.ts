@@ -1,21 +1,6 @@
 import { API_BASE_PATH } from '../config/env';
-import type { ApiErrorBody } from '../types/api';
-import { ApiError, ClientError, isAbortError, isApiErrorName } from './errors';
-
-const isApiErrorBody = (value: unknown): value is ApiErrorBody => {
-  if (typeof value !== 'object' || value === null || !('error' in value)) return false;
-  const inner: unknown = value.error;
-  return typeof inner === 'object' && inner !== null && 'name' in inner && 'code' in inner && 'message' in inner
-    && typeof inner.name === 'string' && typeof inner.code === 'number' && typeof inner.message === 'string';
-};
-
-const toApiError = async (response: Response): Promise<ApiError> => {
-  const body: unknown = await response.json().catch(() => null);
-  if (isApiErrorBody(body) && isApiErrorName(body.error.name)) {
-    return new ApiError(body.error.name, body.error.code, body.error.message, response.status);
-  }
-  return new ApiError('Internal', 9999, 'Something went wrong.', response.status);
-};
+import { toApiError } from './errorResponse';
+import { ClientError, isAbortError } from './errors';
 
 /** The only place that calls fetch. Throws ApiError (non-2xx), ClientError('NetworkError'), or re-throws AbortError untouched. */
 const send = async (path: string, init: RequestInit = {}): Promise<Response> => {

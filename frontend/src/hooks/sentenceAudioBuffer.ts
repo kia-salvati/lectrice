@@ -1,4 +1,4 @@
-import { api } from '../api';
+import type { LectriceApi } from '../api/contract';
 import type { DocumentId } from '../types/document';
 
 interface Entry { controller: AbortController; promise: Promise<string>; url: string | null; }
@@ -17,7 +17,7 @@ export interface SentenceAudioBuffer {
 /** Sent with each request. Changing it needs no new buffer, because the audio itself doesn't change. */
 export interface AudioRequestContext { rate: number; readSkipped: boolean; }
 
-export const createSentenceAudioBuffer = (documentId: DocumentId, voiceId: string): SentenceAudioBuffer => {
+export const createSentenceAudioBuffer = (fetchAudio: LectriceApi['getSentenceAudio'], documentId: DocumentId, voiceId: string): SentenceAudioBuffer => {
   const entries = new Map<number, Entry>();
   let context: AudioRequestContext = { rate: 1, readSkipped: false };
 
@@ -31,7 +31,7 @@ export const createSentenceAudioBuffer = (documentId: DocumentId, voiceId: strin
     if (existing) return existing.promise;
     const controller = new AbortController();
     const entry: Entry = { controller, url: null, promise: Promise.resolve('') };
-    entry.promise = api.getSentenceAudio({ documentId, sentenceId, voiceId, ...context }, controller.signal).then((blob) => {
+    entry.promise = fetchAudio({ documentId, sentenceId, voiceId, ...context }, controller.signal).then((blob) => {
       // Released while the body was arriving: never create a URL nobody will revoke.
       if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
       entry.url = URL.createObjectURL(blob);

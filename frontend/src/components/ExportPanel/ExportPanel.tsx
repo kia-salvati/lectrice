@@ -2,6 +2,7 @@ import { EXPORT_FORMATS, EXPORT_FORMAT_EXTENSION, EXPORT_FORMAT_LABEL } from '..
 import controls from '../../styles/controls.module.css';
 import type { ExportFormat } from '../../types/api';
 import type { ExportPhase } from '../../utils/exportPhase';
+import { formatCount } from '../../utils/numbers';
 import styles from './ExportPanel.module.css';
 
 interface ExportPanelProps {
@@ -28,8 +29,6 @@ interface ExportPanelProps {
   onStart: () => void;
   onCancel: () => void;
 }
-
-const formatCount = (value: number): string => value.toLocaleString('en');
 
 const FormatField = ({ format, onFormatChange, disabled }: Pick<ExportPanelProps, 'format' | 'onFormatChange'> & { disabled: boolean }) => (
   <label className={styles.field}>

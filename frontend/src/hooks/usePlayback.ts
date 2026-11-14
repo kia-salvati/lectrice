@@ -17,7 +17,8 @@ interface LoadedAudio { buffer: SentenceAudioBuffer; sentenceId: number; reloadT
 
 interface UsePlaybackArgs {
   document: OpenedDocument;
-  voiceId: string;
+  /** Null until the voice list says which voice to use: nothing is requested and play is refused meanwhile. */
+  voiceId: string | null;
   /** False while the engine is checking or failed: play is refused and no audio is requested. */
   canPlay: boolean;
   onEngineUnavailable: () => void;
@@ -60,7 +61,8 @@ const playbackStatus = ({ ended, playing, isLoaded }: { ended: boolean; playing:
   return isLoaded ? 'playing' : 'preparing';
 };
 
-export const usePlayback = ({ document, voiceId, canPlay, onEngineUnavailable }: UsePlaybackArgs): Playback => {
+export const usePlayback = ({ document, voiceId, canPlay: engineCanPlay, onEngineUnavailable }: UsePlaybackArgs): Playback => {
+  const canPlay = engineCanPlay && voiceId !== null;
   const [readSkipped, setReadSkipped] = useState(false);
   const order = useMemo(() => buildPlaybackOrder(document, readSkipped), [document, readSkipped]);
   // The user's last request, which may be any sentence id. The playable current sentence is derived from it,
@@ -87,10 +89,10 @@ export const usePlayback = ({ document, voiceId, canPlay, onEngineUnavailable }:
     engineUnavailableRef.current = onEngineUnavailable;
   });
 
-  const buffer = useMemo(() => createSentenceAudioBuffer(document.id, voiceId), [document.id, voiceId]);
-  useEffect(() => () => buffer.clear(), [buffer]);
+  const buffer = useMemo(() => (voiceId === null ? null : createSentenceAudioBuffer(api.getSentenceAudio, document.id, voiceId)), [document.id, voiceId]);
+  useEffect(() => () => buffer?.clear(), [buffer]);
   // Declared before the load effect so the first request already carries the right rate and switch.
-  useEffect(() => buffer.setContext({ rate: speed, readSkipped }), [buffer, speed, readSkipped]);
+  useEffect(() => buffer?.setContext({ rate: speed, readSkipped }), [buffer, speed, readSkipped]);
 
   // One audio element for the whole session: it keeps the playback rate and a single set of listeners.
   useEffect(() => {
@@ -135,12 +137,13 @@ export const usePlayback = ({ document, voiceId, canPlay, onEngineUnavailable }:
   // engine is down: health already says so, and every audio request would only fail the same way.
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || currentSentenceId === null || !canPlay) return;
+    if (!audio || buffer === null || currentSentenceId === null || !canPlay) return;
     let cancelled = false;
     audio.pause();
     const wanted = prefetchWindow(order, currentSentenceId, PREFETCH_AHEAD);
     buffer.keepOnly(wanted);
-    buffer.get(currentSentenceId).then((url) => {
+    const current = buffer.get(currentSentenceId);
+    current.then((url) => {
       if (cancelled) return;
       audio.src = url;
       // Loading a new src resets playbackRate to defaultPlaybackRate, so set both.
@@ -157,11 +160,17 @@ export const usePlayback = ({ document, voiceId, canPlay, onEngineUnavailable }:
       console.error('Sentence audio failed', error);
       setAudioError(toAppError(error));
     });
-    for (const sentenceId of wanted.slice(1)) {
-      buffer.get(sentenceId).catch((error: unknown) => {
-        if (!isAbortError(error)) console.warn('Prefetch failed; will retry when needed', error);
-      });
-    }
+    // The prefetches wait for the current sentence: the server makes one at a time, and requests sent together may
+    // reach it in any order, so the sentence the listener waits for could otherwise come last.
+    const prefetchRest = () => {
+      if (cancelled) return;
+      for (const sentenceId of wanted.slice(1)) {
+        buffer.get(sentenceId).catch((error: unknown) => {
+          if (!isAbortError(error)) console.warn('Prefetch failed; will retry when needed', error);
+        });
+      }
+    };
+    current.then(prefetchRest, prefetchRest);
     return () => {
       cancelled = true;
     };

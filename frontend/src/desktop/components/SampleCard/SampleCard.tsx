@@ -11,6 +11,8 @@ interface SampleCardProps {
   /** "Heart · American English" */
   voiceLabel: string;
   state: SampleState;
+  /** The last try to play failed; the play button is the retry. */
+  failed: boolean;
   onToggle: () => void;
 }
 
@@ -23,7 +25,7 @@ const BUTTON: Record<SampleState, SampleButtonLook> = {
   engineLoading: { icon: <WaitIcon />, label: 'Starting the voice', busy: true, disabled: true },
 };
 
-export const SampleCard = ({ voiceLabel, state, onToggle }: SampleCardProps) => {
+export const SampleCard = ({ voiceLabel, state, failed, onToggle }: SampleCardProps) => {
   const look = BUTTON[state];
   const className = [controls.iconButton, controls.play, look.busy ? desktop.spin : ''].join(' ');
   return (
@@ -33,6 +35,7 @@ export const SampleCard = ({ voiceLabel, state, onToggle }: SampleCardProps) => 
         {/* Keeps the line's height until the voices arrive, so the card doesn't jump. */}
         <span className={styles.voice}>{voiceLabel || ' '}</span>
         <p className={styles.line}>{SAMPLE_LINE}</p>
+        {failed && <p className={`${styles.failed} ${desktop.errorText}`} role="alert">Couldn't play the sample. Try again.</p>}
       </div>
     </div>
   );

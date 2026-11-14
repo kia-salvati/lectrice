@@ -2,15 +2,16 @@ import type { AudioExport } from '../../types/api';
 import type { DesktopErrorName } from '../../types/errors';
 
 /*
- * The desktop shell's own commands (desktop spec §4.4), as the UI sees them. One implementation is the mock in
- * `./mock.ts`; the Tauri adapter (`./tauri.ts`) implements the same interface over `invoke` and the `model-status`
- * event, translating the shell's wire format (`./wire.ts`, contract in lectrice-desktop's
- * `docs/2026-10-24-desktop-model-contract.md`). Every rejection is a `DesktopError` (`./errors.ts`) carrying one of
+ * The desktop shell's own commands, as the UI sees them. The Tauri adapter (`./tauri.ts`) implements them over
+ * `invoke` and the `model-status` event, translating the shell's wire format (`./wire.ts`, contract in
+ * lectrice-desktop's `docs/2026-10-24-desktop-model-contract.md`); the tests use an in-memory fake in `tests/mocks/`.
+ * Every rejection is a `DesktopError` (`./errors.ts`) carrying one of
  * the registry names.
  */
 
+/** A bundle id from the shell's manifest. */
+export type ModelBundleId = string;
 /** `int8` is the retired official Smaller model: the shell lists it only while it is installed or partly downloaded. */
-export type ModelBundleId = 'kokoro-en-v1_0-fast' | 'kokoro-en-v1_0-fp32' | 'kokoro-en-v1_0-small' | 'kokoro-en-v1_0-int8';
 export type ModelVariant = 'fast' | 'fp32' | 'small' | 'int8';
 
 /** An unfinished export made with a bundle's engine. */
@@ -21,6 +22,11 @@ export interface ModelBundle {
   variant: ModelVariant;
   /** From the manifest: "Fast", "Full quality", "Small". */
   displayName: string;
+  /** The download's file name, e.g. "….tar.bz2". */
+  archiveName: string;
+  /** The folder an unpacked bundle has. */
+  folderName: string;
+  voiceCount: number;
   downloadBytes: number;
   installedBytes: number;
   installed: boolean;
@@ -84,7 +90,7 @@ export type ExportAvailability = { available: true } | { available: false; reaso
 export type SaveAsResult = { outcome: 'saved'; path: string } | { outcome: 'cancelled' };
 
 /** The fixed list `open_link` accepts; never a free-form URL. */
-export type LinkId = 'releases' | 'source' | 'modelDownloads' | 'thirdPartyLicenses' | 'windowsNetworkSettings';
+export type LinkId = 'releases' | 'source' | 'modelDownloads' | 'thirdPartyLicenses';
 
 export type LicenseTextId = 'lectrice' | 'kokoro' | 'sherpaOnnx' | 'espeakNg' | 'onnxruntime' | 'pdfium' | 'ffmpeg' | 'tauri' | 'react';
 
@@ -105,7 +111,6 @@ export type PhoneHelperListening = 'off' | 'starting' | 'ready' | 'failed';
 /** Why a phone may not reach this computer; null when nothing is known to be wrong. */
 export type PhoneHelperNotice =
   | { kind: 'windowsFirstListen' }
-  | { kind: 'windowsPublicNetwork' }
   | { kind: 'linuxFirewall'; commands: readonly string[] }
   | { kind: 'noNetwork' }
   | { kind: 'portInUse'; port: number };

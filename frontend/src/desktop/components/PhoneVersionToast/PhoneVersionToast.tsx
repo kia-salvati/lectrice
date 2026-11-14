@@ -1,3 +1,4 @@
+import { useAnnounced } from '../../../components/Announcer/useAnnounce';
 import { CloseIcon } from '../../../components/icons/icons';
 import controls from '../../../styles/controls.module.css';
 import type { PhoneHelperStatus } from '../../commands/types';
@@ -15,8 +16,9 @@ interface PhoneVersionToastProps {
 /** P4: the phone and this computer run versions that can't work together; says which one to update. */
 export const PhoneVersionToast = ({ mismatch, railOpen, onDismiss }: PhoneVersionToastProps) => {
   const text = versionToastText(mismatch);
+  useAnnounced(text.title);
   return (
-    <div className={`${toast.toast} ${railOpen ? toast.railOpen : ''}`} role="status">
+    <div className={`${toast.toast} ${railOpen ? toast.railOpen : ''}`}>
       <div className={toast.head}>
         <span className={`${toast.title} ${toast.error}`}><WarningIcon />{text.title}</span>
         <button type="button" className={`${controls.iconButton} ${toast.dismiss}`} aria-label="Dismiss" onClick={onDismiss}><CloseIcon /></button>

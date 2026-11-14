@@ -1,78 +1,33 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { CheckIcon, WaitIcon } from '../../../components/icons/icons';
 import controls from '../../../styles/controls.module.css';
-import type { LinkId, PairedPhone, PhoneHelperStatus } from '../../commands/types';
-import { COMPUTER_NAME_MAX_LENGTH, PAIRED_CARD_CLOSES_MS, RELATIVE_TIME_TICK_MS } from '../../config';
+import type { PairedPhone, PhoneHelperStatus } from '../../commands/types';
+import { PAIRED_CARD_CLOSES_MS } from '../../config';
 import type { PhoneHelperActions } from '../../hooks/usePhoneHelper';
-import { useNow } from '../../hooks/useNow';
 import desktop from '../../styles/controls.module.css';
-import { otherNetworkText, parsePort, phoneMetaText, PORT_MAX, PORT_MIN } from '../../utils/phoneHelper';
+import { otherNetworkText } from '../../utils/phoneHelper';
 import { CopyIconButton } from '../CopyIconButton/CopyIconButton';
 import { ConfirmDialog } from '../ModalDialog/ModalDialog';
 import { NoticeBox } from '../NoticeBox/NoticeBox';
 import { PairingCard } from '../PairingCard/PairingCard';
+import { AdvancedSection } from './phone/AdvancedSection';
+import { ComputerName } from './phone/ComputerName';
+import { PhonesSection } from './phone/PhonesSection';
+import { Switch } from './phone/Switch';
 import styles from './PhoneTab.module.css';
 
 interface PhoneTabProps {
   status: PhoneHelperStatus;
   actions: PhoneHelperActions;
-  onOpenLink: (linkId: LinkId) => void;
 }
 
-interface SwitchProps { id: string; checked: boolean; onChange: (checked: boolean) => void; }
-
-const Switch = ({ id, checked, onChange }: SwitchProps) => (
-  <input type="checkbox" role="switch" id={id} className={styles.switch} checked={checked} onChange={(event) => onChange(event.target.checked)} />
-);
-
-/** This computer's name: a text with "Rename", or the input (Enter saves, Escape or leaving the field cancels). */
-const ComputerName = ({ name, onRename }: { name: string; onRename: (name: string) => void }) => {
-  const [draft, setDraft] = useState<string | null>(null);
-  if (draft === null) {
-    return <><span>{name}</span><button type="button" className={desktop.textButton} onClick={() => setDraft(name)}>Rename</button></>;
-  }
-  const handleKey = (event: React.KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      // Escape would also close the settings dialog.
-      event.preventDefault();
-      event.stopPropagation();
-      setDraft(null);
-    } else if (event.key === 'Enter') {
-      const trimmed = draft.trim();
-      if (trimmed !== '' && trimmed !== name) onRename(trimmed);
-      setDraft(null);
-    }
-  };
-  return (
-    <input
-      type="text"
-      className={styles.field}
-      aria-label="This computer's name"
-      maxLength={COMPUTER_NAME_MAX_LENGTH}
-      value={draft}
-      autoFocus
-      onChange={(event) => setDraft(event.target.value)}
-      onKeyDown={handleKey}
-      onBlur={() => setDraft(null)}
-    />
-  );
-};
-
 /** Whether this computer can be reached, and what to do when it can't. */
-const ListeningStatus = ({ status, onOpenLink }: Pick<PhoneTabProps, 'status' | 'onOpenLink'>) => {
+const ListeningStatus = ({ status }: Pick<PhoneTabProps, 'status'>) => {
   const { notice, listening } = status;
   if (listening === 'failed' || notice?.kind === 'portInUse') {
     return <p className={desktop.errorText}>Port {notice?.kind === 'portInUse' ? notice.port : status.port} is in use. Choose another port under Advanced.</p>;
   }
   if (notice?.kind === 'noNetwork' || status.network.kind === 'none') return <p>This computer isn't on a home network right now.</p>;
-  if (notice?.kind === 'windowsPublicNetwork') {
-    return (
-      <NoticeBox kind="warning">
-        <p>Windows treats this Wi-Fi as a public network, so your phone can't reach this computer. Set it to Private in Settings → Network &amp; internet → Wi-Fi → (your network).</p>
-        <div><button type="button" className={controls.button} onClick={() => onOpenLink('windowsNetworkSettings')}>Open network settings</button></div>
-      </NoticeBox>
-    );
-  }
   if (notice?.kind === 'linuxFirewall') {
     return (
       <NoticeBox kind="info">
@@ -88,7 +43,7 @@ const ListeningStatus = ({ status, onOpenLink }: Pick<PhoneTabProps, 'status' | 
   return null;
 };
 
-const ComputerSection = ({ status, actions, onOpenLink }: PhoneTabProps) => {
+const ComputerSection = ({ status, actions }: PhoneTabProps) => {
   const headingId = useId();
   const { network } = status;
   const [address, ...otherAddresses] = status.addresses;
@@ -111,97 +66,13 @@ const ComputerSection = ({ status, actions, onOpenLink }: PhoneTabProps) => {
           <p>{otherNetworkText(network.name)}</p>
           <div><button type="button" className={controls.button} onClick={actions.allowThisNetwork}>Use on this network too</button></div>
         </NoticeBox>
-      ) : <ListeningStatus status={status} onOpenLink={onOpenLink} />}
+      ) : <ListeningStatus status={status} />}
     </section>
-  );
-};
-
-interface PhonesSectionProps {
-  status: PhoneHelperStatus;
-  /** The phone that has just paired: its row arrives highlighted. */
-  newPeerId: string | null;
-  onForget: (phone: PairedPhone) => void;
-}
-
-const PhonesSection = ({ status, newPeerId, onForget }: PhonesSectionProps) => {
-  const headingId = useId();
-  const now = useNow(RELATIVE_TIME_TICK_MS);
-  return (
-    <section className={styles.section} aria-labelledby={headingId}>
-      <h3 id={headingId} className={styles.heading}>Phones</h3>
-      {status.phones.length === 0 ? <p className={desktop.muted}>No phones paired yet.</p> : (
-        <ul className={styles.phones}>
-          {status.phones.map((phone) => (
-            <li key={phone.peerId} className={phone.peerId === newPeerId ? `${styles.phone} ${styles.arrived}` : styles.phone}>
-              <span className={styles.phoneText}>
-                <span className={styles.phoneName}>{phone.name}</span>
-                <span className={desktop.meta}>{phoneMetaText(phone, status.enabled, now)}</span>
-              </span>
-              <button type="button" className={desktop.textButton} onClick={() => onForget(phone)}>Forget</button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-};
-
-const AdvancedSection = ({ status, actions }: Pick<PhoneTabProps, 'status' | 'actions'>) => {
-  const voicesId = useId();
-  const portId = useId();
-  /** Null while the field shows the saved port. */
-  const [portDraft, setPortDraft] = useState<string | null>(null);
-  const [portRefused, setPortRefused] = useState(false);
-  const savedPort = String(status.port);
-  const changed = portDraft !== null && portDraft !== savedPort;
-
-  const savePort = () => {
-    const port = parsePort(portDraft ?? savedPort);
-    if (port === null) {
-      setPortRefused(true);
-      return;
-    }
-    actions.setPort(port);
-    setPortDraft(null);
-  };
-
-  return (
-    <details className={styles.advanced}>
-      <summary>Advanced</summary>
-      <div className={styles.advancedBody}>
-        <div>
-          <div className={styles.switchLine}><label htmlFor={voicesId}>Download voices my phone needs</label><Switch id={voicesId} checked={status.downloadVoicesForPhone} onChange={actions.setDownloadVoices} /></div>
-          <p className={desktop.meta}>Download without asking when your phone uses a voice this computer doesn't have.</p>
-        </div>
-        <div>
-          <div className={styles.portRow}>
-            <label htmlFor={portId}>Port</label>
-            <input
-              id={portId}
-              type="number"
-              className={`${styles.field} ${styles.port}`}
-              min={PORT_MIN}
-              max={PORT_MAX}
-              value={portDraft ?? savedPort}
-              onChange={(event) => {
-                setPortDraft(event.target.value);
-                setPortRefused(false);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && changed) savePort();
-              }}
-            />
-            {changed && <button type="button" className={controls.button} onClick={savePort}>Save</button>}
-          </div>
-          {portRefused && <p className={desktop.errorText} role="alert">Use a number from {PORT_MIN} to {PORT_MAX}.</p>}
-        </div>
-      </div>
-    </details>
   );
 };
 
 /** P1-A: the settings dialog's Phone tab; the pairing card opens in the button's place, under the list of phones. */
-export const PhoneTab = ({ status, actions, onOpenLink }: PhoneTabProps) => {
+export const PhoneTab = ({ status, actions }: PhoneTabProps) => {
   const switchId = useId();
   const cardRef = useRef<HTMLDivElement>(null);
   const [phoneToForget, setPhoneToForget] = useState<PairedPhone | null>(null);
@@ -236,7 +107,7 @@ export const PhoneTab = ({ status, actions, onOpenLink }: PhoneTabProps) => {
       {status.notice?.kind === 'windowsFirstListen' && (
         <NoticeBox kind="info"><p>Windows will ask whether Lectrice may use your network. Choose <b>Private networks</b>.</p></NoticeBox>
       )}
-      {status.enabled && <ComputerSection status={status} actions={actions} onOpenLink={onOpenLink} />}
+      {status.enabled && <ComputerSection status={status} actions={actions} />}
       <PhonesSection status={status} newPeerId={pairedPeerId} onForget={setPhoneToForget} />
       {pairing.kind !== 'none' && cardOpen && (
         <div ref={cardRef}><PairingCard pairing={pairing} computerName={status.computerName} onStart={actions.pairStart} onCancel={actions.pairCancel} /></div>

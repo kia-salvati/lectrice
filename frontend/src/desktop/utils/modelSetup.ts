@@ -1,5 +1,5 @@
 import type { EngineStatus, ModelBundle, ModelStatus } from '../commands/types';
-import { RECOMMENDED_VARIANT } from '../config.ts';
+import { RECOMMENDED_VARIANT, RETIRED_VARIANT } from '../config.ts';
 
 /** The core keeps this much free beyond the archive and the unpacked files while installing (spec §9.2). */
 export const INSTALL_SPARE_BYTES = 200 * 1_000_000;
@@ -14,6 +14,15 @@ export const installPhase = (status: ModelStatus): InstallPhase => (status.bundl
 
 /** Free space the install of a bundle needs: the whole archive, the unpacked files and the spare (spec §9.2). */
 export const installNeedsBytes = (bundle: ModelBundle): number => bundle.downloadBytes + bundle.installedBytes + INSTALL_SPARE_BYTES;
+
+/** The models the shell offers: the retired one is still accepted on import but never named. */
+export const offered = (bundles: readonly ModelBundle[]): ModelBundle[] => bundles.filter((bundle) => bundle.variant !== RETIRED_VARIANT);
+
+/** How many voices every offered model has, or null when they differ (then no number is promised). */
+export const sharedVoiceCount = (bundles: readonly ModelBundle[]): number | null => {
+  const counts = new Set(offered(bundles).map((bundle) => bundle.voiceCount));
+  return counts.size === 1 ? [...counts][0] : null;
+};
 
 export const bundleById = (status: ModelStatus, id: string | null): ModelBundle | null => status.bundles.find((bundle) => bundle.id === id) ?? null;
 
